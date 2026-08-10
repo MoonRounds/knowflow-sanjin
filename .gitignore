@@ -75,3 +75,6 @@ volumes/
 *.tmp
 *.bak
 *.orig
+
+# Claude Code local config (contains machine-local paths)
+.claude/
