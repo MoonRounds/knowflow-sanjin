@@ -1,3 +1,4 @@
+// knowledge-bases API 客户端测试：请求方法/URL/头部（If-Match）与 Problem Details 解析。
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ApiError,

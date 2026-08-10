@@ -1,3 +1,4 @@
+// useChatStream 测试：SSE 事件路由、增量累积、失败状态与 reconcile 对账。
 import { describe, expect, it } from 'vitest'
 import { dispatchSseEvent, type StreamEventHandlers, useChatStream } from '../useChatStream'
 import type { ConversationResponse, MessageResponse } from '../../api/types/conversation'
@@ -43,6 +44,24 @@ describe('dispatchSseEvent', () => {
     }
     dispatchSseEvent('generation.failed', { errorCode: 'MODEL_CALL_TIMEOUT' }, handlers)
     expect(failed.errorCode).toBe('MODEL_CALL_TIMEOUT')
+  })
+
+  it('routes sources.available with ragStatus and sources', () => {
+    let seen: { ragStatus?: string; sources?: unknown[] } = {}
+    const handlers: StreamEventHandlers = {
+      onSourcesAvailable: (d) => (seen = { ragStatus: d.ragStatus, sources: d.sources }),
+    }
+    dispatchSseEvent(
+      'sources.available',
+      {
+        assistantMessageId: '42',
+        ragStatus: 'USED',
+        sources: [{ sourceId: 'c1', itemTitle: 'Note', cited: true }],
+      },
+      handlers,
+    )
+    expect(seen.ragStatus).toBe('USED')
+    expect(seen.sources).toHaveLength(1)
   })
 
   it('ignores unknown events and generation.stage', () => {
@@ -115,5 +134,27 @@ describe('useChatStream reconcile', () => {
     expect(messages[0].generationStatus).toBe('FAILED')
     expect(messages[0].errorCode).toBe('MODEL_CALL_TIMEOUT')
     expect(stream.streaming.value).toBe(false)
+  })
+
+  it('applies ragStatus and sources to the pending assistant on sources.available', () => {
+    let messages: MessageResponse[] = []
+    const stream = useChatStream({
+      getConversation: () => makeConversation('1'),
+      getMessages: () => messages,
+      setMessages: (m) => (messages = m),
+    })
+    dispatchSseEvent('generation.started', { assistantMessageId: '42' }, stream.handlers)
+    dispatchSseEvent(
+      'sources.available',
+      {
+        assistantMessageId: '42',
+        ragStatus: 'USED',
+        sources: [{ sourceId: 'c1', itemTitle: 'Note', cited: true }],
+      },
+      stream.handlers,
+    )
+    expect(messages[0].ragStatus).toBe('USED')
+    expect(messages[0].sources).toHaveLength(1)
+    expect(messages[0].sources![0].cited).toBe(true)
   })
 })

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 根布局：顶部导航（对话/知识库/模型设置）+ 路由出口；高亮项跟随当前路径。
 import { RouterView, useRoute } from 'vue-router'
 import { ref, watch } from 'vue'
 
@@ -26,6 +27,7 @@ watch(
       >
         <el-menu-item index="/chat"> 对话 </el-menu-item>
         <el-menu-item index="/knowledge-bases"> 知识库 </el-menu-item>
+        <el-menu-item index="/processing"> 处理任务 </el-menu-item>
         <el-menu-item index="/model-settings"> 模型设置 </el-menu-item>
       </el-menu>
     </el-header>

@@ -1,3 +1,4 @@
+// 健康检查：用于前端启动时探测后端是否可达。
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api/v1'
 
 export interface HealthStatus {

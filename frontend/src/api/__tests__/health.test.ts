@@ -1,3 +1,4 @@
+// fetchHealth 测试：正常返回健康负载与非成功响应的错误报告。
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchHealth, type HealthStatus } from '../health'
 

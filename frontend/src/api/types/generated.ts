@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_3"];
         put?: never;
         post: operations["create_2"];
         delete?: never;
@@ -27,13 +27,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_2"];
+        get: operations["get_3"];
         put?: never;
         post?: never;
-        delete: operations["delete_2"];
+        delete: operations["delete_3"];
         options?: never;
         head?: never;
-        patch: operations["update_2"];
+        patch: operations["update_3"];
         trace?: never;
     };
     "/api/v1/conversations/{id}/messages": {
@@ -107,7 +107,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post: operations["create_1"];
         delete?: never;
@@ -123,10 +123,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_1"];
-        put: operations["update_1"];
+        get: operations["get_2"];
+        put: operations["update_2"];
         post?: never;
-        delete: operations["delete_1"];
+        delete: operations["delete_2"];
         options?: never;
         head?: never;
         patch?: never;
@@ -159,6 +159,38 @@ export interface paths {
         put: operations["enable_1"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post: operations["createManualNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge-items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_1"];
+        put: operations["update_1"];
+        post?: never;
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -308,6 +340,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/processing-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_4"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/processing-tasks/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -341,6 +405,13 @@ export interface components {
             description?: string;
             name: string;
         };
+        CreateManualNoteRequest: {
+            content: string;
+            knowledgeBaseIds: string[];
+            summary?: string;
+            tags?: string[];
+            title?: string;
+        };
         CreateModelConfigRequest: {
             apiKey: string;
             baseUrl: string;
@@ -364,6 +435,28 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        KnowledgeItemResponse: {
+            content: string;
+            /** Format: int32 */
+            contentVersion: number;
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            indexErrorCode?: string;
+            indexErrorMessage?: string;
+            indexStatus: string;
+            /** Format: int32 */
+            indexedVersion?: number;
+            knowledgeBaseIds: string[];
+            /** Format: int32 */
+            rowVersion: number;
+            sourceType: string;
+            summary?: string;
+            tags: string[];
+            title: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         MessagePageResponse: {
             messages?: components["schemas"]["MessageResponse"][];
             nextBefore?: string;
@@ -380,10 +473,12 @@ export interface components {
             modelConfigId?: string;
             modelName?: string;
             providerName?: string;
+            ragStatus?: string;
             replyToMessageId?: string;
             /** Format: int32 */
             revisionNo?: number;
             role?: string;
+            sources?: components["schemas"]["RetrievedSource"][];
             /** Format: date-time */
             updatedAt?: string;
             usage?: components["schemas"]["TokenUsage"];
@@ -426,9 +521,41 @@ export interface components {
             updatedAt: string;
             utilityModelConfigId?: string;
         };
+        ProcessingTaskResponse: {
+            businessId?: string;
+            businessKey?: string;
+            /** Format: date-time */
+            createdAt: string;
+            failureCode?: string;
+            id: string;
+            lastError?: string;
+            /** Format: int32 */
+            maxRetries: number;
+            /** Format: int32 */
+            retryCount: number;
+            retryOfTaskId?: string;
+            status: string;
+            taskType: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         RegenerateRequest: {
             /** Format: int64 */
             modelConfigId?: number;
+        };
+        RetrievedSource: {
+            /** Format: int32 */
+            chunkIndex?: number;
+            cited?: boolean;
+            /** Format: int32 */
+            contentVersion?: number;
+            itemId?: string;
+            itemTitle?: string;
+            /** Format: float */
+            score?: number;
+            snippet?: string;
+            sourceId?: string;
+            sourceType?: string;
         };
         RevisionSummary: {
             apiKeyMasked: string;
@@ -478,6 +605,15 @@ export interface components {
             /** Format: int32 */
             rowVersion: number;
         };
+        UpdateManualNoteRequest: {
+            content?: string;
+            knowledgeBaseIds: string[];
+            /** Format: int32 */
+            rowVersion: number;
+            summary?: string;
+            tags?: string[];
+            title?: string;
+        };
         UpdateModelConfigRequest: {
             apiKey?: string;
             baseUrl?: string;
@@ -510,7 +646,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_2: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -554,7 +690,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -576,7 +712,7 @@ export interface operations {
             };
         };
     };
-    delete_2: {
+    delete_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -596,7 +732,7 @@ export interface operations {
             };
         };
     };
-    update_2: {
+    update_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -741,7 +877,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -785,7 +921,7 @@ export interface operations {
             };
         };
     };
-    get_1: {
+    get_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -807,7 +943,7 @@ export interface operations {
             };
         };
     };
-    update_1: {
+    update_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -833,7 +969,7 @@ export interface operations {
             };
         };
     };
-    delete_1: {
+    delete_2: {
         parameters: {
             query?: never;
             header?: {
@@ -878,6 +1014,120 @@ export interface operations {
         };
     };
     enable_1: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KnowledgeItemResponse"][];
+                };
+            };
+        };
+    };
+    createManualNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManualNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KnowledgeItemResponse"];
+                };
+            };
+        };
+    };
+    get_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KnowledgeItemResponse"];
+                };
+            };
+        };
+    };
+    update_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateManualNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KnowledgeItemResponse"];
+                };
+            };
+        };
+    };
+    delete_1: {
         parameters: {
             query?: never;
             header?: {
@@ -1180,6 +1430,50 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["OwnerAiSettingsResponse"];
+                };
+            };
+        };
+    };
+    list_4: {
+        parameters: {
+            query?: {
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProcessingTaskResponse"][];
+                };
+            };
+        };
+    };
+    retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProcessingTaskResponse"];
                 };
             };
         };

@@ -1,5 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api/v1'
 
+/** 后端 Problem Details 错误：携带稳定 errorCode 与 correlationId，供 UI 展示稳定错误信息。 */
 export class ApiError extends Error {
   readonly status: number
   readonly errorCode?: string
@@ -13,6 +14,7 @@ export class ApiError extends Error {
   }
 }
 
+/** 解析 Problem Details 响应体为 ApiError；非 JSON 错误体退化为状态码消息。 */
 export async function parseProblem(response: Response): Promise<ApiError> {
   let message = `Request failed: ${response.status}`
   let errorCode: string | undefined
@@ -28,6 +30,7 @@ export async function parseProblem(response: Response): Promise<ApiError> {
   return new ApiError(response.status, message, errorCode, correlationId)
 }
 
+/** 统一 fetch 封装：JSON 序列化、Problem Details 解析、204 空响应。 */
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },

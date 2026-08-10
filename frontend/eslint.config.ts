@@ -15,6 +15,16 @@ export default tseslint.config(
       parserOptions: {
         parser: tseslint.parser,
       },
+      globals: {
+        // 浏览器定时器与 DOM 全局：Vue SFC 运行在浏览器环境。
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        fetch: 'readonly',
+      },
     },
   },
   {

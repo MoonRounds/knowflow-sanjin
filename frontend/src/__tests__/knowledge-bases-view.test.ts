@@ -1,8 +1,10 @@
+// KnowledgeBasesView 视图测试：空态渲染、列表展示与创建流程。
 import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import KnowledgeBasesView from '../views/KnowledgeBasesView.vue'
 import * as api from '../api/knowledge-bases'
+import * as itemsApi from '../api/knowledge-items'
 import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 
 function mountView() {
@@ -29,6 +31,7 @@ describe('KnowledgeBasesView', () => {
 
   it('renders an empty state when there are no knowledge bases', async () => {
     vi.spyOn(api, 'listKnowledgeBases').mockResolvedValue([])
+    vi.spyOn(itemsApi, 'listKnowledgeItems').mockResolvedValue([])
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.text()).toContain('还没有知识库')
@@ -36,6 +39,7 @@ describe('KnowledgeBasesView', () => {
 
   it('renders the list from the API', async () => {
     vi.spyOn(api, 'listKnowledgeBases').mockResolvedValue(rows)
+    vi.spyOn(itemsApi, 'listKnowledgeItems').mockResolvedValue([])
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.text()).toContain('Java')
@@ -45,11 +49,14 @@ describe('KnowledgeBasesView', () => {
   it('opens create dialog and creates a knowledge base', async () => {
     const listMock = vi.spyOn(api, 'listKnowledgeBases').mockResolvedValue([])
     const createMock = vi.spyOn(api, 'createKnowledgeBase').mockResolvedValue(rows[0])
+    vi.spyOn(itemsApi, 'listKnowledgeItems').mockResolvedValue([])
 
     const wrapper = mountView()
     await flushPromises()
 
-    await wrapper.find('button').trigger('click')
+    const createKbButton = wrapper.findAll('button').find((b) => b.text() === '新建知识库')
+    expect(createKbButton).toBeTruthy()
+    await createKbButton!.trigger('click')
     expect(wrapper.text()).toContain('新建知识库')
 
     const inputs = wrapper.findAll('input')

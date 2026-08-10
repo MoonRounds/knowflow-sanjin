@@ -1,3 +1,4 @@
+// conversations API 客户端测试：CRUD、游标查询、SSE 流解析与错误映射。
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createConversation,

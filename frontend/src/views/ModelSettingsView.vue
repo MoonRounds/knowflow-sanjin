@@ -1,4 +1,6 @@
 <script setup lang="ts">
+// 模型设置页：模型配置 CRUD、连接/Utility 能力测试、默认 Chat/Utility 角色设置。
+// API Key 始终只显示掩码；编辑时未显式输入新 Key 则保持原值不变。
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -177,6 +179,7 @@ async function runTest(row: ModelConfigResponse, kind: 'connection' | 'utility')
   }
 }
 
+/** 把该配置设为默认 Chat Model。Utility 为空时回退为同一配置，保证后端必填约束满足。 */
 async function setDefaultChat(row: ModelConfigResponse) {
   if (!settings.value) return
   try {
@@ -191,6 +194,7 @@ async function setDefaultChat(row: ModelConfigResponse) {
   }
 }
 
+/** 把该配置设为 Utility Model。保留现有默认 Chat，避免覆盖用户选择。 */
 async function setUtility(row: ModelConfigResponse) {
   if (!settings.value) return
   try {

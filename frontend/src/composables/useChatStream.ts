@@ -1,9 +1,18 @@
 import { computed, ref } from 'vue'
-import type { ConversationResponse, MessageResponse } from '../api/types/conversation'
+import type {
+  ConversationResponse,
+  MessageResponse,
+  RetrievedSource,
+} from '../api/types/conversation'
 
 export interface StreamEventHandlers {
   onStarted?: (data: { assistantMessageId?: string }) => void
   onDelta?: (data: { assistantMessageId?: string; delta?: string }) => void
+  onSourcesAvailable?: (data: {
+    assistantMessageId?: string
+    ragStatus?: string
+    sources?: RetrievedSource[]
+  }) => void
   onCompleted?: (data: {
     assistantMessageId?: string
     content?: string
@@ -27,6 +36,13 @@ export function dispatchSseEvent(eventName: string, data: unknown, handlers: Str
       handlers.onDelta?.({
         assistantMessageId: d.assistantMessageId as string | undefined,
         delta: d.delta as string | undefined,
+      })
+      break
+    case 'sources.available':
+      handlers.onSourcesAvailable?.({
+        assistantMessageId: d.assistantMessageId as string | undefined,
+        ragStatus: d.ragStatus as string | undefined,
+        sources: d.sources as RetrievedSource[] | undefined,
       })
       break
     case 'generation.completed':
@@ -106,6 +122,21 @@ export function useChatStream(options: UseChatStreamOptions) {
     }
   }
 
+  function handleSourcesAvailable(data: {
+    assistantMessageId?: string
+    ragStatus?: string
+    sources?: RetrievedSource[]
+  }) {
+    const messages = [...options.getMessages()]
+    const id = data.assistantMessageId ?? pendingAssistant.value?.id
+    const target = messages.find((m) => m.id === id)
+    if (target) {
+      if (data.ragStatus) target.ragStatus = data.ragStatus
+      if (data.sources) target.sources = data.sources
+    }
+    options.setMessages(messages)
+  }
+
   function handleCompleted(data: {
     assistantMessageId?: string
     content?: string
@@ -147,6 +178,7 @@ export function useChatStream(options: UseChatStreamOptions) {
   const handlers: StreamEventHandlers = {
     onStarted: handleStarted,
     onDelta: handleDelta,
+    onSourcesAvailable: handleSourcesAvailable,
     onCompleted: handleCompleted,
     onFailed: handleFailed,
   }

@@ -16,6 +16,7 @@ import { listModelConfigs } from '../api/model-configs'
 import type { ConversationResponse, MessageResponse } from '../api/types/conversation'
 import type { ModelConfigResponse } from '../api/types/model-config'
 import { dispatchSseEvent, useChatStream } from '../composables/useChatStream'
+import MessageSourcesPanel from '../components/MessageSourcesPanel.vue'
 
 const conversations = ref<ConversationResponse[]>([])
 const activeId = ref<string | null>(null)
@@ -274,6 +275,11 @@ watch(selectedModelId, async (newId, oldId) => {
               <span v-if="msg.modelName" class="msg-model">{{ msg.modelName }}</span>
             </div>
             <div class="msg-content">{{ msg.content }}</div>
+            <MessageSourcesPanel
+              v-if="msg.role === 'ASSISTANT'"
+              :rag-status="msg.ragStatus"
+              :sources="msg.sources"
+            />
             <div v-if="msg.generationStatus === 'FAILED'" class="msg-error">
               {{ msg.errorCode ?? '生成失败' }}
             </div>
