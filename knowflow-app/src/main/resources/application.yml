@@ -1,0 +1,63 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  threads:
+    virtual:
+      enabled: false
+  application:
+    name: knowflow-app
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:knowflow}?useUnicode=true&serverTimezone=UTC
+    username: ${MYSQL_USER:knowflow}
+    password: ${MYSQL_PASSWORD:change-me}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: true
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+
+knowflow:
+  security:
+    master-key: ${KNOWFLOW_SECURITY_MASTER_KEY:}
+    encryption-version: ${KNOWFLOW_SECURITY_ENCRYPTION_VERSION:1}
+  model-client:
+    connect-timeout: ${KNOWFLOW_MODEL_CONNECT_TIMEOUT:10s}
+    read-timeout: ${KNOWFLOW_MODEL_READ_TIMEOUT:60s}
+    total-timeout: ${KNOWFLOW_MODEL_TOTAL_TIMEOUT:90s}
+    max-concurrency: ${KNOWFLOW_MODEL_MAX_CONCURRENCY:8}
+    allow-local-base-url: ${KNOWFLOW_MODEL_ALLOW_LOCAL_BASE_URL:false}
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: false
+    env:
+      enabled: false
+    configprops:
+      enabled: false
+    heapdump:
+      enabled: false
+    loggers:
+      enabled: false
