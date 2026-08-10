@@ -1,0 +1,1329 @@
+{
+  "components" : {
+    "schemas" : {
+      "ConnectionTestResult" : {
+        "properties" : {
+          "message" : {
+            "type" : "string"
+          },
+          "modelName" : {
+            "type" : "string"
+          },
+          "outputTokenCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "success" : {
+            "type" : "boolean"
+          },
+          "testedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "warnings" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "message", "modelName", "success", "testedAt", "warnings" ],
+        "type" : "object"
+      },
+      "ConversationResponse" : {
+        "properties" : {
+          "activeGenerationMessageId" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "defaultModelConfigId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "rowVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CreateConversationRequest" : {
+        "properties" : {
+          "title" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "title" ],
+        "type" : "object"
+      },
+      "CreateKnowledgeBaseRequest" : {
+        "properties" : {
+          "description" : {
+            "maxLength" : 2000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "name" ],
+        "type" : "object"
+      },
+      "CreateModelConfigRequest" : {
+        "properties" : {
+          "apiKey" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "baseUrl" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "displayName" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "maxOutputTokens" : {
+            "format" : "int32",
+            "maximum" : 1000000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "modelName" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "providerName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "temperature" : {
+            "format" : "double",
+            "maximum" : 2.0,
+            "minimum" : 0.0,
+            "type" : "number"
+          }
+        },
+        "required" : [ "apiKey", "baseUrl", "displayName", "modelName", "providerName" ],
+        "type" : "object"
+      },
+      "KnowledgeBaseResponse" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "rowVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "enabled", "id", "name", "rowVersion", "updatedAt" ],
+        "type" : "object"
+      },
+      "MessagePageResponse" : {
+        "properties" : {
+          "messages" : {
+            "items" : {
+              "$ref" : "#/components/schemas/MessageResponse"
+            },
+            "type" : "array"
+          },
+          "nextBefore" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MessageResponse" : {
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "content" : {
+            "type" : "string"
+          },
+          "conversationId" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "generationStatus" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "modelConfigId" : {
+            "type" : "string"
+          },
+          "modelName" : {
+            "type" : "string"
+          },
+          "providerName" : {
+            "type" : "string"
+          },
+          "replyToMessageId" : {
+            "type" : "string"
+          },
+          "revisionNo" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "usage" : {
+            "$ref" : "#/components/schemas/TokenUsage"
+          }
+        },
+        "type" : "object"
+      },
+      "ModelConfigResponse" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "currentRevision" : {
+            "$ref" : "#/components/schemas/RevisionSummary"
+          },
+          "currentRevisionId" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "providerName" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "displayName", "enabled", "id", "providerName", "updatedAt" ],
+        "type" : "object"
+      },
+      "ModelConfigRevisionResponse" : {
+        "properties" : {
+          "apiKeyEncryptionVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "apiKeyMasked" : {
+            "type" : "string"
+          },
+          "baseUrl" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "maxOutputTokens" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "modelConfigId" : {
+            "type" : "string"
+          },
+          "modelName" : {
+            "type" : "string"
+          },
+          "providerName" : {
+            "type" : "string"
+          },
+          "providerType" : {
+            "type" : "string"
+          },
+          "revisionNo" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "temperature" : {
+            "format" : "double",
+            "type" : "number"
+          }
+        },
+        "required" : [ "apiKeyEncryptionVersion", "apiKeyMasked", "baseUrl", "createdAt", "displayName", "id", "modelConfigId", "modelName", "providerName", "providerType", "revisionNo" ],
+        "type" : "object"
+      },
+      "OwnerAiSettingsResponse" : {
+        "properties" : {
+          "defaultChatModelConfigId" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "utilityModelConfigId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "updatedAt" ],
+        "type" : "object"
+      },
+      "RegenerateRequest" : {
+        "properties" : {
+          "modelConfigId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "RevisionSummary" : {
+        "properties" : {
+          "apiKeyMasked" : {
+            "type" : "string"
+          },
+          "baseUrl" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "maxOutputTokens" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "modelName" : {
+            "type" : "string"
+          },
+          "providerName" : {
+            "type" : "string"
+          },
+          "revisionNo" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "temperature" : {
+            "format" : "double",
+            "type" : "number"
+          }
+        },
+        "required" : [ "apiKeyMasked", "baseUrl", "createdAt", "displayName", "id", "modelName", "providerName", "revisionNo" ],
+        "type" : "object"
+      },
+      "SendMessageRequest" : {
+        "properties" : {
+          "clientMessageId" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "content" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "modelConfigId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "clientMessageId", "content" ],
+        "type" : "object"
+      },
+      "SseEmitter" : {
+        "properties" : {
+          "timeout" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "TokenUsage" : {
+        "properties" : {
+          "completionTokens" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "promptTokens" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalTokens" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "UpdateConversationRequest" : {
+        "properties" : {
+          "defaultModelConfigId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "rowVersion" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "title" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "UpdateKnowledgeBaseRequest" : {
+        "properties" : {
+          "description" : {
+            "maxLength" : 2000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "rowVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "rowVersion" ],
+        "type" : "object"
+      },
+      "UpdateModelConfigRequest" : {
+        "properties" : {
+          "apiKey" : {
+            "type" : "string"
+          },
+          "baseUrl" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "displayName" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "maxOutputTokens" : {
+            "format" : "int32",
+            "maximum" : 1000000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "modelName" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "providerName" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "temperature" : {
+            "format" : "double",
+            "maximum" : 2.0,
+            "minimum" : 0.0,
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "UpdateOwnerAiSettingsRequest" : {
+        "properties" : {
+          "defaultChatModelConfigId" : {
+            "type" : "string"
+          },
+          "utilityModelConfigId" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "utilityModelConfigId" ],
+        "type" : "object"
+      },
+      "UtilityCapabilityTestResult" : {
+        "properties" : {
+          "candidateSchemaValid" : {
+            "type" : "boolean"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "routerSchemaValid" : {
+            "type" : "boolean"
+          },
+          "success" : {
+            "type" : "boolean"
+          },
+          "testedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "candidateSchemaValid", "message", "routerSchemaValid", "success", "testedAt" ],
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/v1/conversations" : {
+      "get" : {
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ConversationResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "conversation-controller" ]
+      },
+      "post" : {
+        "operationId" : "create_2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateConversationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConversationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "conversation-controller" ]
+      }
+    },
+    "/api/v1/conversations/{id}" : {
+      "delete" : {
+        "operationId" : "delete_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "conversation-controller" ]
+      },
+      "get" : {
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConversationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "conversation-controller" ]
+      },
+      "patch" : {
+        "operationId" : "update_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateConversationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConversationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "conversation-controller" ]
+      }
+    },
+    "/api/v1/conversations/{id}/messages" : {
+      "get" : {
+        "operationId" : "messages",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "before",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessagePageResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "conversation-controller" ]
+      },
+      "post" : {
+        "operationId" : "send",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/event-stream" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SseEmitter"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "generation-controller" ]
+      }
+    },
+    "/api/v1/conversations/{id}/messages/regenerate" : {
+      "post" : {
+        "operationId" : "regenerate",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegenerateRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/event-stream" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SseEmitter"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "generation-controller" ]
+      }
+    },
+    "/api/v1/conversations/{id}/stop" : {
+      "post" : {
+        "operationId" : "stop",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "generation-controller" ]
+      }
+    },
+    "/api/v1/health" : {
+      "get" : {
+        "operationId" : "health",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "health-controller" ]
+      }
+    },
+    "/api/v1/knowledge-bases" : {
+      "get" : {
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/KnowledgeBaseResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-base-controller" ]
+      },
+      "post" : {
+        "operationId" : "create_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateKnowledgeBaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnowledgeBaseResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-base-controller" ]
+      }
+    },
+    "/api/v1/knowledge-bases/{id}" : {
+      "delete" : {
+        "operationId" : "delete_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-base-controller" ]
+      },
+      "get" : {
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnowledgeBaseResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-base-controller" ]
+      },
+      "put" : {
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateKnowledgeBaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnowledgeBaseResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-base-controller" ]
+      }
+    },
+    "/api/v1/knowledge-bases/{id}/disable" : {
+      "put" : {
+        "operationId" : "disable_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-base-controller" ]
+      }
+    },
+    "/api/v1/knowledge-bases/{id}/enable" : {
+      "put" : {
+        "operationId" : "enable_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-base-controller" ]
+      }
+    },
+    "/api/v1/model-configs" : {
+      "get" : {
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ModelConfigResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateModelConfigRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ModelConfigResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/model-configs/{id}" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      },
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ModelConfigResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      },
+      "put" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateModelConfigRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ModelConfigResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/model-configs/{id}/disable" : {
+      "put" : {
+        "operationId" : "disable",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/model-configs/{id}/enable" : {
+      "put" : {
+        "operationId" : "enable",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/model-configs/{id}/revisions" : {
+      "get" : {
+        "operationId" : "listRevisions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ModelConfigRevisionResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/model-configs/{id}/revisions/{revisionId}" : {
+      "get" : {
+        "operationId" : "getRevision",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ModelConfigRevisionResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/model-configs/{id}/test-connection" : {
+      "post" : {
+        "operationId" : "testConnection",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionTestResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/model-configs/{id}/test-utility-capability" : {
+      "post" : {
+        "operationId" : "testUtilityCapability",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UtilityCapabilityTestResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/owner-ai-settings" : {
+      "get" : {
+        "operationId" : "getOwnerSettings",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerAiSettingsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      },
+      "put" : {
+        "operationId" : "updateOwnerSettings",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateOwnerAiSettingsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerAiSettingsResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "model-config-controller" ]
+      }
+    }
+  }
+}
