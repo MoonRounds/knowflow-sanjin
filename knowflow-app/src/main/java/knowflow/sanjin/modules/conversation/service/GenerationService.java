@@ -6,11 +6,13 @@ import knowflow.sanjin.modules.conversation.dto.RegenerateRequest;
 import knowflow.sanjin.modules.conversation.dto.SendMessageRequest;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.entity.Conversation;
+import knowflow.sanjin.modules.conversation.memory.MemoryService;
 import knowflow.sanjin.modules.modelconfig.service.ModelClientFactory;
 import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
+import knowflow.sanjin.modules.rag.dto.RagContext;
+import knowflow.sanjin.modules.rag.service.RagContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -36,29 +38,32 @@ public class GenerationService {
   private final GenerationPrepare prepare;
   private final ConversationService conversationService;
   private final ModelClientFactory modelClientFactory;
-  private final GenerationProperties properties;
   private final GenerationExecutor executor;
   private final GenerationStreamer streamer;
   private final SseEmitterFactory emitterFactory;
   private final CurrentOwnerProvider currentOwnerProvider;
+  private final MemoryService memoryService;
+  private final RagContextBuilder ragContextBuilder;
 
   public GenerationService(
       GenerationPrepare prepare,
       ConversationService conversationService,
       ModelClientFactory modelClientFactory,
-      GenerationProperties properties,
       GenerationExecutor executor,
       GenerationStreamer streamer,
       SseEmitterFactory emitterFactory,
-      CurrentOwnerProvider currentOwnerProvider) {
+      CurrentOwnerProvider currentOwnerProvider,
+      MemoryService memoryService,
+      RagContextBuilder ragContextBuilder) {
     this.prepare = prepare;
     this.conversationService = conversationService;
     this.modelClientFactory = modelClientFactory;
-    this.properties = properties;
     this.executor = executor;
     this.streamer = streamer;
     this.emitterFactory = emitterFactory;
     this.currentOwnerProvider = currentOwnerProvider;
+    this.memoryService = memoryService;
+    this.ragContextBuilder = ragContextBuilder;
   }
 
   /** 发送一条 User 消息并流式生成回答。返回 SseEmitter，客户端消费事件流。 */
@@ -111,8 +116,12 @@ public class GenerationService {
           try {
             // 模型创建与上下文组装移入任务内：pre-stream 异常由 streamer 失败路径释放 slot
             ChatModel chatModel = modelClientFactory.create(prepared.revision());
+            ChatMessage current =
+                conversationService.getMessage(conversationId, currentUserMessageId);
+            // RAG 上下文在流式前同步构造；失败只降级（普通生成），不终止 Generation
+            RagContext ragContext = ragContextBuilder.build(conversationId, current.getContent());
             List<Message> promptMessages =
-                buildPrompt(conversationId, ownerId, currentUserMessageId);
+                buildPrompt(conversationId, current.getContent(), ragContext);
             GenerationContext ctx =
                 new GenerationContext(
                     conversationId,
@@ -120,7 +129,8 @@ public class GenerationService {
                     assistantMessageId,
                     prepared.revision(),
                     chatModel,
-                    promptMessages);
+                    promptMessages,
+                    ragContext);
             streamer.stream(ctx, emitter);
           } catch (java.io.IOException e) {
             // 断连等 IOException 由 streamer 内部统一终结并释放 slot
@@ -130,19 +140,16 @@ public class GenerationService {
     return emitter;
   }
 
-  private List<Message> buildPrompt(long conversationId, long ownerId, Long currentUserMessageId) {
-    List<Message> result = new ArrayList<>();
-    List<ChatMessage> history =
-        conversationService.loadRecentContext(conversationId, properties.getContextWindowTurns());
-    for (ChatMessage m : history) {
-      if (ChatMessage.ROLE_USER.equals(m.getRole())) {
-        result.add(new UserMessage(m.getContent()));
-      } else if (ChatMessage.ROLE_ASSISTANT.equals(m.getRole())) {
-        result.add(new AssistantMessage(m.getContent()));
-      }
+  private List<Message> buildPrompt(
+      long conversationId, String currentQuestion, RagContext ragContext) {
+    List<Message> result = new ArrayList<>(memoryService.loadWindow(conversationId));
+    // RAG 材料作为独立 UserMessage 注入，标注不可信引用，与系统指令分离
+    if (ragContext != null
+        && ragContext.getInjectedText() != null
+        && !ragContext.getInjectedText().isBlank()) {
+      result.add(new UserMessage(ragContext.getInjectedText()));
     }
-    ChatMessage current = conversationService.getMessage(conversationId, currentUserMessageId);
-    result.add(new UserMessage(current.getContent()));
+    result.add(new UserMessage(currentQuestion));
     return result;
   }
 }

@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.conversation.service;
 
 import java.util.List;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfigRevision;
+import knowflow.sanjin.modules.rag.dto.RagContext;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 
@@ -18,6 +19,7 @@ public final class GenerationContext {
   private final ModelConfigRevision revision;
   private final ChatModel chatModel;
   private final List<Message> promptMessages;
+  private final RagContext ragContext;
 
   public GenerationContext(
       long conversationId,
@@ -25,13 +27,15 @@ public final class GenerationContext {
       long assistantMessageId,
       ModelConfigRevision revision,
       ChatModel chatModel,
-      List<Message> promptMessages) {
+      List<Message> promptMessages,
+      RagContext ragContext) {
     this.conversationId = conversationId;
     this.ownerId = ownerId;
     this.assistantMessageId = assistantMessageId;
     this.revision = revision;
     this.chatModel = chatModel;
     this.promptMessages = promptMessages;
+    this.ragContext = ragContext;
   }
 
   public long conversationId() {
@@ -56,5 +60,9 @@ public final class GenerationContext {
 
   public List<Message> promptMessages() {
     return promptMessages;
+  }
+
+  public RagContext ragContext() {
+    return ragContext;
   }
 }

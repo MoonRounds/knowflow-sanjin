@@ -15,6 +15,9 @@ import knowflow.sanjin.modules.modelconfig.entity.ModelConfig;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfigRevision;
 import knowflow.sanjin.modules.modelconfig.service.ModelClientFactory;
 import knowflow.sanjin.modules.modelconfig.service.ModelConfigService;
+import knowflow.sanjin.modules.rag.RagStatus;
+import knowflow.sanjin.modules.rag.dto.RagContext;
+import knowflow.sanjin.modules.rag.service.RagContextBuilder;
 import knowflow.sanjin.testinfra.MySQLTestBase;
 import org.junit.jupiter.api.*;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -40,12 +43,17 @@ class GenerationServiceIT extends MySQLTestBase {
   @Autowired private ModelConfigService modelConfigService;
   @Autowired private GenerationService generationService;
   @MockitoBean private ModelClientFactory modelClientFactory;
+  @MockitoBean private RagContextBuilder ragContextBuilder;
 
   private Conversation conversation;
   private ModelConfig modelConfig;
 
   @BeforeEach
   void setUp() {
+    // 默认无 RAG：每个 generation 都是 NOT_AVAILABLE（普通生成）
+    when(ragContextBuilder.build(any(), any()))
+        .thenReturn(RagContext.simple(RagStatus.NOT_AVAILABLE));
+
     CreateConversationRequest req = new CreateConversationRequest();
     req.setTitle("generation-it");
     conversation = conversationService.create(req);

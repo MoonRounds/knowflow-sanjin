@@ -62,6 +62,9 @@ public class ChatMessage {
 
   private String errorCode;
 
+  /** RAG 状态快照（NOT_AVAILABLE / NOT_NEEDED / USED / NO_RELEVANT_CONTEXT / DEGRADED）。 */
+  private String ragStatus;
+
   @TableField(fill = FieldFill.INSERT)
   private Instant createdAt;
 
@@ -226,6 +229,14 @@ public class ChatMessage {
 
   public void setErrorCode(String errorCode) {
     this.errorCode = errorCode;
+  }
+
+  public String getRagStatus() {
+    return ragStatus;
+  }
+
+  public void setRagStatus(String ragStatus) {
+    this.ragStatus = ragStatus;
   }
 
   public Instant getCreatedAt() {

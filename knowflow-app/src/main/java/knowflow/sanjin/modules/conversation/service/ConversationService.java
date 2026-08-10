@@ -20,6 +20,12 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 会话与消息应用服务：Owner 隔离、软删除守卫、历史游标与 generation 辅助操作。
+ *
+ * <p>所有按 ID 的操作先按 {@code ownerId} 过滤（越权视为不存在）；认领 active slot 与消息状态更新
+ * 用条件更新保证并发安全。消息写入事务内完成，流式阶段不持有数据库事务。
+ */
 @Service
 public class ConversationService extends ServiceImpl<ConversationMapper, Conversation> {
 
@@ -61,6 +67,19 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
   @Transactional(readOnly = true)
   public Conversation getByIdAndOwner(Long id) {
     return getByIdAndOwnerInternal(id);
+  }
+
+  /** 返回会话所属 owner（供 trace 落库；会话不存在时返回 0）。 */
+  @Transactional(readOnly = true)
+  public long ownerIdOfConversation(Long conversationId) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    Conversation c =
+        getOne(
+            new LambdaQueryWrapper<Conversation>()
+                .eq(Conversation::getId, conversationId)
+                .eq(Conversation::getOwnerId, ownerId)
+                .eq(Conversation::getDeleted, false));
+    return c != null ? c.getOwnerId() : 0L;
   }
 
   @Transactional
@@ -293,7 +312,7 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
 
   @Transactional
   public void markMessageFailed(
-      Long conversationId, Long messageId, String content, String errorCode) {
+      Long conversationId, Long messageId, String content, String errorCode, String ragStatus) {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     chatMessageMapper.update(
         null,
@@ -304,11 +323,13 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
             .set(ChatMessage::getContent, content)
             .set(ChatMessage::getGenerationStatus, ChatMessage.FAILED)
             .set(ChatMessage::getIsActive, false)
-            .set(ChatMessage::getErrorCode, errorCode));
+            .set(ChatMessage::getErrorCode, errorCode)
+            .set(ChatMessage::getRagStatus, ragStatus));
   }
 
   @Transactional
-  public void markMessageCancelled(Long conversationId, Long messageId, String content) {
+  public void markMessageCancelled(
+      Long conversationId, Long messageId, String content, String ragStatus) {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     chatMessageMapper.update(
         null,
@@ -319,10 +340,11 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
             .set(ChatMessage::getContent, content)
             .set(ChatMessage::getGenerationStatus, ChatMessage.CANCELLED)
             .set(ChatMessage::getIsActive, false)
-            .set(ChatMessage::getErrorCode, null));
+            .set(ChatMessage::getErrorCode, null)
+            .set(ChatMessage::getRagStatus, ragStatus));
   }
 
-  /** 写成功状态并切换 active：原子地把旧 active attempt 置为非 active，再激活本 attempt。 */
+  /** 写成功状态并切换 active：原子地把同一轮的旧 active attempt 置为非 active，再激活本 attempt。 */
   @Transactional
   public void completeGeneration(
       long conversationId,
@@ -331,14 +353,19 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
       Integer promptTokens,
       Integer completionTokens,
       Integer totalTokens,
-      boolean makeActive) {
+      boolean makeActive,
+      String ragStatus) {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    ChatMessage self = chatMessageMapper.selectById(assistantMessageId);
     if (makeActive) {
       chatMessageMapper.update(
           null,
           new LambdaUpdateWrapper<ChatMessage>()
               .eq(ChatMessage::getConversationId, conversationId)
               .eq(ChatMessage::getOwnerId, ownerId)
+              .eq(
+                  ChatMessage::getReplyToMessageId,
+                  self != null ? self.getReplyToMessageId() : null)
               .eq(ChatMessage::getIsActive, true)
               .set(ChatMessage::getIsActive, false));
     }
@@ -354,12 +381,15 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
             .set(ChatMessage::getUsagePromptTokens, promptTokens)
             .set(ChatMessage::getUsageCompletionTokens, completionTokens)
             .set(ChatMessage::getUsageTotalTokens, totalTokens)
-            .set(ChatMessage::getErrorCode, null));
+            .set(ChatMessage::getErrorCode, null)
+            .set(ChatMessage::getRagStatus, ragStatus));
   }
 
   /** 最近上下文：最近 N 个完整 active Turn（仅 COMPLETED 且 isActive=1 的 Assistant 及其 User）。 */
   @Transactional(readOnly = true)
   public List<ChatMessage> loadRecentContext(Long conversationId, int turns) {
+    // 已删除会话不提供上下文（防止删除后从 MySQL 重建 Memory）
+    getByIdAndOwnerInternal(conversationId);
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     int safeTurns = Math.max(1, Math.min(turns, 100));
     List<ChatMessage> activeAssistant =

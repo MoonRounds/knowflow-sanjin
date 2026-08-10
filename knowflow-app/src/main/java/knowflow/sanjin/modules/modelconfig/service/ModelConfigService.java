@@ -133,6 +133,7 @@ public class ModelConfigService {
   @Transactional(readOnly = true)
   public ModelConfigRevision resolveRevisionForGeneration(Long configId) {
     ModelConfig config = getByIdAndOwnerInternal(configId);
+    // 禁用配置不能产生新调用；删除由 getByIdAndOwnerInternal 的 deleted=false 兜住
     if (config.getEnabled() == null || !config.getEnabled()) {
       throw new ModelConfigDisabledException(configId);
     }
@@ -191,6 +192,7 @@ public class ModelConfigService {
       config.setDisplayName(nextDisplayName);
       config.setProviderName(nextProviderName);
       config.setCurrentRevisionId(newRevision.getId());
+      // 新 Revision 未做过能力测试，旧证据必须作废，否则 Utility 会被视为“已通过”
       config.setUtilityTestedRevisionId(null);
       config.setUtilityRouterSchemaValid(null);
       config.setUtilityCandidateSchemaValid(null);
@@ -222,6 +224,7 @@ public class ModelConfigService {
     ModelConfig config = getByIdAndOwnerInternal(id);
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     OwnerAiSettings settings = getOrCreateSettings(ownerId);
+    // 被设为默认 Chat/Utility 的配置不能删除，否则 Owner 默认设置悬空
     if ((settings.getDefaultChatModelConfigId() != null
             && settings.getDefaultChatModelConfigId().equals(id))
         || (settings.getUtilityModelConfigId() != null
@@ -264,6 +267,28 @@ public class ModelConfigService {
     return settings;
   }
 
+  /**
+   * 供 Router/Extraction 解析 Utility Model 当前 Revision。要求已配置、enabled 且当前 Revision 已通过
+   * Router/Candidate 两类结构化能力测试；任一不满足抛异常，由调用方降级（NOT_AVAILABLE）。
+   */
+  @Transactional(readOnly = true)
+  public ModelConfigRevision resolveUtilityRevisionForRouting() {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    OwnerAiSettings settings = getOrCreateSettings(ownerId);
+    Long utilityId = settings.getUtilityModelConfigId();
+    if (utilityId == null) {
+      throw new ModelConfigNotFoundException(null);
+    }
+    ModelConfig config = getByIdAndOwnerInternal(utilityId);
+    if (config.getEnabled() == null || !config.getEnabled()) {
+      throw new ModelConfigDisabledException(utilityId);
+    }
+    if (!hasPassedUtilityCapability(config)) {
+      throw new UtilityCapabilityRequiredException(utilityId);
+    }
+    return loadCurrentRevision(utilityId);
+  }
+
   @Transactional
   public OwnerAiSettings updateOwnerSettings(
       Long defaultChatModelConfigId, Long utilityModelConfigId) {
@@ -275,6 +300,7 @@ public class ModelConfigService {
     if (!utility.getEnabled()) {
       throw new ModelConfigDisabledException(utilityModelConfigId);
     }
+    // Utility 承担 Router/Extraction 的结构化输出，未通过能力测试前不能设为默认
     if (!hasPassedUtilityCapability(utility)) {
       throw new UtilityCapabilityRequiredException(utilityModelConfigId);
     }
@@ -296,6 +322,8 @@ public class ModelConfigService {
   public void recordUtilityCapabilityResult(
       Long configId, Long testedRevisionId, boolean routerValid, boolean candidateValid) {
     ModelConfig config = getByIdAndOwnerInternal(configId);
+    // 条件更新：仅当 current Revision 仍是本次测试的 Revision 才写入证据；
+    // 若测试期间被并发切换，受影响行数为 0，证据作废并抛出 409
     int affected =
         modelConfigMapper.update(
             null,

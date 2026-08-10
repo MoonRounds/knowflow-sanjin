@@ -30,7 +30,8 @@ class GenerationStreamerTest {
         42L,
         null,
         null,
-        List.of(new org.springframework.ai.chat.messages.UserMessage("hi")));
+        List.of(new org.springframework.ai.chat.messages.UserMessage("hi")),
+        null);
   }
 
   @Test
@@ -46,7 +47,7 @@ class GenerationStreamerTest {
     emitter.onCompletion(() -> {});
     streamer().stream(context(), emitter);
 
-    verify(finalizer).fail(eq(1L), eq(42L), anyString(), eq(ErrorCode.MODEL_CALL_FAILED));
+    verify(finalizer).fail(eq(1L), eq(42L), anyString(), eq(ErrorCode.MODEL_CALL_FAILED), any());
     // 事件已在 emitter 上发出，SseEmitter 通过回调分发；此处验证 finalizer 被正确调用
     assertThat(lastEvent).isNotNull();
   }
@@ -59,7 +60,7 @@ class GenerationStreamerTest {
     SseEmitter emitter = new SseEmitter();
     streamer().stream(context(), emitter);
 
-    verify(finalizer).cancel(eq(1L), eq(42L), anyString());
+    verify(finalizer).cancel(eq(1L), eq(42L), anyString(), any());
   }
 
   @Test
@@ -78,6 +79,6 @@ class GenerationStreamerTest {
     SseEmitter emitter = new SseEmitter();
     streamer().stream(context(), emitter);
 
-    verify(finalizer).complete(eq(1L), eq(42L), eq("Hello"), eq(10), any(), any(), eq(true));
+    verify(finalizer).complete(eq(1L), eq(42L), eq("Hello"), eq(10), any(), any(), eq(true), any());
   }
 }

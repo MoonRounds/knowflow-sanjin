@@ -1,7 +1,10 @@
 package knowflow.sanjin.modules.conversation.vo;
 
 import java.time.Instant;
+import java.util.List;
+import knowflow.sanjin.modules.rag.dto.RetrievedSource;
 
+/** 消息 API 响应：assistant 消息携带 generationStatus、模型快照、RAG 状态与来源快照；usage 为尽力记录的 token 数。 */
 public class MessageResponse {
 
   private String id;
@@ -16,6 +19,13 @@ public class MessageResponse {
   private String modelName;
   private String providerName;
   private String errorCode;
+
+  /** RAG 状态快照（NOT_AVAILABLE / NOT_NEEDED / USED / NO_RELEVANT_CONTEXT / DEGRADED）。 */
+  private String ragStatus;
+
+  /** 本次 generation 实际提供给模型的来源（含 cited 标记），历史消息据此重放。 */
+  private List<RetrievedSource> sources;
+
   private TokenUsage usage;
   private Instant createdAt;
   private Instant updatedAt;
@@ -144,6 +154,22 @@ public class MessageResponse {
 
   public void setErrorCode(String errorCode) {
     this.errorCode = errorCode;
+  }
+
+  public String getRagStatus() {
+    return ragStatus;
+  }
+
+  public void setRagStatus(String ragStatus) {
+    this.ragStatus = ragStatus;
+  }
+
+  public List<RetrievedSource> getSources() {
+    return sources;
+  }
+
+  public void setSources(List<RetrievedSource> sources) {
+    this.sources = sources;
   }
 
   public TokenUsage getUsage() {
