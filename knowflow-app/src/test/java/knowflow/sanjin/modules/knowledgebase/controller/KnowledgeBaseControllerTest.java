@@ -22,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+/** KnowledgeBaseController 单元测试：字符串 ID 序列化、强 ETag、Problem Details 与 428 前置条件。 */
 class KnowledgeBaseControllerTest {
 
   private MockMvc mvc;

@@ -8,6 +8,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+/**
+ * MySQL 集成测试基类：用 Testcontainers 起真实 MySQL 8.4，并把数据源指向它。
+ *
+ * <p>所有涉及真实数据库语义的 IT 均继承本类；不用 H2 模拟 MySQL。
+ */
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class MySQLTestBase {

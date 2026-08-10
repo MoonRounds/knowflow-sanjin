@@ -3,6 +3,12 @@ package knowflow.sanjin.modules.knowledgebase.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import java.time.Instant;
 
+/**
+ * 逻辑知识域：同一 Owner 下 normalized name 唯一，可启用/禁用与软删除。
+ *
+ * <p>{@code rowVersion} 为乐观锁版本；写接口通过 HTTP If-Match/ETag 传递。禁用不等于删除：禁用仅 不进入
+ * Router，删除为软删除（deleted=1）且不级联已沉淀的 Item。
+ */
 @TableName("knowledge_base")
 public class KnowledgeBase {
 
@@ -21,7 +27,7 @@ public class KnowledgeBase {
 
   private Boolean deleted;
 
-  @Version private Integer rowVersion;
+  private Integer rowVersion;
 
   @TableField(fill = FieldFill.INSERT)
   private Instant createdAt;

@@ -13,6 +13,7 @@ import knowflow.sanjin.modules.knowledgebase.vo.KnowledgeBaseResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/** KnowledgeBase REST 入口：BIGINT id 走字符串路径参数，写操作通过 If-Match/ETag 传递乐观锁版本。 */
 @RestController
 @RequestMapping("${knowflow.api.base-path:/api/v1}")
 public class KnowledgeBaseController {

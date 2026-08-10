@@ -1,5 +1,6 @@
 package knowflow.sanjin.modules.modelconfig.exception;
 
+/** 用作 Utility Model 前必须通过结构化输出能力测试（Router/Candidate Schema）。 */
 public class UtilityCapabilityRequiredException extends RuntimeException {
 
   private final Long id;

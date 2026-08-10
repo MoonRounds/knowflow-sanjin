@@ -4,6 +4,7 @@ import java.util.List;
 import knowflow.sanjin.modules.conversation.entity.Conversation;
 import knowflow.sanjin.modules.conversation.vo.ConversationResponse;
 
+/** Conversation Entity → VO 转换：BIGINT id 转字符串，空引用跳过。 */
 public final class ConversationAssembler {
 
   private ConversationAssembler() {}

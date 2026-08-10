@@ -4,6 +4,7 @@ import java.util.List;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
 import knowflow.sanjin.modules.knowledgebase.vo.KnowledgeBaseResponse;
 
+/** Entity 与 API 模型的显式转换；不暴露 Entity 本身（如内部 id、ownerId）。 */
 public final class KnowledgeBaseAssembler {
 
   private KnowledgeBaseAssembler() {}

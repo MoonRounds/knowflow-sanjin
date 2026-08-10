@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+/** 会话 Mapper；行锁读取供生成事务串行化单 active Generation。 */
 @Mapper
 public interface ConversationMapper extends BaseMapper<Conversation> {
 

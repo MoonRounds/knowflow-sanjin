@@ -4,5 +4,6 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfig;
 import org.apache.ibatis.annotations.Mapper;
 
+/** ModelConfig 逻辑配置的 MyBatis Mapper。 */
 @Mapper
 public interface ModelConfigMapper extends BaseMapper<ModelConfig> {}

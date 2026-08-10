@@ -1,5 +1,6 @@
 package knowflow.sanjin.modules.knowledgebase.exception;
 
+/** 同一 Owner 下 normalized name 唯一冲突（由数据库唯一约束触发）。 */
 public class KnowledgeBaseNameConflictException extends RuntimeException {
 
   private final String name;

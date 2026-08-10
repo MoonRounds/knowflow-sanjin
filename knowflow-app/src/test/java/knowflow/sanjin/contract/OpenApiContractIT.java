@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
+/** OpenAPI 契约集成测试：运行时生成的 API 文档必须与签入的快照一致，防止前后端契约漂移。 */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @DisplayName("OpenAPI Contract Integration Test")
 class OpenApiContractIT extends MySQLTestBase {

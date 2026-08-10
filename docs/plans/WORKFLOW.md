@@ -89,7 +89,6 @@ Findings 按优先级分类：
 
 ```text
 请对 <BASE_COMMIT>..<PHASE_COMMIT> 执行独立 Review。
-
 完整阅读：
 1. AGENTS.md
 2. docs/plans/DECISIONS.md

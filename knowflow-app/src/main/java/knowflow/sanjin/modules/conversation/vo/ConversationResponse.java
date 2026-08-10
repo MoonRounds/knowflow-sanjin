@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.conversation.vo;
 
 import java.time.Instant;
 
+/** 会话 API 响应：id 为字符串；activeGenerationMessageId 非空表示有进行中的生成。 */
 public class ConversationResponse {
 
   private String id;

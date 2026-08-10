@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 
+/** ModelClientFactory 单元测试：按 Revision 创建 OpenAI-Compatible 客户端并承载基础参数。 */
 class ModelClientFactoryTest {
 
   private static final byte[] KEY =

@@ -86,6 +86,40 @@
         "required" : [ "name" ],
         "type" : "object"
       },
+      "CreateManualNoteRequest" : {
+        "properties" : {
+          "content" : {
+            "maxLength" : 200000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "knowledgeBaseIds" : {
+            "items" : {
+              "maxLength" : 200,
+              "minLength" : 0,
+              "type" : "string"
+            },
+            "minItems" : 1,
+            "type" : "array"
+          },
+          "summary" : {
+            "maxLength" : 2000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "tags" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "content", "knowledgeBaseIds" ],
+        "type" : "object"
+      },
       "CreateModelConfigRequest" : {
         "properties" : {
           "apiKey" : {
@@ -158,6 +192,68 @@
         "required" : [ "createdAt", "enabled", "id", "name", "rowVersion", "updatedAt" ],
         "type" : "object"
       },
+      "KnowledgeItemResponse" : {
+        "properties" : {
+          "content" : {
+            "type" : "string"
+          },
+          "contentVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "indexErrorCode" : {
+            "type" : "string"
+          },
+          "indexErrorMessage" : {
+            "type" : "string"
+          },
+          "indexStatus" : {
+            "type" : "string"
+          },
+          "indexedVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "knowledgeBaseIds" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "rowVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sourceType" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "tags" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "content", "contentVersion", "createdAt", "id", "indexStatus", "knowledgeBaseIds", "rowVersion", "sourceType", "tags", "title", "updatedAt" ],
+        "type" : "object"
+      },
       "MessagePageResponse" : {
         "properties" : {
           "messages" : {
@@ -205,6 +301,9 @@
           "providerName" : {
             "type" : "string"
           },
+          "ragStatus" : {
+            "type" : "string"
+          },
           "replyToMessageId" : {
             "type" : "string"
           },
@@ -214,6 +313,12 @@
           },
           "role" : {
             "type" : "string"
+          },
+          "sources" : {
+            "items" : {
+              "$ref" : "#/components/schemas/RetrievedSource"
+            },
+            "type" : "array"
           },
           "updatedAt" : {
             "format" : "date-time",
@@ -323,11 +428,92 @@
         "required" : [ "updatedAt" ],
         "type" : "object"
       },
+      "ProcessingTaskResponse" : {
+        "properties" : {
+          "businessId" : {
+            "type" : "string"
+          },
+          "businessKey" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "failureCode" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "lastError" : {
+            "type" : "string"
+          },
+          "maxRetries" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "retryCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "retryOfTaskId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "taskType" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "required" : [ "createdAt", "id", "maxRetries", "retryCount", "status", "taskType", "updatedAt" ],
+        "type" : "object"
+      },
       "RegenerateRequest" : {
         "properties" : {
           "modelConfigId" : {
             "format" : "int64",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "RetrievedSource" : {
+        "properties" : {
+          "chunkIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "cited" : {
+            "type" : "boolean"
+          },
+          "contentVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "itemId" : {
+            "type" : "string"
+          },
+          "itemTitle" : {
+            "type" : "string"
+          },
+          "score" : {
+            "format" : "float",
+            "type" : "number"
+          },
+          "snippet" : {
+            "type" : "string"
+          },
+          "sourceId" : {
+            "type" : "string"
+          },
+          "sourceType" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -458,6 +644,44 @@
         "required" : [ "rowVersion" ],
         "type" : "object"
       },
+      "UpdateManualNoteRequest" : {
+        "properties" : {
+          "content" : {
+            "maxLength" : 200000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "knowledgeBaseIds" : {
+            "items" : {
+              "maxLength" : 200,
+              "minLength" : 0,
+              "type" : "string"
+            },
+            "minItems" : 1,
+            "type" : "array"
+          },
+          "rowVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "summary" : {
+            "maxLength" : 2000,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "tags" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "knowledgeBaseIds", "rowVersion" ],
+        "type" : "object"
+      },
       "UpdateModelConfigRequest" : {
         "properties" : {
           "apiKey" : {
@@ -543,7 +767,7 @@
   "paths" : {
     "/api/v1/conversations" : {
       "get" : {
-        "operationId" : "list_2",
+        "operationId" : "list_3",
         "responses" : {
           "200" : {
             "content" : {
@@ -590,7 +814,7 @@
     },
     "/api/v1/conversations/{id}" : {
       "delete" : {
-        "operationId" : "delete_2",
+        "operationId" : "delete_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -608,7 +832,7 @@
         "tags" : [ "conversation-controller" ]
       },
       "get" : {
-        "operationId" : "get_2",
+        "operationId" : "get_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -633,7 +857,7 @@
         "tags" : [ "conversation-controller" ]
       },
       "patch" : {
-        "operationId" : "update_2",
+        "operationId" : "update_3",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -824,7 +1048,7 @@
     },
     "/api/v1/knowledge-bases" : {
       "get" : {
-        "operationId" : "list_1",
+        "operationId" : "list_2",
         "responses" : {
           "200" : {
             "content" : {
@@ -871,7 +1095,7 @@
     },
     "/api/v1/knowledge-bases/{id}" : {
       "delete" : {
-        "operationId" : "delete_1",
+        "operationId" : "delete_2",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -895,7 +1119,7 @@
         "tags" : [ "knowledge-base-controller" ]
       },
       "get" : {
-        "operationId" : "get_1",
+        "operationId" : "get_2",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -919,7 +1143,7 @@
         "tags" : [ "knowledge-base-controller" ]
       },
       "put" : {
-        "operationId" : "update_1",
+        "operationId" : "update_2",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -1003,6 +1227,137 @@
           }
         },
         "tags" : [ "knowledge-base-controller" ]
+      }
+    },
+    "/api/v1/knowledge-items" : {
+      "get" : {
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/KnowledgeItemResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-item-controller" ]
+      },
+      "post" : {
+        "operationId" : "createManualNote",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateManualNoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnowledgeItemResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-item-controller" ]
+      }
+    },
+    "/api/v1/knowledge-items/{id}" : {
+      "delete" : {
+        "operationId" : "delete_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-item-controller" ]
+      },
+      "get" : {
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnowledgeItemResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-item-controller" ]
+      },
+      "put" : {
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateManualNoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnowledgeItemResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "knowledge-item-controller" ]
       }
     },
     "/api/v1/model-configs" : {
@@ -1323,6 +1678,61 @@
           }
         },
         "tags" : [ "model-config-controller" ]
+      }
+    },
+    "/api/v1/processing-tasks" : {
+      "get" : {
+        "operationId" : "list_4",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ProcessingTaskResponse"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "processing-task-controller" ]
+      }
+    },
+    "/api/v1/processing-tasks/{id}/retry" : {
+      "post" : {
+        "operationId" : "retry",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProcessingTaskResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "processing-task-controller" ]
       }
     }
   }

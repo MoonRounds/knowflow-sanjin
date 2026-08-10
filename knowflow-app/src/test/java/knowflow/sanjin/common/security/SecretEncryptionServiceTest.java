@@ -6,6 +6,7 @@ import java.util.Base64;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/** SecretEncryptionService 单元测试：AES-256-GCM 加解密往返、nonce 随机性与密文格式。 */
 class SecretEncryptionServiceTest {
 
   private static SecretEncryptionService service() {

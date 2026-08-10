@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.modelconfig.dto;
 
 import jakarta.validation.constraints.*;
 
+/** 创建 ModelConfig 请求：基础参数 + API Key；保存时 Key 加密、接口只回显掩码。 */
 public class CreateModelConfigRequest {
 
   @NotBlank(message = "{modelconfig.displayName.required}")

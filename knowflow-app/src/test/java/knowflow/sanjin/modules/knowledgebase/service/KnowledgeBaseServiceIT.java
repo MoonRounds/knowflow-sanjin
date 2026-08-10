@@ -55,7 +55,7 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
   @Test
   @DisplayName("should list KnowledgeBases for the current owner")
   void shouldListForOwner() {
-    // Create one first to ensure there's data
+    // 先创建一个，确保有数据
     CreateKnowledgeBaseRequest req = new CreateKnowledgeBaseRequest();
     req.setName("List Test KB");
     service.create(req);
@@ -117,7 +117,7 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
     KnowledgeBase updated = service.update(created.getId(), update);
     assertThat(updated.getDisplayName()).isEqualTo("Updated KB");
     assertThat(updated.getDescription()).isEqualTo("Updated description");
-    // rowVersion should increment after update
+    // 更新后 rowVersion 应递增
     assertThat(updated.getRowVersion()).isGreaterThan(0);
   }
 
@@ -133,7 +133,7 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
     update.setRowVersion(created.getRowVersion());
     service.update(created.getId(), update);
 
-    // Second update with stale version
+    // 第二次用过期版本更新
     UpdateKnowledgeBaseRequest staleUpdate = new UpdateKnowledgeBaseRequest();
     staleUpdate.setName("Stale Update");
     staleUpdate.setRowVersion(created.getRowVersion()); // old version
@@ -151,7 +151,7 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
 
     service.softDelete(created.getId(), created.getRowVersion());
 
-    // After soft delete, getByIdAndOwner should throw not found
+    // 软删除后 getByIdAndOwner 应抛 not found
     assertThatThrownBy(() -> service.getByIdAndOwner(created.getId()))
         .isInstanceOf(KnowledgeBaseNotFoundException.class);
   }
@@ -179,7 +179,7 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
   void shouldIsolateAcrossOwners() {
     long currentOwner = currentOwnerProvider.getCurrentOwnerId();
 
-    // A second owner is created directly, then their KnowledgeBase via Mapper.
+    // 直接创建一个 second owner，再通过 Mapper 创建其知识库。
     AppUser secondOwner = new AppUser();
     secondOwner.setName("Second Owner");
     secondOwner.setStatus("ACTIVE");
@@ -195,7 +195,7 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
     other.setRowVersion(0);
     knowledgeBaseMapper.insert(other);
 
-    // The current owner must not see, fetch, update, disable or delete the other owner's row.
+    // 当前 owner 必须看不到、取不到、改不了、删不了另一个 owner 的行。
     List<KnowledgeBase> list = service.listForOwner();
     assertThat(list).noneMatch(kb -> kb.getId().equals(other.getId()));
 
@@ -208,7 +208,7 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
     assertThatThrownBy(() -> service.softDelete(other.getId(), 0))
         .isInstanceOf(KnowledgeBaseNotFoundException.class);
 
-    // The same normalized name is allowed for a different owner.
+    // 不同 owner 下相同的规范化名称是允许的。
     CreateKnowledgeBaseRequest sameName = new CreateKnowledgeBaseRequest();
     sameName.setName("Other Owner KB");
     KnowledgeBase own = service.create(sameName);

@@ -3,6 +3,7 @@ package knowflow.sanjin.modules.knowledgebase.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
+/** 知识库 API 响应：BIGINT id 序列化为字符串；rowVersion 供 If-Match/ETag 并发控制。 */
 public class KnowledgeBaseResponse {
 
   @Schema(requiredMode = Schema.RequiredMode.REQUIRED)

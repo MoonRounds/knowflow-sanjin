@@ -2,6 +2,12 @@ package knowflow.sanjin.common.util;
 
 import knowflow.sanjin.common.exception.PreconditionRequiredException;
 
+/**
+ * API 路径/请求头参数解析：BIGINT 字符串 id 转 long，If-Match 强 ETag 版本解析。
+ *
+ * <p>解析失败抛 {@link IllegalArgumentException}（校验失败 → 400）；If-Match 缺失抛 {@link
+ * PreconditionRequiredException}（前置条件缺失 → 428）。
+ */
 public final class ApiValueParser {
 
   private ApiValueParser() {}

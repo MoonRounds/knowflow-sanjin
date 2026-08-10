@@ -3,6 +3,7 @@ package knowflow.sanjin.modules.conversation.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/** 发送消息请求：clientMessageId 用于幂等去重，modelConfigId 可选（缺省用 Conversation/Owner 默认）。 */
 public class SendMessageRequest {
 
   @NotBlank

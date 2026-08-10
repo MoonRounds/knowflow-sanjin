@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 
+/** 应用上下文冒烟测试：验证关键 Web 组件与持久化 Mapper 能被装配到 Spring 容器。 */
 @SpringBootTest
 class KnowFlowApplicationIT extends MySQLTestBase {
 

@@ -8,6 +8,7 @@ import knowflow.sanjin.modules.modelconfig.vo.ModelConfigResponse;
 import knowflow.sanjin.modules.modelconfig.vo.ModelConfigRevisionResponse;
 import knowflow.sanjin.modules.modelconfig.vo.OwnerAiSettingsResponse;
 
+/** ModelConfig 相关 Entity → VO 的显式转换：API Key 只暴露掩码，不暴露明文或密文。 */
 public final class ModelConfigAssembler {
 
   private ModelConfigAssembler() {}

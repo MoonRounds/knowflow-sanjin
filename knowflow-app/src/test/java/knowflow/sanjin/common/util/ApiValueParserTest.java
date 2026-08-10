@@ -7,6 +7,7 @@ import knowflow.sanjin.common.exception.PreconditionRequiredException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/** ApiValueParser 单元测试：校验字符串 ID 解析、强 ETag 版本解析与拒绝规则。 */
 class ApiValueParserTest {
 
   @Test

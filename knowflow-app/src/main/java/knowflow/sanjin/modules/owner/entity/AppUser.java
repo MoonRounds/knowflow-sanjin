@@ -3,6 +3,11 @@ package knowflow.sanjin.modules.owner.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import java.time.Instant;
 
+/**
+ * 用户表实体：V1 单用户系统，Flyway 只初始化 id=1 的 System Owner。
+ *
+ * <p>只含展示名称、状态与审计时间，无密码、角色或认证字段（登录/安全属于后续 Phase）。
+ */
 @TableName("app_user")
 public class AppUser {
 

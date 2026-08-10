@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/** BaseUrlValidator 单元测试：SSRF 防护规则（拒绝私网/回环/localhost/内嵌凭据，仅 HTTPS）。 */
 class BaseUrlValidatorTest {
 
   private static final BaseUrlValidator STRICT = new BaseUrlValidator(false);

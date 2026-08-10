@@ -6,6 +6,7 @@ import java.util.Base64;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/** SecretSecurityConfig 单元测试：验证主密钥缺失/非法 Base64/非 32 字节/非正版本时快速失败。 */
 class SecretSecurityConfigTest {
 
   @Test

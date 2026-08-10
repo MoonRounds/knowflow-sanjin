@@ -3,6 +3,7 @@ package knowflow.sanjin.modules.modelconfig.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
+/** Owner AI 设置响应：默认 Chat 与 Utility 模型的配置 id（字符串）。 */
 public class OwnerAiSettingsResponse {
 
   private String defaultChatModelConfigId;

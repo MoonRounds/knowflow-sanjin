@@ -3,6 +3,7 @@ package knowflow.sanjin.modules.knowledgebase.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/** 创建知识库请求：name 必填，description 可选；name 会 trim 并规范化用于唯一性。 */
 public class CreateKnowledgeBaseRequest {
 
   @NotBlank(message = "{knowledgebase.name.required}")

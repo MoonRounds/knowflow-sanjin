@@ -23,7 +23,10 @@ import okhttp3.OkHttpClient;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-/** OpenAI SDK transport that pins validated DNS answers and never follows redirects. */
+/**
+ * OpenAI SDK 的安全 HTTP 传输层：把 DNS 解析结果固定在已通过 Base URL 校验的公网地址上， 且完全禁止 HTTP/HTTPS 重定向，防止 SSRF
+ * 逃逸与重定向到内网目标。
+ */
 public final class SecureOkHttpClient implements HttpClient {
 
   private final BaseUrlValidator baseUrlValidator;
@@ -44,10 +47,12 @@ public final class SecureOkHttpClient implements HttpClient {
             .connectTimeout(connectTimeout)
             .readTimeout(readTimeout)
             .callTimeout(requestTimeout)
+            // 禁止跟随重定向：SSRF 防护的一部分，避免请求被跳到内网/私网目标
             .followRedirects(false)
             .followSslRedirects(false)
             .retryOnConnectionFailure(false)
             .proxy(Proxy.NO_PROXY)
+            // 自解析 DNS：每次请求前重新校验目标地址，防止 DNS rebinding 绕过
             .dns(this::resolvePinnedAddresses)
             .build();
   }
@@ -122,6 +127,7 @@ public final class SecureOkHttpClient implements HttpClient {
     return builder.build();
   }
 
+  /** 只允许解析与配置 Base URL 相同的 host，其余一律拒绝（DNS pinning）。 */
   private List<InetAddress> resolvePinnedAddresses(String hostname) throws UnknownHostException {
     if (!hostname.equalsIgnoreCase(expectedBaseUri.getHost())) {
       throw new UnknownHostException("Unexpected model request host");
@@ -136,6 +142,7 @@ public final class SecureOkHttpClient implements HttpClient {
     }
   }
 
+  /** 每次请求再校验 scheme/host/port 与配置一致，防止 SDK 拼出其他地址。 */
   private void assertExpectedAuthority(URI uri) {
     if (!uri.getScheme().equalsIgnoreCase(expectedBaseUri.getScheme())
         || !uri.getHost().equalsIgnoreCase(expectedBaseUri.getHost())

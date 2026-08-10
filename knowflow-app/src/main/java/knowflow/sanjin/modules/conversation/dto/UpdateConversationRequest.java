@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.conversation.dto;
 
 import jakarta.validation.constraints.Size;
 
+/** 更新会话请求：字段未传则保持不变；rowVersion 用于乐观锁校验。 */
 public class UpdateConversationRequest {
 
   @Size(max = 200)

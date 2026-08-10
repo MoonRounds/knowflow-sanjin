@@ -3,6 +3,7 @@ package knowflow.sanjin.modules.modelconfig.vo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
+/** ModelConfig API 响应：id 为字符串；currentRevision 是当前生效的 Revision 摘要（含掩码 Key）。 */
 public class ModelConfigResponse {
 
   @Schema(requiredMode = Schema.RequiredMode.REQUIRED)

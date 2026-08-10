@@ -22,6 +22,7 @@ import knowflow.sanjin.modules.modelconfig.vo.UtilityCapabilityTestResult;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/** ModelConfig REST 入口：CRUD、Revision、连接/能力测试与 Owner AI 设置。API Key 只回显掩码。 */
 @RestController
 @RequestMapping("${knowflow.api.base-path:/api/v1}")
 public class ModelConfigController {

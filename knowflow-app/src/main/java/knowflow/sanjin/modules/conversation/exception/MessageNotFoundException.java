@@ -1,5 +1,6 @@
 package knowflow.sanjin.modules.conversation.exception;
 
+/** 消息不存在或不属于该会话/Owner。 */
 public class MessageNotFoundException extends RuntimeException {
 
   private final Long conversationId;

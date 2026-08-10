@@ -19,6 +19,25 @@ knowflow-app/src/main/java/knowflow/sanjin/
     ├── owner/
     │   ├── entity/
     │   └── service/
+    ├── knowledge/
+    │   ├── controller/                    # KnowledgeItem / Manual Note REST
+    │   ├── dto/                           # Manual Note 创建/更新请求
+    │   ├── entity/                        # KnowledgeItem / Tag / 关联 / KnowledgeChunk
+    │   ├── exception/                     # 模块业务异常与索引错误分类
+    │   ├── infrastructure/                # Embedding / Qdrant 薄客户端
+    │   ├── mapper/
+    │   ├── service/                       # KnowledgeService / KnowledgeIndexingService / TextChunker
+    │   └── vo/
+    ├── processing/
+    │   ├── assembler/
+    │   ├── controller/                    # Processing 轻量列表与手动 Retry
+    │   ├── entity/                        # ProcessingTask（兼轻量 Outbox）
+    │   ├── exception/
+    │   ├── listener/                      # IndexTaskConsumer（RabbitMQ）
+    │   ├── mapper/
+    │   ├── scheduler/                     # 恢复扫描
+    │   ├── service/                       # 任务状态机 / 提交 / 发布
+    │   └── vo/
     ├── knowledgebase/
     │   ├── assembler/                     # Entity 与 API 模型的显式转换
     │   ├── controller/                    # HTTP 入站与校验
@@ -37,6 +56,10 @@ knowflow-app/src/main/java/knowflow/sanjin/
         ├── mapper/
         ├── service/                       # 含 ModelClientFactory / ModelCapabilityService
         └── vo/
+    └── rag/                              # Knowledge Router / Retrieval / RAG 编排（Phase 6）
+        ├── dto/                           # RouterResult / RouterTrace / RetrievedSource / RagContext
+        ├── exception/                     # Router 失败异常（降级用）
+        └── service/                       # RouterService / RetrievalService / RagContextBuilder
 ```
 
 测试代码镜像生产代码的模块路径；数据库容器等测试基础设施统一放在

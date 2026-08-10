@@ -3,6 +3,7 @@ package knowflow.sanjin.modules.knowledgebase.dto;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+/** 更新知识库请求：字段未传则保持不变；rowVersion 必填，用于乐观锁条件更新。 */
 public class UpdateKnowledgeBaseRequest {
 
   @Size(max = 200, message = "{knowledgebase.name.max}")
