@@ -17,6 +17,7 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/** KnowledgeBaseService 单元测试：乐观锁原子更新落败时抛版本冲突。 */
 class KnowledgeBaseServiceTest {
 
   @Test
@@ -37,7 +38,11 @@ class KnowledgeBaseServiceTest {
     when(mapper.selectOne(any(Wrapper.class))).thenReturn(current);
     when(mapper.update(any(), any(Wrapper.class))).thenReturn(0);
 
-    KnowledgeBaseService service = new KnowledgeBaseService(new CurrentOwnerProvider(), mapper);
+    KnowledgeBaseService service =
+        new KnowledgeBaseService(
+            new CurrentOwnerProvider(),
+            mapper,
+            mock(org.springframework.jdbc.core.JdbcTemplate.class));
     UpdateKnowledgeBaseRequest request = new UpdateKnowledgeBaseRequest();
     request.setDescription("concurrent edit");
     request.setRowVersion(3);

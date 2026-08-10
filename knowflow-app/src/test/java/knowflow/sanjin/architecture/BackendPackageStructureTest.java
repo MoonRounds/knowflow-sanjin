@@ -27,6 +27,13 @@ import knowflow.sanjin.modules.conversation.service.ConversationService;
 import knowflow.sanjin.modules.conversation.vo.ConversationResponse;
 import knowflow.sanjin.modules.conversation.vo.MessagePageResponse;
 import knowflow.sanjin.modules.conversation.vo.MessageResponse;
+import knowflow.sanjin.modules.knowledge.controller.KnowledgeItemController;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeChunk;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
+import knowflow.sanjin.modules.knowledge.entity.Tag;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
+import knowflow.sanjin.modules.knowledge.service.KnowledgeService;
+import knowflow.sanjin.modules.knowledge.vo.KnowledgeItemResponse;
 import knowflow.sanjin.modules.knowledgebase.assembler.KnowledgeBaseAssembler;
 import knowflow.sanjin.modules.knowledgebase.controller.KnowledgeBaseController;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
@@ -50,8 +57,12 @@ import knowflow.sanjin.modules.modelconfig.vo.ModelConfigResponse;
 import knowflow.sanjin.modules.modelconfig.vo.OwnerAiSettingsResponse;
 import knowflow.sanjin.modules.owner.entity.AppUser;
 import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
+import knowflow.sanjin.modules.processing.entity.ProcessingTask;
+import knowflow.sanjin.modules.processing.mapper.ProcessingTaskMapper;
+import knowflow.sanjin.modules.processing.vo.ProcessingTaskResponse;
 import org.junit.jupiter.api.Test;
 
+/** 架构约束测试：强制各模块类落在约定包路径内，防止分层漂移。 */
 class BackendPackageStructureTest {
 
   @Test
@@ -170,5 +181,32 @@ class BackendPackageStructureTest {
   @Test
   void keepsErrorCodeCatalogInsideCommonError() {
     assertThat(ErrorCode.class.getPackageName()).isEqualTo("knowflow.sanjin.common.error");
+  }
+
+  @Test
+  void separatesKnowledgeModuleByResponsibility() {
+    assertThat(KnowledgeItemController.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.knowledge.controller");
+    assertThat(KnowledgeService.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.knowledge.service");
+    assertThat(KnowledgeItemMapper.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.knowledge.mapper");
+    assertThat(KnowledgeItem.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.knowledge.entity");
+    assertThat(KnowledgeChunk.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.knowledge.entity");
+    assertThat(Tag.class.getPackageName()).isEqualTo("knowflow.sanjin.modules.knowledge.entity");
+    assertThat(KnowledgeItemResponse.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.knowledge.vo");
+  }
+
+  @Test
+  void separatesProcessingModuleByResponsibility() {
+    assertThat(ProcessingTask.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.processing.entity");
+    assertThat(ProcessingTaskMapper.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.processing.mapper");
+    assertThat(ProcessingTaskResponse.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.processing.vo");
   }
 }

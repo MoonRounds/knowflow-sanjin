@@ -38,6 +38,7 @@ public final class OpenAiCompatibleStub implements AutoCloseable {
     HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
     OpenAiCompatibleStub stub = new OpenAiCompatibleStub(server);
     server.createContext("/v1/chat/completions", stub.new ChatCompletionsHandler());
+    server.createContext("/v1/embeddings", stub.new EmbeddingsHandler());
     server.start();
     return stub;
   }
@@ -53,6 +54,71 @@ public final class OpenAiCompatibleStub implements AutoCloseable {
   @Override
   public void close() {
     server.stop(0);
+  }
+
+  private final class EmbeddingsHandler implements HttpHandler {
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+      if (!"POST".equals(exchange.getRequestMethod())) {
+        respond(exchange, 405, "{\"error\":\"method not allowed\"}");
+        return;
+      }
+      switch (behavior.get()) {
+        case UNAUTHORIZED:
+          respond(
+              exchange,
+              401,
+              "{\"error\":{\"message\":\"Invalid API key\",\"code\":\"invalid_api_key\"}}");
+          return;
+        case RATE_LIMITED:
+          respond(
+              exchange,
+              429,
+              "{\"error\":{\"message\":\"Rate limit exceeded\",\"code\":\"rate_limit_exceeded\"}}");
+          return;
+        case MALFORMED_JSON:
+          respond(exchange, 200, "{ not json");
+          return;
+        case TIMEOUT:
+          exchange.close();
+          return;
+        case NORMAL:
+        default:
+          respondNormal(exchange);
+      }
+    }
+
+    private void respondNormal(HttpExchange exchange) throws IOException {
+      String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+      int inputCount = 0;
+      if (body != null && body.contains("\"input\":[")) {
+        // 粗粒度统计输入条数（数组元素个数）
+        int start = body.indexOf('[');
+        int end = body.lastIndexOf(']');
+        if (start >= 0 && end > start) {
+          String array = body.substring(start + 1, end);
+          if (array.isBlank()) {
+            inputCount = 0;
+          } else {
+            inputCount = array.split(",\"").length;
+          }
+        }
+      } else {
+        inputCount = 1;
+      }
+      // 固定 4 维向量便于断言；真实维度由 EmbeddingClient 校验
+      StringBuilder sb = new StringBuilder("{\"object\":\"list\",\"data\":[");
+      for (int i = 0; i < inputCount; i++) {
+        if (i > 0) {
+          sb.append(',');
+        }
+        sb.append("{\"object\":\"embedding\",\"index\":")
+            .append(i)
+            .append(",\"embedding\":[0.1,0.2,0.3,0.4]}");
+      }
+      sb.append("],\"model\":\"stub-embedding\"}");
+      respond(exchange, 200, sb.toString());
+    }
   }
 
   private final class ChatCompletionsHandler implements HttpHandler {
