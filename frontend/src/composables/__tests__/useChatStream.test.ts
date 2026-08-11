@@ -42,8 +42,8 @@ describe('dispatchSseEvent', () => {
     const handlers: StreamEventHandlers = {
       onFailed: (d) => (failed = d),
     }
-    dispatchSseEvent('generation.failed', { errorCode: 'MODEL_CALL_TIMEOUT' }, handlers)
-    expect(failed.errorCode).toBe('MODEL_CALL_TIMEOUT')
+    dispatchSseEvent('generation.failed', { errorCode: '模型调用超时' }, handlers)
+    expect(failed.errorCode).toBe('模型调用超时')
   })
 
   it('routes sources.available with ragStatus and sources', () => {
@@ -112,7 +112,7 @@ describe('useChatStream reconcile', () => {
       () => reconciled++,
       [
         ['generation.started', { assistantMessageId: '42' }],
-        ['generation.failed', { errorCode: 'MODEL_CALL_TIMEOUT' }],
+        ['generation.failed', { errorCode: '模型调用超时' }],
       ],
     )
     expect(reconciled).toBe(1)
@@ -128,11 +128,11 @@ describe('useChatStream reconcile', () => {
     dispatchSseEvent('generation.started', { assistantMessageId: '42' }, stream.handlers)
     dispatchSseEvent(
       'generation.failed',
-      { errorCode: 'MODEL_CALL_TIMEOUT', detail: 'timeout' },
+      { errorCode: '模型调用超时', detail: 'timeout' },
       stream.handlers,
     )
     expect(messages[0].generationStatus).toBe('FAILED')
-    expect(messages[0].errorCode).toBe('MODEL_CALL_TIMEOUT')
+    expect(messages[0].errorCode).toBe('模型调用超时')
     expect(stream.streaming.value).toBe(false)
   })
 

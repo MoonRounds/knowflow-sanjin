@@ -110,7 +110,7 @@ describe('knowledge-bases api client', () => {
         ok: false,
         status: 409,
         json: vi.fn().mockResolvedValue({
-          errorCode: 'KNOWLEDGE_BASE_NAME_CONFLICT',
+          errorCode: '知识库名称冲突',
           detail: 'A KnowledgeBase with this name already exists.',
           correlationId: 'abc-123',
         }),
@@ -119,7 +119,7 @@ describe('knowledge-bases api client', () => {
     const err = await createKnowledgeBase({ name: 'Java' }).catch((e) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(409)
-    expect(err.errorCode).toBe('KNOWLEDGE_BASE_NAME_CONFLICT')
+    expect(err.errorCode).toBe('知识库名称冲突')
     expect(err.correlationId).toBe('abc-123')
   })
 })

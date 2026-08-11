@@ -32,6 +32,19 @@ public class TaskSubmissionService {
       long ownerId,
       String payload,
       int maxRetries) {
+    return submit(taskType, businessKey, businessId, ownerId, payload, maxRetries, null);
+  }
+
+  /** 同上，但指定工作队列基名（如 {@code extraction}）；基名 null 时使用默认索引队列。 */
+  @Transactional
+  public ProcessingTask submit(
+      String taskType,
+      String businessKey,
+      Long businessId,
+      long ownerId,
+      String payload,
+      int maxRetries,
+      String queueBase) {
     ProcessingTask task = new ProcessingTask();
     task.setTaskType(taskType);
     task.setBusinessKey(businessKey);
@@ -43,7 +56,7 @@ public class TaskSubmissionService {
     task.setAttemptedDeliveries(0);
     task.setPayload(payload);
     mapper.insert(task);
-    publisher.publishAfterCommit(task.getId());
+    publisher.publishAfterCommit(task.getId(), queueBase);
     return task;
   }
 }

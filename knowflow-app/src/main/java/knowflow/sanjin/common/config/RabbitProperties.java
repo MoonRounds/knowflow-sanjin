@@ -11,6 +11,8 @@ public class RabbitProperties {
 
   private String workQueue = "index.work";
 
+  private String extractionWorkQueue = "extraction.work";
+
   private Duration[] retryDelays = {
     Duration.ofSeconds(10), Duration.ofMinutes(1), Duration.ofMinutes(5)
   };
@@ -34,19 +36,49 @@ public class RabbitProperties {
     return prefix + ".dlx.exchange";
   }
 
-  /** 工作队列名。 */
+  /** 索引工作队列名。 */
   public String workQueueName() {
-    return prefix + "." + workQueue;
+    return workQueueName(workQueue);
   }
 
-  /** 第 level 档重试队列名（level 从 0 开始）。 */
+  /** 提取工作队列名。 */
+  public String extractionWorkQueueName() {
+    return workQueueName(extractionWorkQueue);
+  }
+
+  /** 指定队列基名的工作队列名。 */
+  public String workQueueName(String base) {
+    return prefix + "." + base;
+  }
+
+  /** 索引第 level 档重试队列名（level 从 0 开始）。 */
   public String retryQueueName(int level) {
-    return prefix + "." + workQueue + ".retry." + level;
+    return retryQueueName(workQueue, level);
   }
 
-  /** 最终 DLQ 名。 */
+  /** 提取第 level 档重试队列名。 */
+  public String extractionRetryQueueName(int level) {
+    return retryQueueName(extractionWorkQueue, level);
+  }
+
+  /** 指定队列基名的第 level 档重试队列名。 */
+  public String retryQueueName(String base, int level) {
+    return prefix + "." + base + ".retry." + level;
+  }
+
+  /** 索引最终 DLQ 名。 */
   public String dlqName() {
-    return prefix + "." + workQueue + ".dlq";
+    return dlqName(workQueue);
+  }
+
+  /** 提取最终 DLQ 名。 */
+  public String extractionDlqName() {
+    return dlqName(extractionWorkQueue);
+  }
+
+  /** 指定队列基名的最终 DLQ 名。 */
+  public String dlqName(String base) {
+    return prefix + "." + base + ".dlq";
   }
 
   public String getPrefix() {
@@ -63,6 +95,14 @@ public class RabbitProperties {
 
   public void setWorkQueue(String workQueue) {
     this.workQueue = workQueue;
+  }
+
+  public String getExtractionWorkQueue() {
+    return extractionWorkQueue;
+  }
+
+  public void setExtractionWorkQueue(String extractionWorkQueue) {
+    this.extractionWorkQueue = extractionWorkQueue;
   }
 
   public Duration[] getRetryDelays() {

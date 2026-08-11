@@ -1,6 +1,95 @@
 {
   "components" : {
     "schemas" : {
+      "CandidatePageResponse" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CandidateResponse"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "total" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "CandidateResponse" : {
+        "properties" : {
+          "aiContent" : {
+            "type" : "string"
+          },
+          "aiKnowledgeBaseIds" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "aiReason" : {
+            "type" : "string"
+          },
+          "aiSummary" : {
+            "type" : "string"
+          },
+          "aiTags" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "aiTitle" : {
+            "type" : "string"
+          },
+          "confirmedItemId" : {
+            "type" : "string"
+          },
+          "draftContent" : {
+            "type" : "string"
+          },
+          "draftKnowledgeBaseIds" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "draftSummary" : {
+            "type" : "string"
+          },
+          "draftTags" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "draftTitle" : {
+            "type" : "string"
+          },
+          "extractionTaskId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "rowVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ConnectionTestResult" : {
         "properties" : {
           "message" : {
@@ -160,6 +249,44 @@
           }
         },
         "required" : [ "apiKey", "baseUrl", "displayName", "modelName", "providerName" ],
+        "type" : "object"
+      },
+      "ExtractionTaskResponse" : {
+        "properties" : {
+          "candidateCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "conversationId" : {
+            "type" : "string"
+          },
+          "cutoffMessageId" : {
+            "type" : "string"
+          },
+          "extractionProfile" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "inputCharCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "processingTaskId" : {
+            "type" : "string"
+          },
+          "profileVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "utilityRevisionId" : {
+            "type" : "string"
+          }
+        },
         "type" : "object"
       },
       "KnowledgeBaseResponse" : {
@@ -603,6 +730,40 @@
         },
         "type" : "object"
       },
+      "UpdateCandidateDraftRequest" : {
+        "properties" : {
+          "content" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "knowledgeBaseIds" : {
+            "items" : {
+              "type" : "string"
+            },
+            "minItems" : 1,
+            "type" : "array"
+          },
+          "rowVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "tags" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "title" : {
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "content", "knowledgeBaseIds", "title" ],
+        "type" : "object"
+      },
       "UpdateConversationRequest" : {
         "properties" : {
           "defaultModelConfigId" : {
@@ -765,6 +926,211 @@
   },
   "openapi" : "3.1.0",
   "paths" : {
+    "/api/v1/candidates" : {
+      "get" : {
+        "operationId" : "list_5",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 1,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidatePageResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "candidate-controller" ]
+      }
+    },
+    "/api/v1/candidates/{id}" : {
+      "get" : {
+        "operationId" : "get_4",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "candidate-controller" ]
+      }
+    },
+    "/api/v1/candidates/{id}/confirm" : {
+      "post" : {
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "candidate-controller" ]
+      }
+    },
+    "/api/v1/candidates/{id}/draft" : {
+      "put" : {
+        "operationId" : "updateDraft",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateCandidateDraftRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "candidate-controller" ]
+      }
+    },
+    "/api/v1/candidates/{id}/reject" : {
+      "post" : {
+        "operationId" : "reject",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "candidate-controller" ]
+      }
+    },
+    "/api/v1/candidates/{id}/restore" : {
+      "post" : {
+        "operationId" : "restore",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CandidateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "candidate-controller" ]
+      }
+    },
     "/api/v1/conversations" : {
       "get" : {
         "operationId" : "list_3",
@@ -810,6 +1176,32 @@
           }
         },
         "tags" : [ "conversation-controller" ]
+      }
+    },
+    "/api/v1/conversations/{conversationId}/extraction" : {
+      "post" : {
+        "operationId" : "trigger",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "conversationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExtractionTaskResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "extraction-controller" ]
       }
     },
     "/api/v1/conversations/{id}" : {

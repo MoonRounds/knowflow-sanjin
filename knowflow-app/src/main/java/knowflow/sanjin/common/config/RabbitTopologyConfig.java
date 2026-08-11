@@ -50,25 +50,58 @@ public class RabbitTopologyConfig {
         .build();
   }
 
+  /** 提取工作队列：与索引队列复用同一交换机，独立 routingKey 与重试/DLQ 链。 */
+  @Bean
+  public Queue extractionWorkQueue() {
+    return QueueBuilder.durable(properties.extractionWorkQueueName())
+        .deadLetterExchange(properties.dlxExchange())
+        .deadLetterRoutingKey(properties.extractionDlqName())
+        .build();
+  }
+
   /** 重试队列无 Consumer，TTL 到期后经工作交换机死信回 work 队列重新处理。 */
   @Bean
   public Queue indexRetryQueue0() {
-    return retryQueue(0);
+    return retryQueue(0, properties.retryQueueName(0), properties.workQueueName());
   }
 
   @Bean
   public Queue indexRetryQueue1() {
-    return retryQueue(1);
+    return retryQueue(1, properties.retryQueueName(1), properties.workQueueName());
   }
 
   @Bean
   public Queue indexRetryQueue2() {
-    return retryQueue(2);
+    return retryQueue(2, properties.retryQueueName(2), properties.workQueueName());
+  }
+
+  /** 提取重试队列：TTL 到期死信回提取工作队列。 */
+  @Bean
+  public Queue extractionRetryQueue0() {
+    return retryQueue(
+        0, properties.extractionRetryQueueName(0), properties.extractionWorkQueueName());
+  }
+
+  @Bean
+  public Queue extractionRetryQueue1() {
+    return retryQueue(
+        1, properties.extractionRetryQueueName(1), properties.extractionWorkQueueName());
+  }
+
+  @Bean
+  public Queue extractionRetryQueue2() {
+    return retryQueue(
+        2, properties.extractionRetryQueueName(2), properties.extractionWorkQueueName());
   }
 
   @Bean
   public Queue indexDlq() {
     return QueueBuilder.durable(properties.dlqName()).build();
+  }
+
+  @Bean
+  public Queue extractionDlq() {
+    return QueueBuilder.durable(properties.extractionDlqName()).build();
   }
 
   @Bean
@@ -79,18 +112,40 @@ public class RabbitTopologyConfig {
   }
 
   @Bean
+  public Binding bindExtractionWorkQueue() {
+    return BindingBuilder.bind(extractionWorkQueue())
+        .to(workExchange())
+        .with(properties.extractionWorkQueueName());
+  }
+
+  @Bean
   public Binding bindIndexRetryQueue0() {
-    return bindRetryQueue(0);
+    return bindRetryQueue(0, indexRetryQueue0(), properties.retryQueueName(0));
   }
 
   @Bean
   public Binding bindIndexRetryQueue1() {
-    return bindRetryQueue(1);
+    return bindRetryQueue(1, indexRetryQueue1(), properties.retryQueueName(1));
   }
 
   @Bean
   public Binding bindIndexRetryQueue2() {
-    return bindRetryQueue(2);
+    return bindRetryQueue(2, indexRetryQueue2(), properties.retryQueueName(2));
+  }
+
+  @Bean
+  public Binding bindExtractionRetryQueue0() {
+    return bindRetryQueue(0, extractionRetryQueue0(), properties.extractionRetryQueueName(0));
+  }
+
+  @Bean
+  public Binding bindExtractionRetryQueue1() {
+    return bindRetryQueue(1, extractionRetryQueue1(), properties.extractionRetryQueueName(1));
+  }
+
+  @Bean
+  public Binding bindExtractionRetryQueue2() {
+    return bindRetryQueue(2, extractionRetryQueue2(), properties.extractionRetryQueueName(2));
   }
 
   @Bean
@@ -98,25 +153,23 @@ public class RabbitTopologyConfig {
     return BindingBuilder.bind(indexDlq()).to(dlxExchange()).with(properties.dlqName());
   }
 
-  private Queue retryQueue(int level) {
-    return QueueBuilder.durable(properties.retryQueueName(level))
+  @Bean
+  public Binding bindExtractionDlq() {
+    return BindingBuilder.bind(extractionDlq())
+        .to(dlxExchange())
+        .with(properties.extractionDlqName());
+  }
+
+  /** 构建 TTL 重试队列：TTL 到期后经 workExchange 死信回 workQueue 名称对应的队列。 */
+  private Queue retryQueue(int level, String retryQueueName, String dlRoutingKey) {
+    return QueueBuilder.durable(retryQueueName)
         .ttl((int) properties.getRetryDelays()[level].toMillis())
         .deadLetterExchange(properties.workExchange())
-        .deadLetterRoutingKey(properties.workQueueName())
+        .deadLetterRoutingKey(dlRoutingKey)
         .build();
   }
 
-  private Binding bindRetryQueue(int level) {
-    return BindingBuilder.bind(retryQueueBean(level))
-        .to(retryExchange())
-        .with(properties.retryQueueName(level));
-  }
-
-  private Queue retryQueueBean(int level) {
-    return switch (level) {
-      case 0 -> indexRetryQueue0();
-      case 1 -> indexRetryQueue1();
-      default -> indexRetryQueue2();
-    };
+  private Binding bindRetryQueue(int level, Queue queue, String routingKey) {
+    return BindingBuilder.bind(queue).to(retryExchange()).with(routingKey);
   }
 }

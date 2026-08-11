@@ -27,6 +27,7 @@ watch(
       >
         <el-menu-item index="/chat"> 对话 </el-menu-item>
         <el-menu-item index="/knowledge-bases"> 知识库 </el-menu-item>
+        <el-menu-item index="/candidates"> 待审核 </el-menu-item>
         <el-menu-item index="/processing"> 处理任务 </el-menu-item>
         <el-menu-item index="/model-settings"> 模型设置 </el-menu-item>
       </el-menu>

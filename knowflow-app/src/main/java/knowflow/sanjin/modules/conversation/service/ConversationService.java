@@ -385,28 +385,68 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
             .set(ChatMessage::getRagStatus, ragStatus));
   }
 
-  /** 最近上下文：最近 N 个完整 active Turn（仅 COMPLETED 且 isActive=1 的 Assistant 及其 User）。 */
+  /** 会话内最后一个消息 id（自增主键单调）；无消息返回 null。 */
   @Transactional(readOnly = true)
-  public List<ChatMessage> loadRecentContext(Long conversationId, int turns) {
-    // 已删除会话不提供上下文（防止删除后从 MySQL 重建 Memory）
-    getByIdAndOwnerInternal(conversationId);
-    long ownerId = currentOwnerProvider.getCurrentOwnerId();
-    int safeTurns = Math.max(1, Math.min(turns, 100));
-    List<ChatMessage> activeAssistant =
-        chatMessageMapper.selectList(
+  public Long lastMessageId(Long conversationId, long ownerId) {
+    ChatMessage last =
+        chatMessageMapper.selectOne(
             new LambdaQueryWrapper<ChatMessage>()
                 .eq(ChatMessage::getConversationId, conversationId)
                 .eq(ChatMessage::getOwnerId, ownerId)
-                .eq(ChatMessage::getRole, ChatMessage.ROLE_ASSISTANT)
-                .eq(ChatMessage::getGenerationStatus, ChatMessage.COMPLETED)
-                .eq(ChatMessage::getIsActive, true)
                 .orderByDesc(ChatMessage::getId)
-                .last("LIMIT " + safeTurns));
+                .last("LIMIT 1"));
+    return last != null ? last.getId() : null;
+  }
+
+  /**
+   * 截至 cutoffMessageId 之前的全部完整 active Turns（不过 LIMIT）：仅 COMPLETED 且 isActive 的 Assistant 及其 User
+   * 消息，按 id 正序。供提取任务确定输入范围（DECISIONS §11：范围固定为触发时 cutoff，后续新增消息不纳入）。
+   */
+  @Transactional(readOnly = true)
+  public List<ChatMessage> loadAllTurnsUpTo(
+      Long conversationId, long ownerId, Long cutoffMessageId) {
+    return loadCompletedTurns(conversationId, cutoffMessageId, null);
+  }
+
+  /** 最近上下文：最近 N 个完整 active Turn（仅 COMPLETED 且 isActive=1 的 Assistant 及其 User）。 */
+  @Transactional(readOnly = true)
+  public List<ChatMessage> loadRecentContext(Long conversationId, int turns) {
+    return loadCompletedTurns(conversationId, null, turns);
+  }
+
+  /**
+   * 公共实现：读取完整 active Turns。{@code cutoffMessageId} 非空时只取 id 不大于 cutoff 的 Assistant（提取固定范围）；{@code
+   * limitTurns} 非空时只取最近 N 个（Memory 上下文）。两者互斥；任一路径都先校验会话存在（软删会话不提供上下文）。
+   */
+  private List<ChatMessage> loadCompletedTurns(
+      Long conversationId, Long cutoffMessageId, Integer limitTurns) {
+    getByIdAndOwnerInternal(conversationId);
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    LambdaQueryWrapper<ChatMessage> wrapper =
+        new LambdaQueryWrapper<ChatMessage>()
+            .eq(ChatMessage::getConversationId, conversationId)
+            .eq(ChatMessage::getOwnerId, ownerId)
+            .eq(ChatMessage::getRole, ChatMessage.ROLE_ASSISTANT)
+            .eq(ChatMessage::getGenerationStatus, ChatMessage.COMPLETED)
+            .eq(ChatMessage::getIsActive, true);
+    boolean limited = limitTurns != null;
+    if (cutoffMessageId != null) {
+      wrapper.le(ChatMessage::getId, cutoffMessageId);
+    }
+    if (limited) {
+      int safe = Math.max(1, Math.min(limitTurns, 100));
+      wrapper.orderByDesc(ChatMessage::getId).last("LIMIT " + safe);
+    } else {
+      wrapper.orderByAsc(ChatMessage::getId);
+    }
+    List<ChatMessage> activeAssistant = chatMessageMapper.selectList(wrapper);
     if (activeAssistant.isEmpty()) {
       return List.of();
     }
-    // 正序
-    java.util.Collections.reverse(activeAssistant);
+    if (limited) {
+      // 最近 N 个取回后转正序（与调用方历史展示一致）
+      java.util.Collections.reverse(activeAssistant);
+    }
     List<Long> userIds =
         activeAssistant.stream()
             .map(ChatMessage::getReplyToMessageId)
@@ -420,7 +460,6 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
             new LambdaQueryWrapper<ChatMessage>()
                 .in(ChatMessage::getId, userIds)
                 .eq(ChatMessage::getOwnerId, ownerId));
-    // 按 id 升序把 user 穿插回 assistant 之前
     List<ChatMessage> all = new java.util.ArrayList<>(activeAssistant);
     all.addAll(users);
     all.sort(java.util.Comparator.comparing(ChatMessage::getId));

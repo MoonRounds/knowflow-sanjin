@@ -60,6 +60,15 @@ knowflow-app/src/main/java/knowflow/sanjin/
         ├── dto/                           # RouterResult / RouterTrace / RetrievedSource / RagContext
         ├── exception/                     # Router 失败异常（降级用）
         └── service/                       # RouterService / RetrievalService / RagContextBuilder
+    └── extraction/                       # 会话知识提取与候选审核（Phase 7）
+        ├── config/                        # ExtractionProperties（knowflow.extraction.*）
+        ├── controller/                    # ExtractionController / CandidateController + Assembler
+        ├── dto/                           # ExtractionResult（Structured Output schema）/ 草稿请求
+        ├── entity/                        # KnowledgeExtractionTask / KnowledgeCandidate
+        ├── exception/                     # 预算拒绝 / 状态迁移 / 失败分类异常
+        ├── listener/                      # ExtractionTaskConsumer（RabbitMQ 独立工作队列）
+        ├── mapper/
+        └── service/                       # ExtractionService / ExtractionExecutor / CandidateService / CandidateConfirmService
 ```
 
 测试代码镜像生产代码的模块路径；数据库容器等测试基础设施统一放在

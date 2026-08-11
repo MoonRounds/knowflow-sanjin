@@ -29,15 +29,26 @@ public class TaskPublisher {
 
   /** 在当前事务提交后发布任务 id 到工作队列；无活动事务时立即发布。 */
   public void publishAfterCommit(long taskId) {
+    publishAfterCommit(taskId, null);
+  }
+
+  /**
+   * 在当前事务提交后发布任务 id 到指定队列基名对应的工作队列（index.work / extraction.work）； 无活动事务时立即发布。基名为 null 时使用索引
+   * 工作队列（默认）。
+   */
+  public void publishAfterCommit(long taskId, String queueBase) {
+    String exchange = properties.workExchange();
+    String routingKey =
+        queueBase != null ? properties.workQueueName(queueBase) : properties.workQueueName();
     if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-      publish(properties.workExchange(), properties.workQueueName(), taskId);
+      publish(exchange, routingKey, taskId);
       return;
     }
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
           @Override
           public void afterCommit() {
-            publish(properties.workExchange(), properties.workQueueName(), taskId);
+            publish(exchange, routingKey, taskId);
           }
         });
   }
@@ -47,11 +58,16 @@ public class TaskPublisher {
     publish(properties.retryExchange(), properties.retryQueueName(level), taskId);
   }
 
+  /** 发布任务 id 到提取任务第 level 档 TTL 重试队列。 */
+  public void publishToExtractionRetryQueue(long taskId, int level) {
+    publish(properties.retryExchange(), properties.extractionRetryQueueName(level), taskId);
+  }
+
   private void publish(String exchange, String routingKey, long taskId) {
     try {
       rabbitTemplate.convertAndSend(exchange, routingKey, String.valueOf(taskId));
     } catch (RuntimeException e) {
-      log.error("Failed to publish processing task {} to {}/{}", taskId, exchange, routingKey, e);
+      log.error("处理任务 {} 发布到 {}/{}", taskId, exchange, routingKey, e);
     }
   }
 }

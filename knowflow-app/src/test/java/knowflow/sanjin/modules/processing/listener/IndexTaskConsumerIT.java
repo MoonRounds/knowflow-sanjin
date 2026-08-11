@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doThrow;
 
 import java.util.concurrent.CountDownLatch;
 import knowflow.sanjin.common.config.RabbitProperties;
+import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.modules.knowledge.exception.RetryableIndexException;
 import knowflow.sanjin.modules.knowledge.exception.TerminalIndexException;
 import knowflow.sanjin.modules.processing.ProcessingConstants;
@@ -74,7 +75,7 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
             invocation -> {
               calls.countDown();
               throw new RetryableIndexException(
-                  "EMBEDDING_UNAVAILABLE", "embedding temporarily unavailable", null);
+                  ErrorCode.EMBEDDING_UNAVAILABLE, "embedding temporarily unavailable", null);
             })
         .doAnswer(invocation -> null)
         .when(indexingService)
@@ -93,7 +94,7 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
   @Test
   @DisplayName("should mark FAILED and reach DLQ when retries are exhausted")
   void shouldFailAndDlqWhenRetriesExhausted() throws Exception {
-    doThrow(new RetryableIndexException("EMBEDDING_UNAVAILABLE", "always failing", null))
+    doThrow(new RetryableIndexException(ErrorCode.EMBEDDING_UNAVAILABLE, "always failing", null))
         .when(indexingService)
         .execute(any(ProcessingTask.class));
 
@@ -103,7 +104,7 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
 
     ProcessingTask updated = taskMapper.selectById(task.getId());
     assertThat(updated.getStatus()).isEqualTo(ProcessingConstants.STATUS_FAILED);
-    assertThat(updated.getFailureCode()).isEqualTo("EMBEDDING_UNAVAILABLE");
+    assertThat(updated.getFailureCode()).isEqualTo(ErrorCode.EMBEDDING_UNAVAILABLE);
 
     // 最终失败消息应在 DLQ 中
     Message dlqMessage = getDlqMessage();
@@ -113,7 +114,7 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
   @Test
   @DisplayName("should mark FAILED and reach DLQ on terminal (non-retryable) error")
   void shouldFailImmediatelyOnTerminalError() throws Exception {
-    doThrow(new TerminalIndexException("EMBEDDING_AUTH_FAILURE", "auth rejected"))
+    doThrow(new TerminalIndexException(ErrorCode.EMBEDDING_AUTH_FAILURE, "auth rejected"))
         .when(indexingService)
         .execute(any(ProcessingTask.class));
 
@@ -123,7 +124,7 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
 
     ProcessingTask updated = taskMapper.selectById(task.getId());
     assertThat(updated.getStatus()).isEqualTo(ProcessingConstants.STATUS_FAILED);
-    assertThat(updated.getFailureCode()).isEqualTo("EMBEDDING_AUTH_FAILURE");
+    assertThat(updated.getFailureCode()).isEqualTo(ErrorCode.EMBEDDING_AUTH_FAILURE);
     assertThat(updated.getRetryCount()).isEqualTo(0); // 无重试
 
     Message dlqMessage = getDlqMessage();

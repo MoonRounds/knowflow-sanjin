@@ -6,6 +6,14 @@ import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsExce
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.MessageNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.NoDefaultModelConfigException;
+import knowflow.sanjin.modules.extraction.exception.CandidateEmptyDraftException;
+import knowflow.sanjin.modules.extraction.exception.CandidateInvalidStateException;
+import knowflow.sanjin.modules.extraction.exception.CandidateNoKnowledgeBaseException;
+import knowflow.sanjin.modules.extraction.exception.CandidateNotFoundException;
+import knowflow.sanjin.modules.extraction.exception.CandidateVersionConflictException;
+import knowflow.sanjin.modules.extraction.exception.ExtractionInputOverBudgetException;
+import knowflow.sanjin.modules.extraction.exception.ExtractionNoCompletedMessagesException;
+import knowflow.sanjin.modules.extraction.exception.ExtractionTaskNotFoundException;
 import knowflow.sanjin.modules.knowledge.exception.KnowledgeBaseRefNotFoundException;
 import knowflow.sanjin.modules.knowledge.exception.KnowledgeIndexTaskConflictException;
 import knowflow.sanjin.modules.knowledge.exception.KnowledgeItemNotFoundException;
@@ -235,6 +243,60 @@ public class GlobalExceptionHandler {
         "No default model config",
         "No default chat model is configured. Please select a model before sending a message.",
         ErrorCode.NO_DEFAULT_MODEL_CONFIG);
+  }
+
+  @ExceptionHandler(ExtractionInputOverBudgetException.class)
+  public ResponseEntity<ProblemDetail> handleExtractionInputOverBudget(
+      ExtractionInputOverBudgetException ex) {
+    return problem(HttpStatus.UNPROCESSABLE_ENTITY, "提取输入超过预算", ex.getMessage(), ex.getErrorCode());
+  }
+
+  @ExceptionHandler(ExtractionNoCompletedMessagesException.class)
+  public ResponseEntity<ProblemDetail> handleExtractionNoCompletedMessages(
+      ExtractionNoCompletedMessagesException ex) {
+    return problem(HttpStatus.BAD_REQUEST, "没有可提取的已完成消息", ex.getMessage(), ex.getErrorCode());
+  }
+
+  @ExceptionHandler(ExtractionTaskNotFoundException.class)
+  public ResponseEntity<ProblemDetail> handleExtractionTaskNotFound(
+      ExtractionTaskNotFoundException ex) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "提取任务不存在",
+        "Extraction task with id=" + ex.getId() + " does not exist or is not accessible.",
+        ex.getErrorCode());
+  }
+
+  @ExceptionHandler(CandidateNotFoundException.class)
+  public ResponseEntity<ProblemDetail> handleCandidateNotFound(CandidateNotFoundException ex) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "候选不存在",
+        "Candidate with id=" + ex.getId() + " does not exist or is not accessible.",
+        ex.getErrorCode());
+  }
+
+  @ExceptionHandler(CandidateVersionConflictException.class)
+  public ResponseEntity<ProblemDetail> handleCandidateVersionConflict(
+      CandidateVersionConflictException ex) {
+    return problem(HttpStatus.CONFLICT, "候选版本冲突", ex.getMessage(), ex.getErrorCode());
+  }
+
+  @ExceptionHandler(CandidateInvalidStateException.class)
+  public ResponseEntity<ProblemDetail> handleCandidateInvalidState(
+      CandidateInvalidStateException ex) {
+    return problem(HttpStatus.CONFLICT, "候选状态非法", ex.getMessage(), ex.getErrorCode());
+  }
+
+  @ExceptionHandler(CandidateEmptyDraftException.class)
+  public ResponseEntity<ProblemDetail> handleCandidateEmptyDraft(CandidateEmptyDraftException ex) {
+    return problem(HttpStatus.BAD_REQUEST, "候选草稿不完整", ex.getMessage(), ex.getErrorCode());
+  }
+
+  @ExceptionHandler(CandidateNoKnowledgeBaseException.class)
+  public ResponseEntity<ProblemDetail> handleCandidateNoKnowledgeBase(
+      CandidateNoKnowledgeBaseException ex) {
+    return problem(HttpStatus.UNPROCESSABLE_ENTITY, "候选未关联知识库", ex.getMessage(), ex.getErrorCode());
   }
 
   @ExceptionHandler(PreconditionRequiredException.class)

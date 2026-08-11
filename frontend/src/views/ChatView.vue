@@ -13,6 +13,9 @@ import {
   updateConversation,
 } from '../api/conversations'
 import { listModelConfigs } from '../api/model-configs'
+import { listProcessingTasks } from '../api/processing-tasks'
+import { triggerExtraction } from '../api/extraction'
+import type { ExtractionTaskResponse } from '../api/extraction'
 import type { ConversationResponse, MessageResponse } from '../api/types/conversation'
 import type { ModelConfigResponse } from '../api/types/model-config'
 import { dispatchSseEvent, useChatStream } from '../composables/useChatStream'
@@ -39,6 +42,18 @@ const stream = useChatStream({
   },
 })
 
+const extracting = ref(false)
+const extractionTask = ref<ExtractionTaskResponse | null>(null)
+let extractionPollTimer: number | undefined
+
+const hasCompletedMessages = computed(() =>
+  messages.value.some((m) => m.role === 'ASSISTANT' && m.generationStatus === 'COMPLETED'),
+)
+
+const canExtract = computed(
+  () => !!activeConversation.value && !stream.streaming.value && hasCompletedMessages.value,
+)
+
 const activeConversation = computed(() => {
   return conversations.value.find((c) => c.id === activeId.value) ?? null
 })
@@ -51,6 +66,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   activeController?.abort()
+  stopExtractionPolling()
 })
 
 async function loadConversations() {
@@ -118,6 +134,57 @@ async function handleCreate() {
     await selectConversation(created.id!)
   } catch {
     // 用户取消
+  }
+}
+
+async function handleExtract() {
+  if (!activeConversation.value || extracting.value) return
+  extracting.value = true
+  extractionTask.value = null
+  stopExtractionPolling()
+  try {
+    extractionTask.value = await triggerExtraction(activeConversation.value.id!)
+    ElMessage.success(
+      `已触发提取（截止消息 ${extractionTask.value.cutoffMessageId}），结果可稍后在「待审核」查看`,
+    )
+    startExtractionPolling(extractionTask.value.processingTaskId)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '提取失败'
+    ElMessage.error(msg)
+  } finally {
+    extracting.value = false
+  }
+}
+
+/** 触发后轮询提取任务的终态（SUCCEEDED/FAILED），SUCCEEDED 且 0 候选时明确提示。 */
+function startExtractionPolling(processingTaskId?: string) {
+  stopExtractionPolling()
+  if (!processingTaskId) return
+  extractionPollTimer = setInterval(async () => {
+    if (!extractionTask.value) return
+    try {
+      const tasks = await listProcessingTasks()
+      const current = tasks.find((t) => t.id === processingTaskId)
+      if (!current) return
+      extractionTask.value = { ...extractionTask.value, status: current.status }
+      if (current.status === 'SUCCEEDED' || current.status === 'FAILED') {
+        stopExtractionPolling()
+        if (current.status === 'SUCCEEDED' && (extractionTask.value.candidateCount ?? 0) === 0) {
+          ElMessage.info('提取完成：未发现值得沉淀的内容（0 个候选）')
+        } else if (current.status === 'FAILED') {
+          ElMessage.error(`提取失败：${current.failureCode ?? current.lastError ?? '未知错误'}`)
+        }
+      }
+    } catch {
+      // 轮询失败静默，下轮重试
+    }
+  }, 3000)
+}
+
+function stopExtractionPolling() {
+  if (extractionPollTimer) {
+    clearInterval(extractionPollTimer)
+    extractionPollTimer = undefined
   }
 }
 
@@ -248,7 +315,21 @@ watch(selectedModelId, async (newId, oldId) => {
               <el-option v-for="m in models" :key="m.id" :label="m.displayName" :value="m.id" />
             </el-select>
             <el-button size="small" @click="handleRename">重命名</el-button>
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              :disabled="!canExtract"
+              :loading="extracting"
+              @click="handleExtract"
+            >
+              提取知识
+            </el-button>
             <el-button size="small" type="danger" plain @click="handleDelete">删除</el-button>
+          </div>
+          <div v-if="extractionTask" class="header-extraction-hint">
+            提取任务 #{{ extractionTask.id }}：状态 {{ extractionTask.status }}，截止消息
+            {{ extractionTask.cutoffMessageId }}，输入 {{ extractionTask.inputCharCount }} 字符
           </div>
         </div>
 

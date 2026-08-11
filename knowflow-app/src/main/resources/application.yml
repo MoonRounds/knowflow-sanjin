@@ -74,6 +74,12 @@ knowflow:
     context-char-budget: ${KNOWFLOW_RAG_CONTEXT_CHAR_BUDGET:3000}
     router-context-char-limit: ${KNOWFLOW_RAG_ROUTER_CONTEXT_CHAR_LIMIT:1500}
     snippet-char-limit: ${KNOWFLOW_RAG_SNIPPET_CHAR_LIMIT:200}
+  extraction:
+    input-char-budget: ${KNOWFLOW_EXTRACTION_INPUT_CHAR_BUDGET:20000}
+    max-candidates: ${KNOWFLOW_EXTRACTION_MAX_CANDIDATES:10}
+    max-knowledge-bases-per-candidate: ${KNOWFLOW_EXTRACTION_MAX_KBS_PER_CANDIDATE:3}
+    max-tags-per-candidate: ${KNOWFLOW_EXTRACTION_MAX_TAGS_PER_CANDIDATE:5}
+    max-retries: ${KNOWFLOW_EXTRACTION_MAX_RETRIES:3}
 
 springdoc:
   api-docs:

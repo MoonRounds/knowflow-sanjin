@@ -64,7 +64,7 @@ class KnowledgeBaseControllerTest {
     mvc.perform(delete("/api/v1/knowledge-bases/1"))
         .andExpect(status().isPreconditionRequired())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.errorCode").value("IF_MATCH_REQUIRED"))
+        .andExpect(jsonPath("$.errorCode").value("缺少乐观锁版本"))
         .andExpect(jsonPath("$.correlationId").isNotEmpty());
   }
 
@@ -74,7 +74,7 @@ class KnowledgeBaseControllerTest {
     mvc.perform(delete("/api/v1/knowledge-bases/1").header("If-Match", "7"))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.errorCode").value("INVALID_ARGUMENT"));
+        .andExpect(jsonPath("$.errorCode").value("参数非法"));
 
     mvc.perform(
             put("/api/v1/knowledge-bases/1")
@@ -82,6 +82,6 @@ class KnowledgeBaseControllerTest {
                 .content("{\"description\":\"missing version\"}"))
         .andExpect(status().isBadRequest())
         .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-        .andExpect(jsonPath("$.errorCode").value("VALIDATION_ERROR"));
+        .andExpect(jsonPath("$.errorCode").value("校验失败"));
   }
 }

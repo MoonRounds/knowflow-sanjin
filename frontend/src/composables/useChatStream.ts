@@ -169,9 +169,7 @@ export function useChatStream(options: UseChatStreamOptions) {
     pendingAssistant.value = null
     streaming.value = false
     streamError.value =
-      data.errorCode === 'GENERATION_CANCELLED'
-        ? '已取消'
-        : (data.detail ?? data.errorCode ?? '生成失败')
+      data.errorCode === '生成已取消' ? '已取消' : (data.detail ?? data.errorCode ?? '生成失败')
     options.reconcile?.()
   }
 

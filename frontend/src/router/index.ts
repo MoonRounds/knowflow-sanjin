@@ -29,6 +29,11 @@ const router = createRouter({
       component: () => import('../views/ProcessingView.vue'),
     },
     {
+      path: '/candidates',
+      name: 'Candidates',
+      component: () => import('../views/CandidatesView.vue'),
+    },
+    {
       path: '/model-settings',
       name: 'ModelSettings',
       component: () => import('../views/ModelSettingsView.vue'),

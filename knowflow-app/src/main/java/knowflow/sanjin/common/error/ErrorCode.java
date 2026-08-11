@@ -6,52 +6,61 @@ public final class ErrorCode {
   private ErrorCode() {}
 
   // ---- 通用 ----
-  public static final String INVALID_ARGUMENT = "INVALID_ARGUMENT";
-  public static final String VALIDATION_ERROR = "VALIDATION_ERROR";
-  public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
-  public static final String IF_MATCH_REQUIRED = "IF_MATCH_REQUIRED";
+  public static final String INVALID_ARGUMENT = "参数非法";
+  public static final String VALIDATION_ERROR = "校验失败";
+  public static final String INTERNAL_ERROR = "内部错误";
+  public static final String IF_MATCH_REQUIRED = "缺少乐观锁版本";
 
   // ---- KnowledgeBase ----
-  public static final String KNOWLEDGE_BASE_NOT_FOUND = "KNOWLEDGE_BASE_NOT_FOUND";
-  public static final String KNOWLEDGE_BASE_NAME_CONFLICT = "KNOWLEDGE_BASE_NAME_CONFLICT";
-  public static final String KNOWLEDGE_BASE_VERSION_CONFLICT = "KNOWLEDGE_BASE_VERSION_CONFLICT";
-  public static final String KNOWLEDGE_BASE_IN_USE = "KNOWLEDGE_BASE_IN_USE";
+  public static final String KNOWLEDGE_BASE_NOT_FOUND = "知识库不存在";
+  public static final String KNOWLEDGE_BASE_NAME_CONFLICT = "知识库名称冲突";
+  public static final String KNOWLEDGE_BASE_VERSION_CONFLICT = "知识库版本冲突";
+  public static final String KNOWLEDGE_BASE_IN_USE = "知识库使用中";
 
   // ---- ModelConfig ----
-  public static final String MODEL_CONFIG_NOT_FOUND = "MODEL_CONFIG_NOT_FOUND";
-  public static final String MODEL_CONFIG_DISABLED = "MODEL_CONFIG_DISABLED";
-  public static final String MODEL_CONFIG_IN_USE = "MODEL_CONFIG_IN_USE";
-  public static final String MODEL_CALL_TIMEOUT = "MODEL_CALL_TIMEOUT";
-  public static final String UTILITY_CAPABILITY_TEST_REQUIRED = "UTILITY_CAPABILITY_TEST_REQUIRED";
-  public static final String MODEL_CONFIG_REVISION_CHANGED = "MODEL_CONFIG_REVISION_CHANGED";
+  public static final String MODEL_CONFIG_NOT_FOUND = "模型配置不存在";
+  public static final String MODEL_CONFIG_DISABLED = "模型配置已禁用";
+  public static final String MODEL_CONFIG_IN_USE = "模型配置使用中";
+  public static final String MODEL_CALL_TIMEOUT = "模型调用超时";
+  public static final String UTILITY_CAPABILITY_TEST_REQUIRED = "Utility 能力测试未通过";
+  public static final String MODEL_CONFIG_REVISION_CHANGED = "模型配置版本已变更";
 
   // ---- Conversation ----
-  public static final String CONVERSATION_NOT_FOUND = "CONVERSATION_NOT_FOUND";
-  public static final String MESSAGE_NOT_FOUND = "MESSAGE_NOT_FOUND";
-  public static final String ACTIVE_GENERATION_EXISTS = "ACTIVE_GENERATION_EXISTS";
-  public static final String NO_DEFAULT_MODEL_CONFIG = "NO_DEFAULT_MODEL_CONFIG";
-  public static final String GENERATION_CANCELLED = "GENERATION_CANCELLED";
+  public static final String CONVERSATION_NOT_FOUND = "会话不存在";
+  public static final String MESSAGE_NOT_FOUND = "消息不存在";
+  public static final String ACTIVE_GENERATION_EXISTS = "存在进行中的生成";
+  public static final String NO_DEFAULT_MODEL_CONFIG = "未配置默认模型";
+  public static final String GENERATION_CANCELLED = "生成已取消";
 
   // ---- Generation ----
-  public static final String MODEL_CALL_FAILED = "MODEL_CALL_FAILED";
-  public static final String GENERATION_CLIENT_DISCONNECTED = "GENERATION_CLIENT_DISCONNECTED";
+  public static final String MODEL_CALL_FAILED = "模型调用失败";
+  public static final String GENERATION_CLIENT_DISCONNECTED = "客户端已断开";
 
   // ---- KnowledgeItem ----
-  public static final String KNOWLEDGE_ITEM_NOT_FOUND = "KNOWLEDGE_ITEM_NOT_FOUND";
-  public static final String KNOWLEDGE_BASE_REF_NOT_FOUND = "KNOWLEDGE_BASE_REF_NOT_FOUND";
-  public static final String KNOWLEDGE_ITEM_VERSION_CONFLICT = "KNOWLEDGE_ITEM_VERSION_CONFLICT";
-  public static final String KNOWLEDGE_INDEX_TASK_CONFLICT = "KNOWLEDGE_INDEX_TASK_CONFLICT";
+  public static final String KNOWLEDGE_ITEM_NOT_FOUND = "知识条目不存在";
+  public static final String KNOWLEDGE_BASE_REF_NOT_FOUND = "引用的知识库不存在";
+  public static final String KNOWLEDGE_ITEM_VERSION_CONFLICT = "知识条目版本冲突";
+  public static final String KNOWLEDGE_INDEX_TASK_CONFLICT = "索引任务冲突";
 
   // ---- ProcessingTask ----
-  public static final String PROCESSING_TASK_NOT_FOUND = "PROCESSING_TASK_NOT_FOUND";
-  public static final String PROCESSING_TASK_RETRY_NOT_ALLOWED =
-      "PROCESSING_TASK_RETRY_NOT_ALLOWED";
+  public static final String PROCESSING_TASK_NOT_FOUND = "处理任务不存在";
+  public static final String PROCESSING_TASK_RETRY_NOT_ALLOWED = "处理任务不允许重试";
+
+  // ---- Knowledge Extraction ----
+  public static final String EXTRACTION_INPUT_OVER_BUDGET = "提取输入超过预算";
+  public static final String EXTRACTION_NO_COMPLETED_MESSAGES = "没有可提取的已完成消息";
+  public static final String EXTRACTION_TASK_NOT_FOUND = "提取任务不存在";
+  public static final String CANDIDATE_NOT_FOUND = "候选不存在";
+  public static final String CANDIDATE_VERSION_CONFLICT = "候选版本冲突";
+  public static final String CANDIDATE_INVALID_STATE = "候选状态非法";
+  public static final String CANDIDATE_EMPTY_DRAFT = "候选草稿不完整";
+  public static final String CANDIDATE_NO_KNOWLEDGE_BASE = "候选未关联知识库";
 
   // ---- Knowledge Index failure codes ----
-  public static final String CHUNK_EMPTY = "CHUNK_EMPTY";
-  public static final String EMBEDDING_UNAVAILABLE = "EMBEDDING_UNAVAILABLE";
-  public static final String EMBEDDING_AUTH_FAILURE = "EMBEDDING_AUTH_FAILURE";
-  public static final String QDRANT_UNAVAILABLE = "QDRANT_UNAVAILABLE";
-  public static final String INDEX_SCHEMA_FAILURE = "INDEX_SCHEMA_FAILURE";
-  public static final String INDEX_UNKNOWN_FAILURE = "INDEX_UNKNOWN_FAILURE";
+  public static final String CHUNK_EMPTY = "分块为空";
+  public static final String EMBEDDING_UNAVAILABLE = "向量模型不可用";
+  public static final String EMBEDDING_AUTH_FAILURE = "向量模型认证失败";
+  public static final String QDRANT_UNAVAILABLE = "Qdrant 不可用";
+  public static final String INDEX_SCHEMA_FAILURE = "索引数据校验失败";
+  public static final String INDEX_UNKNOWN_FAILURE = "索引未知错误";
 }

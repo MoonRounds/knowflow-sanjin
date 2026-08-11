@@ -140,6 +140,21 @@ public class ModelConfigService {
     return loadCurrentRevision(configId);
   }
 
+  /** 供 Extraction 使用：按已锁定 Revision id 加载不可变 Revision（校验 owner 边界）。 */
+  @Transactional(readOnly = true)
+  public ModelConfigRevision getRevisionForSnapshot(Long revisionId) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    ModelConfigRevision rev =
+        revisionMapper.selectOne(
+            new LambdaQueryWrapper<ModelConfigRevision>()
+                .eq(ModelConfigRevision::getId, revisionId)
+                .eq(ModelConfigRevision::getOwnerId, ownerId));
+    if (rev == null) {
+      throw new ModelConfigNotFoundException(null);
+    }
+    return rev;
+  }
+
   @Transactional(readOnly = true)
   public List<ModelConfigRevision> listRevisions(Long configId) {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();

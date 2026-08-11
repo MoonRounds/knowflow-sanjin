@@ -76,10 +76,10 @@ describe('conversations api client', () => {
   })
 
   it('throws ApiError on non-ok response', async () => {
-    stubFetchJson(409, { detail: 'conflict', errorCode: 'ACTIVE_GENERATION_EXISTS' })
+    stubFetchJson(409, { detail: 'conflict', errorCode: '存在进行中的生成' })
     await expect(createConversation({ title: 'x' })).rejects.toMatchObject({
       status: 409,
-      errorCode: 'ACTIVE_GENERATION_EXISTS',
+      errorCode: '存在进行中的生成',
     })
   })
 

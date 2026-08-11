@@ -143,7 +143,7 @@ public class ProcessingTaskService {
                             .or()
                             .lt(ProcessingTask::getLastDeliveryAt, staleCutoff)));
     for (ProcessingTask task : undelivered) {
-      republishToWork(task.getId());
+      republishToWork(task);
       republished++;
     }
 
@@ -161,13 +161,13 @@ public class ProcessingTaskService {
               .set(ProcessingTask::getStatus, ProcessingConstants.STATUS_PENDING)
               .set(ProcessingTask::getStartedAt, null);
       if (mapper.update(null, update) == 1) {
-        republishToWork(task.getId());
+        republishToWork(task);
         recovered++;
       }
     }
     int total = republished + recovered;
     if (total > 0) {
-      log.info("Recovery scan republished={} recovered={}", republished, recovered);
+      log.info("恢复扫描重发 {} 个，恢复 {} 个", republished, recovered);
     }
     return total;
   }
@@ -229,8 +229,28 @@ public class ProcessingTaskService {
         && !ProcessingConstants.STATUS_PENDING.equals(task.getStatus());
   }
 
+  private static boolean isExtraction(ProcessingTask task) {
+    return knowflow.sanjin.modules.extraction.ExtractionConstants.TASK_TYPE_EXTRACTION.equals(
+        task.getTaskType());
+  }
+
   /** 直接投递到工作交换机（恢复扫描用）；发布失败静默留待下轮。 */
+  private void republishToWork(ProcessingTask task) {
+    if (isExtraction(task)) {
+      publisher.publishAfterCommit(
+          task.getId(), knowflow.sanjin.modules.extraction.ExtractionConstants.WORK_QUEUE_BASE);
+    } else {
+      publisher.publishAfterCommit(task.getId());
+    }
+  }
+
   private void republishToWork(Long taskId) {
-    publisher.publishAfterCommit(taskId);
+    ProcessingTask task = mapper.selectById(taskId);
+    if (task != null && isExtraction(task)) {
+      publisher.publishAfterCommit(
+          taskId, knowflow.sanjin.modules.extraction.ExtractionConstants.WORK_QUEUE_BASE);
+    } else {
+      publisher.publishAfterCommit(taskId);
+    }
   }
 }

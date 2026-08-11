@@ -4,6 +4,102 @@
  */
 
 export interface paths {
+    "/api/v1/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_5"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_4"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/candidates/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/conversations": {
         parameters: {
             query?: never;
@@ -14,6 +110,22 @@ export interface paths {
         get: operations["list_3"];
         put?: never;
         post: operations["create_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{conversationId}/extraction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["trigger"];
         delete?: never;
         options?: never;
         head?: never;
@@ -376,6 +488,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CandidatePageResponse: {
+            items?: components["schemas"]["CandidateResponse"][];
+            /** Format: int64 */
+            page?: number;
+            /** Format: int64 */
+            size?: number;
+            /** Format: int64 */
+            total?: number;
+        };
+        CandidateResponse: {
+            aiContent?: string;
+            aiKnowledgeBaseIds?: string[];
+            aiReason?: string;
+            aiSummary?: string;
+            aiTags?: string[];
+            aiTitle?: string;
+            confirmedItemId?: string;
+            draftContent?: string;
+            draftKnowledgeBaseIds?: string[];
+            draftSummary?: string;
+            draftTags?: string[];
+            draftTitle?: string;
+            extractionTaskId?: string;
+            id?: string;
+            /** Format: int32 */
+            rowVersion?: number;
+            status?: string;
+        };
         ConnectionTestResult: {
             message: string;
             modelName: string;
@@ -422,6 +562,21 @@ export interface components {
             providerName: string;
             /** Format: double */
             temperature?: number;
+        };
+        ExtractionTaskResponse: {
+            /** Format: int32 */
+            candidateCount?: number;
+            conversationId?: string;
+            cutoffMessageId?: string;
+            extractionProfile?: string;
+            id?: string;
+            /** Format: int32 */
+            inputCharCount?: number;
+            processingTaskId?: string;
+            /** Format: int32 */
+            profileVersion?: number;
+            status?: string;
+            utilityRevisionId?: string;
         };
         KnowledgeBaseResponse: {
             /** Format: date-time */
@@ -591,6 +746,15 @@ export interface components {
             /** Format: int32 */
             totalTokens?: number;
         };
+        UpdateCandidateDraftRequest: {
+            content: string;
+            knowledgeBaseIds: string[];
+            /** Format: int32 */
+            rowVersion?: number;
+            summary?: string;
+            tags?: string[];
+            title: string;
+        };
         UpdateConversationRequest: {
             /** Format: int64 */
             defaultModelConfigId?: number;
@@ -646,6 +810,150 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_5: {
+        parameters: {
+            query?: {
+                status?: string;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandidatePageResponse"];
+                };
+            };
+        };
+    };
+    get_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandidateResponse"];
+                };
+            };
+        };
+    };
+    confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandidateResponse"];
+                };
+            };
+        };
+    };
+    updateDraft: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCandidateDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandidateResponse"];
+                };
+            };
+        };
+    };
+    reject: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandidateResponse"];
+                };
+            };
+        };
+    };
+    restore: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CandidateResponse"];
+                };
+            };
+        };
+    };
     list_3: {
         parameters: {
             query?: never;
@@ -686,6 +994,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ConversationResponse"];
+                };
+            };
+        };
+    };
+    trigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ExtractionTaskResponse"];
                 };
             };
         };

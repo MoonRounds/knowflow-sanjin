@@ -42,6 +42,9 @@ public class KnowledgeItem {
 
   private String status;
 
+  /** Candidate 来源 id（0..1）：由 Candidate 确认创建的 Item 记录其来源候选。 */
+  private Long candidateId;
+
   private Integer rowVersion;
 
   @TableField(fill = FieldFill.INSERT)
@@ -144,6 +147,14 @@ public class KnowledgeItem {
 
   public void setStatus(String status) {
     this.status = status;
+  }
+
+  public Long getCandidateId() {
+    return candidateId;
+  }
+
+  public void setCandidateId(Long candidateId) {
+    this.candidateId = candidateId;
   }
 
   public Integer getRowVersion() {
