@@ -6,6 +6,11 @@ import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsExce
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.MessageNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.NoDefaultModelConfigException;
+import knowflow.sanjin.modules.document.exception.FileMetadataNotFoundException;
+import knowflow.sanjin.modules.document.exception.FileTooLargeException;
+import knowflow.sanjin.modules.document.exception.FileUnsupportedTypeException;
+import knowflow.sanjin.modules.document.exception.InvalidFileContentException;
+import knowflow.sanjin.modules.document.exception.StoredFileMissingException;
 import knowflow.sanjin.modules.extraction.exception.CandidateEmptyDraftException;
 import knowflow.sanjin.modules.extraction.exception.CandidateInvalidStateException;
 import knowflow.sanjin.modules.extraction.exception.CandidateNoKnowledgeBaseException;
@@ -307,6 +312,43 @@ public class GlobalExceptionHandler {
         "Precondition required",
         ex.getMessage(),
         ErrorCode.IF_MATCH_REQUIRED);
+  }
+
+  @ExceptionHandler(FileTooLargeException.class)
+  public ResponseEntity<ProblemDetail> handleFileTooLarge(FileTooLargeException ex) {
+    return problem(
+        HttpStatus.UNPROCESSABLE_ENTITY, "文件超过大小限制", ex.getMessage(), ErrorCode.FILE_TOO_LARGE);
+  }
+
+  @ExceptionHandler(FileUnsupportedTypeException.class)
+  public ResponseEntity<ProblemDetail> handleFileUnsupportedType(FileUnsupportedTypeException ex) {
+    return problem(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        "不支持的文件类型",
+        ex.getMessage(),
+        ErrorCode.FILE_UNSUPPORTED_TYPE);
+  }
+
+  @ExceptionHandler(InvalidFileContentException.class)
+  public ResponseEntity<ProblemDetail> handleInvalidFileContent(InvalidFileContentException ex) {
+    return problem(
+        HttpStatus.UNPROCESSABLE_ENTITY, "文件内容非法", ex.getMessage(), ErrorCode.FILE_INVALID_CONTENT);
+  }
+
+  @ExceptionHandler(StoredFileMissingException.class)
+  public ResponseEntity<ProblemDetail> handleStoredFileMissing(StoredFileMissingException ex) {
+    return problem(
+        HttpStatus.INTERNAL_SERVER_ERROR, "原文件缺失", ex.getMessage(), ErrorCode.FILE_STORED_MISSING);
+  }
+
+  @ExceptionHandler(FileMetadataNotFoundException.class)
+  public ResponseEntity<ProblemDetail> handleFileMetadataNotFound(
+      FileMetadataNotFoundException ex) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        "文件元数据不存在",
+        "FileMetadata with id=" + ex.getId() + " does not exist or is not accessible.",
+        ErrorCode.DOCUMENT_FILE_NOT_FOUND);
   }
 
   @ExceptionHandler(IllegalArgumentException.class)

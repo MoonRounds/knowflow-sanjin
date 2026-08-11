@@ -63,7 +63,8 @@ class KnowledgeServiceTest {
             itemTagMapper,
             tagMapper,
             knowledgeBaseService,
-            taskSubmissionService);
+            taskSubmissionService,
+            List.of());
 
     UpdateManualNoteRequest request = new UpdateManualNoteRequest();
     request.setContent("new body");

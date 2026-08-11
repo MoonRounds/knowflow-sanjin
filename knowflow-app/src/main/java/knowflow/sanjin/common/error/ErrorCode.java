@@ -63,4 +63,13 @@ public final class ErrorCode {
   public static final String QDRANT_UNAVAILABLE = "Qdrant 不可用";
   public static final String INDEX_SCHEMA_FAILURE = "索引数据校验失败";
   public static final String INDEX_UNKNOWN_FAILURE = "索引未知错误";
+
+  // ---- Document Upload ----
+  public static final String FILE_INVALID_CONTENT = "文件内容非法";
+  public static final String FILE_TOO_LARGE = "文件超过大小限制";
+  public static final String FILE_UNSUPPORTED_TYPE = "不支持的文件类型";
+  public static final String FILE_STORED_MISSING = "原文件缺失";
+  public static final String DOCUMENT_PARSE_FAILED = "文档解析失败";
+  public static final String DOCUMENT_PARSE_UNKNOWN = "文档解析未知错误";
+  public static final String DOCUMENT_FILE_NOT_FOUND = "文件元数据不存在";
 }

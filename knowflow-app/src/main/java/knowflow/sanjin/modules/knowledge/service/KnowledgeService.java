@@ -28,6 +28,8 @@ import knowflow.sanjin.modules.knowledgebase.service.KnowledgeBaseService;
 import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import knowflow.sanjin.modules.processing.ProcessingConstants;
 import knowflow.sanjin.modules.processing.service.TaskSubmissionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class KnowledgeService {
 
+  private static final Logger log = LoggerFactory.getLogger(KnowledgeService.class);
+
   private static final int DEFAULT_MAX_RETRIES = 3;
 
   private final CurrentOwnerProvider currentOwnerProvider;
@@ -51,6 +55,7 @@ public class KnowledgeService {
   private final TagMapper tagMapper;
   private final KnowledgeBaseService knowledgeBaseService;
   private final TaskSubmissionService taskSubmissionService;
+  private final List<KnowledgeItemLifecycleHandler> lifecycleHandlers;
 
   public KnowledgeService(
       CurrentOwnerProvider currentOwnerProvider,
@@ -59,7 +64,8 @@ public class KnowledgeService {
       KnowledgeItemTagMapper itemTagMapper,
       TagMapper tagMapper,
       KnowledgeBaseService knowledgeBaseService,
-      TaskSubmissionService taskSubmissionService) {
+      TaskSubmissionService taskSubmissionService,
+      List<KnowledgeItemLifecycleHandler> lifecycleHandlers) {
     this.currentOwnerProvider = currentOwnerProvider;
     this.itemMapper = itemMapper;
     this.kbItemMapper = kbItemMapper;
@@ -67,6 +73,7 @@ public class KnowledgeService {
     this.tagMapper = tagMapper;
     this.knowledgeBaseService = knowledgeBaseService;
     this.taskSubmissionService = taskSubmissionService;
+    this.lifecycleHandlers = lifecycleHandlers;
   }
 
   @Transactional
@@ -96,6 +103,52 @@ public class KnowledgeService {
     replaceTagRelations(ownerId, item.getId(), tagNames);
 
     submitIndexTask(item.getId(), ownerId, 1);
+    return item;
+  }
+
+  /** 创建 Upload 来源 Item：正文占位由解析阶段填充；只关联 KnowledgeBase，不在此提交索引任务（解析成功后才触发）。 */
+  @Transactional
+  public KnowledgeItem createUploadItem(List<Long> kbIds, String title) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    List<Long> resolved = resolveLongKnowledgeBaseIds(ownerId, kbIds);
+
+    KnowledgeItem item = new KnowledgeItem();
+    item.setOwnerId(ownerId);
+    item.setSourceType(KnowledgeConstants.SOURCE_UPLOAD_FILE);
+    item.setTitle(title);
+    item.setSummary(null);
+    item.setContent("");
+    item.setContentVersion(1);
+    item.setIndexStatus(KnowledgeConstants.INDEX_PENDING);
+    item.setStatus(KnowledgeConstants.STATUS_ACTIVE);
+    item.setRowVersion(0);
+    itemMapper.insert(item);
+
+    replaceKnowledgeBaseRelations(ownerId, item.getId(), resolved);
+    return item;
+  }
+
+  /** 恢复软删的 Upload Item：重新关联 KB、重置正文占位与索引状态，供解析阶段填充。 */
+  @Transactional
+  public KnowledgeItem restoreUploadItem(Long itemId, List<Long> kbIds) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    KnowledgeItem item =
+        itemMapper.selectOne(
+            new LambdaQueryWrapper<KnowledgeItem>()
+                .eq(KnowledgeItem::getId, itemId)
+                .eq(KnowledgeItem::getOwnerId, ownerId));
+    if (item == null) {
+      throw new KnowledgeItemNotFoundException(itemId);
+    }
+    List<Long> resolved = resolveLongKnowledgeBaseIds(ownerId, kbIds);
+    item.setStatus(KnowledgeConstants.STATUS_ACTIVE);
+    item.setContent("");
+    item.setContentVersion(1);
+    item.setIndexStatus(KnowledgeConstants.INDEX_PENDING);
+    item.setIndexErrorCode(null);
+    item.setIndexErrorMessage(null);
+    itemMapper.updateById(item);
+    replaceKnowledgeBaseRelations(ownerId, itemId, resolved);
     return item;
   }
 
@@ -289,7 +342,19 @@ public class KnowledgeService {
             .eq(KnowledgeBaseItem::getKnowledgeItemId, id)
             .set(KnowledgeBaseItem::getDeleted, true));
     submitDeleteTask(id, ownerId);
+    notifyLifecycleHandlers(id, ownerId);
     return current;
+  }
+
+  /** 通知跨模块生命周期回调（如 Upload 原文件与 FileMetadata 清理），失败不阻塞主流程。 */
+  private void notifyLifecycleHandlers(Long itemId, long ownerId) {
+    for (KnowledgeItemLifecycleHandler handler : lifecycleHandlers) {
+      try {
+        handler.onItemSoftDeleted(itemId, ownerId);
+      } catch (RuntimeException e) {
+        log.warn("Item {} 生命周期回调失败：{}", itemId, e.getMessage());
+      }
+    }
   }
 
   private void submitDeleteTask(Long itemId, long ownerId) {
@@ -339,6 +404,18 @@ public class KnowledgeService {
     return new ArrayList<>(new LinkedHashSet<>(ids));
   }
 
+  private List<Long> resolveLongKnowledgeBaseIds(long ownerId, List<Long> rawIds) {
+    if (rawIds == null || rawIds.isEmpty()) {
+      throw new IllegalArgumentException("At least one KnowledgeBase must be associated");
+    }
+    List<Long> ids = new ArrayList<>();
+    for (Long id : rawIds) {
+      knowledgeBaseService.getByIdAndOwner(id); // 校验存在与 owner 边界
+      ids.add(id);
+    }
+    return new ArrayList<>(new LinkedHashSet<>(ids));
+  }
+
   private void submitIndexTask(Long itemId, long ownerId, int contentVersion) {
     try {
       taskSubmissionService.submit(
@@ -364,6 +441,25 @@ public class KnowledgeService {
           DEFAULT_MAX_RETRIES);
     } catch (DuplicateKeyException e) {
       // 已有活动 PAYLOAD 任务，跳过（同版本内容未变，payload 幂等收敛）
+    }
+  }
+
+  /**
+   * 解析成功后提交索引任务（Upload 流程复用）：已有活动索引任务时跳过（幂等），不抛冲突。
+   *
+   * <p>与 {@link #submitIndexTask} 不同：解析场景下重复消费/重试时若索引任务已存在，直接跳过即可。
+   */
+  public void submitIndexTaskAfterParse(Long itemId, long ownerId, int contentVersion) {
+    try {
+      taskSubmissionService.submit(
+          ProcessingConstants.TASK_TYPE_KNOWLEDGE_INDEX,
+          businessKey(itemId, contentVersion),
+          itemId,
+          ownerId,
+          null,
+          DEFAULT_MAX_RETRIES);
+    } catch (DuplicateKeyException e) {
+      // 已有活动索引任务，跳过
     }
   }
 

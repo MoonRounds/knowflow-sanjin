@@ -6,6 +6,7 @@ public final class KnowledgeConstants {
   private KnowledgeConstants() {}
 
   public static final String SOURCE_MANUAL_NOTE = "MANUAL_NOTE";
+  public static final String SOURCE_UPLOAD_FILE = "UPLOAD_FILE";
 
   public static final String STATUS_ACTIVE = "ACTIVE";
   public static final String STATUS_DELETED = "DELETED";

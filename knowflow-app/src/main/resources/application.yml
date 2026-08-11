@@ -49,6 +49,8 @@ knowflow:
   rabbit:
     prefix: ${KNOWFLOW_RABBIT_PREFIX:knowflow}
     work-queue: ${KNOWFLOW_RABBIT_WORK_QUEUE:index.work}
+    extraction-work-queue: ${KNOWFLOW_RABBIT_EXTRACTION_WORK_QUEUE:extraction.work}
+    document-work-queue: ${KNOWFLOW_RABBIT_DOCUMENT_WORK_QUEUE:document.work}
     processing-lease-timeout: ${KNOWFLOW_RABBIT_PROCESSING_LEASE_TIMEOUT:10m}
     recovery-scan-interval: ${KNOWFLOW_RABBIT_RECOVERY_SCAN_INTERVAL:1m}
   chunking:
@@ -80,6 +82,10 @@ knowflow:
     max-knowledge-bases-per-candidate: ${KNOWFLOW_EXTRACTION_MAX_KBS_PER_CANDIDATE:3}
     max-tags-per-candidate: ${KNOWFLOW_EXTRACTION_MAX_TAGS_PER_CANDIDATE:5}
     max-retries: ${KNOWFLOW_EXTRACTION_MAX_RETRIES:3}
+  document:
+    storage-root: ${KNOWFLOW_DOCUMENT_STORAGE_ROOT:knowflow-data/files}
+    max-file-bytes: ${KNOWFLOW_DOCUMENT_MAX_FILE_BYTES:5242880}
+    allowed-extensions: ${KNOWFLOW_DOCUMENT_ALLOWED_EXTENSIONS:md,markdown,txt}
 
 springdoc:
   api-docs:
