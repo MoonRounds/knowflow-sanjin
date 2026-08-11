@@ -234,11 +234,19 @@ public class ProcessingTaskService {
         task.getTaskType());
   }
 
+  private static boolean isDocumentParse(ProcessingTask task) {
+    return knowflow.sanjin.modules.document.DocumentConstants.TASK_TYPE_DOCUMENT_PARSE.equals(
+        task.getTaskType());
+  }
+
   /** 直接投递到工作交换机（恢复扫描用）；发布失败静默留待下轮。 */
   private void republishToWork(ProcessingTask task) {
     if (isExtraction(task)) {
       publisher.publishAfterCommit(
           task.getId(), knowflow.sanjin.modules.extraction.ExtractionConstants.WORK_QUEUE_BASE);
+    } else if (isDocumentParse(task)) {
+      publisher.publishAfterCommit(
+          task.getId(), knowflow.sanjin.modules.document.DocumentConstants.WORK_QUEUE_BASE);
     } else {
       publisher.publishAfterCommit(task.getId());
     }
@@ -246,9 +254,15 @@ public class ProcessingTaskService {
 
   private void republishToWork(Long taskId) {
     ProcessingTask task = mapper.selectById(taskId);
-    if (task != null && isExtraction(task)) {
+    if (task == null) {
+      return;
+    }
+    if (isExtraction(task)) {
       publisher.publishAfterCommit(
           taskId, knowflow.sanjin.modules.extraction.ExtractionConstants.WORK_QUEUE_BASE);
+    } else if (isDocumentParse(task)) {
+      publisher.publishAfterCommit(
+          taskId, knowflow.sanjin.modules.document.DocumentConstants.WORK_QUEUE_BASE);
     } else {
       publisher.publishAfterCommit(taskId);
     }
