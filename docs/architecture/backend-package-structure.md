@@ -69,6 +69,15 @@ knowflow-app/src/main/java/knowflow/sanjin/
         ├── listener/                      # ExtractionTaskConsumer（RabbitMQ 独立工作队列）
         ├── mapper/
         └── service/                       # ExtractionService / ExtractionExecutor / CandidateService / CandidateConfirmService
+    └── document/                         # Markdown/TXT 上传、去重与文档解析（Phase 8）
+        ├── config/                        # DocumentProperties（knowflow.document.*）
+        ├── controller/                    # DocumentController（上传/元数据/下载）+ FileMetadataAssembler
+        ├── entity/                        # FileMetadata（与 KnowledgeItem 一对一）
+        ├── exception/                     # 大小/类型/内容/存储缺失/解析失败异常
+        ├── listener/                      # DocumentParseTaskConsumer（RabbitMQ 独立 document 工作队列）
+        ├── mapper/
+        └── service/                       # DocumentUploadService / DocumentParsingService / DocumentParser
+                                            # MimeDetectionService(tika-core) / FileStorageService / LocalFileStore
 ```
 
 测试代码镜像生产代码的模块路径；数据库容器等测试基础设施统一放在

@@ -1,2131 +1,2606 @@
 {
-  "components" : {
-    "schemas" : {
-      "CandidatePageResponse" : {
-        "properties" : {
-          "items" : {
-            "items" : {
-              "$ref" : "#/components/schemas/CandidateResponse"
+    "components": {
+        "schemas": {
+            "CandidatePageResponse": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/CandidateResponse"
+                        },
+                        "type": "array"
+                    },
+                    "page": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "size": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "total": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "page" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
-          "size" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
-          "total" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        },
-        "type" : "object"
-      },
-      "CandidateResponse" : {
-        "properties" : {
-          "aiContent" : {
-            "type" : "string"
-          },
-          "aiKnowledgeBaseIds" : {
-            "items" : {
-              "type" : "string"
+            "CandidateResponse": {
+                "properties": {
+                    "aiContent": {
+                        "type": "string"
+                    },
+                    "aiKnowledgeBaseIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "aiReason": {
+                        "type": "string"
+                    },
+                    "aiSummary": {
+                        "type": "string"
+                    },
+                    "aiTags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "aiTitle": {
+                        "type": "string"
+                    },
+                    "confirmedItemId": {
+                        "type": "string"
+                    },
+                    "draftContent": {
+                        "type": "string"
+                    },
+                    "draftKnowledgeBaseIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "draftSummary": {
+                        "type": "string"
+                    },
+                    "draftTags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "draftTitle": {
+                        "type": "string"
+                    },
+                    "extractionTaskId": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "aiReason" : {
-            "type" : "string"
-          },
-          "aiSummary" : {
-            "type" : "string"
-          },
-          "aiTags" : {
-            "items" : {
-              "type" : "string"
+            "ConnectionTestResult": {
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "type": "string"
+                    },
+                    "outputTokenCount": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "testedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "warnings": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    }
+                },
+                "required": [
+                    "message",
+                    "modelName",
+                    "success",
+                    "testedAt",
+                    "warnings"
+                ],
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "aiTitle" : {
-            "type" : "string"
-          },
-          "confirmedItemId" : {
-            "type" : "string"
-          },
-          "draftContent" : {
-            "type" : "string"
-          },
-          "draftKnowledgeBaseIds" : {
-            "items" : {
-              "type" : "string"
+            "ConversationResponse": {
+                "properties": {
+                    "activeGenerationMessageId": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "defaultModelConfigId": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "draftSummary" : {
-            "type" : "string"
-          },
-          "draftTags" : {
-            "items" : {
-              "type" : "string"
+            "CreateConversationRequest": {
+                "properties": {
+                    "title": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "title"
+                ],
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "draftTitle" : {
-            "type" : "string"
-          },
-          "extractionTaskId" : {
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "rowVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "status" : {
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "ConnectionTestResult" : {
-        "properties" : {
-          "message" : {
-            "type" : "string"
-          },
-          "modelName" : {
-            "type" : "string"
-          },
-          "outputTokenCount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "success" : {
-            "type" : "boolean"
-          },
-          "testedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "warnings" : {
-            "items" : {
-              "type" : "string"
+            "CreateKnowledgeBaseRequest": {
+                "properties": {
+                    "description": {
+                        "maxLength": 2000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "name": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
+                ],
+                "type": "object"
             },
-            "type" : "array"
-          }
-        },
-        "required" : [ "message", "modelName", "success", "testedAt", "warnings" ],
-        "type" : "object"
-      },
-      "ConversationResponse" : {
-        "properties" : {
-          "activeGenerationMessageId" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "defaultModelConfigId" : {
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "rowVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "title" : {
-            "type" : "string"
-          },
-          "updatedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "CreateConversationRequest" : {
-        "properties" : {
-          "title" : {
-            "maxLength" : 200,
-            "minLength" : 0,
-            "type" : "string"
-          }
-        },
-        "required" : [ "title" ],
-        "type" : "object"
-      },
-      "CreateKnowledgeBaseRequest" : {
-        "properties" : {
-          "description" : {
-            "maxLength" : 2000,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "name" : {
-            "maxLength" : 200,
-            "minLength" : 0,
-            "type" : "string"
-          }
-        },
-        "required" : [ "name" ],
-        "type" : "object"
-      },
-      "CreateManualNoteRequest" : {
-        "properties" : {
-          "content" : {
-            "maxLength" : 200000,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "knowledgeBaseIds" : {
-            "items" : {
-              "maxLength" : 200,
-              "minLength" : 0,
-              "type" : "string"
+            "CreateManualNoteRequest": {
+                "properties": {
+                    "content": {
+                        "maxLength": 200000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "knowledgeBaseIds": {
+                        "items": {
+                            "maxLength": 200,
+                            "minLength": 0,
+                            "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                    },
+                    "summary": {
+                        "maxLength": 2000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "content",
+                    "knowledgeBaseIds"
+                ],
+                "type": "object"
             },
-            "minItems" : 1,
-            "type" : "array"
-          },
-          "summary" : {
-            "maxLength" : 2000,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "tags" : {
-            "items" : {
-              "type" : "string"
+            "CreateModelConfigRequest": {
+                "properties": {
+                    "apiKey": {
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "maxOutputTokens": {
+                        "format": "int32",
+                        "maximum": 1000000,
+                        "minimum": 1,
+                        "type": "integer"
+                    },
+                    "modelName": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "providerName": {
+                        "maxLength": 100,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "temperature": {
+                        "format": "double",
+                        "maximum": 2.0,
+                        "minimum": 0.0,
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "apiKey",
+                    "baseUrl",
+                    "displayName",
+                    "modelName",
+                    "providerName"
+                ],
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "title" : {
-            "type" : "string"
-          }
-        },
-        "required" : [ "content", "knowledgeBaseIds" ],
-        "type" : "object"
-      },
-      "CreateModelConfigRequest" : {
-        "properties" : {
-          "apiKey" : {
-            "minLength" : 1,
-            "type" : "string"
-          },
-          "baseUrl" : {
-            "maxLength" : 500,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "displayName" : {
-            "maxLength" : 200,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "maxOutputTokens" : {
-            "format" : "int32",
-            "maximum" : 1000000,
-            "minimum" : 1,
-            "type" : "integer"
-          },
-          "modelName" : {
-            "maxLength" : 200,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "providerName" : {
-            "maxLength" : 100,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "temperature" : {
-            "format" : "double",
-            "maximum" : 2.0,
-            "minimum" : 0.0,
-            "type" : "number"
-          }
-        },
-        "required" : [ "apiKey", "baseUrl", "displayName", "modelName", "providerName" ],
-        "type" : "object"
-      },
-      "ExtractionTaskResponse" : {
-        "properties" : {
-          "candidateCount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "conversationId" : {
-            "type" : "string"
-          },
-          "cutoffMessageId" : {
-            "type" : "string"
-          },
-          "extractionProfile" : {
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "inputCharCount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "processingTaskId" : {
-            "type" : "string"
-          },
-          "profileVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "utilityRevisionId" : {
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "KnowledgeBaseResponse" : {
-        "properties" : {
-          "createdAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "description" : {
-            "type" : "string"
-          },
-          "enabled" : {
-            "type" : "boolean"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "rowVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "updatedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "required" : [ "createdAt", "enabled", "id", "name", "rowVersion", "updatedAt" ],
-        "type" : "object"
-      },
-      "KnowledgeItemResponse" : {
-        "properties" : {
-          "content" : {
-            "type" : "string"
-          },
-          "contentVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "createdAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "indexErrorCode" : {
-            "type" : "string"
-          },
-          "indexErrorMessage" : {
-            "type" : "string"
-          },
-          "indexStatus" : {
-            "type" : "string"
-          },
-          "indexedVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "knowledgeBaseIds" : {
-            "items" : {
-              "type" : "string"
+            "ExtractionTaskResponse": {
+                "properties": {
+                    "candidateCount": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "conversationId": {
+                        "type": "string"
+                    },
+                    "cutoffMessageId": {
+                        "type": "string"
+                    },
+                    "extractionProfile": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "inputCharCount": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "processingTaskId": {
+                        "type": "string"
+                    },
+                    "profileVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "utilityRevisionId": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "rowVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "sourceType" : {
-            "type" : "string"
-          },
-          "summary" : {
-            "type" : "string"
-          },
-          "tags" : {
-            "items" : {
-              "type" : "string"
+            "FileMetadataResponse": {
+                "properties": {
+                    "byteSize": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "contentType": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "detectedMimeType": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "knowledgeItemId": {
+                        "type": "string"
+                    },
+                    "originalFilename": {
+                        "type": "string"
+                    },
+                    "parseErrorCode": {
+                        "type": "string"
+                    },
+                    "parseErrorMessage": {
+                        "type": "string"
+                    },
+                    "parseStatus": {
+                        "type": "string"
+                    },
+                    "sha256": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "title" : {
-            "type" : "string"
-          },
-          "updatedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "required" : [ "content", "contentVersion", "createdAt", "id", "indexStatus", "knowledgeBaseIds", "rowVersion", "sourceType", "tags", "title", "updatedAt" ],
-        "type" : "object"
-      },
-      "MessagePageResponse" : {
-        "properties" : {
-          "messages" : {
-            "items" : {
-              "$ref" : "#/components/schemas/MessageResponse"
+            "FileUploadResponse": {
+                "properties": {
+                    "duplicate": {
+                        "type": "boolean"
+                    },
+                    "file": {
+                        "$ref": "#/components/schemas/FileMetadataResponse"
+                    },
+                    "item": {
+                        "$ref": "#/components/schemas/KnowledgeItemForFileResponse"
+                    }
+                },
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "nextBefore" : {
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "MessageResponse" : {
-        "properties" : {
-          "active" : {
-            "type" : "boolean"
-          },
-          "content" : {
-            "type" : "string"
-          },
-          "conversationId" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "errorCode" : {
-            "type" : "string"
-          },
-          "generationStatus" : {
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "modelConfigId" : {
-            "type" : "string"
-          },
-          "modelName" : {
-            "type" : "string"
-          },
-          "providerName" : {
-            "type" : "string"
-          },
-          "ragStatus" : {
-            "type" : "string"
-          },
-          "replyToMessageId" : {
-            "type" : "string"
-          },
-          "revisionNo" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "role" : {
-            "type" : "string"
-          },
-          "sources" : {
-            "items" : {
-              "$ref" : "#/components/schemas/RetrievedSource"
+            "KnowledgeBaseResponse": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "enabled",
+                    "id",
+                    "name",
+                    "rowVersion",
+                    "updatedAt"
+                ],
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "updatedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "usage" : {
-            "$ref" : "#/components/schemas/TokenUsage"
-          }
-        },
-        "type" : "object"
-      },
-      "ModelConfigResponse" : {
-        "properties" : {
-          "createdAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "currentRevision" : {
-            "$ref" : "#/components/schemas/RevisionSummary"
-          },
-          "currentRevisionId" : {
-            "type" : "string"
-          },
-          "displayName" : {
-            "type" : "string"
-          },
-          "enabled" : {
-            "type" : "boolean"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "providerName" : {
-            "type" : "string"
-          },
-          "updatedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "required" : [ "createdAt", "displayName", "enabled", "id", "providerName", "updatedAt" ],
-        "type" : "object"
-      },
-      "ModelConfigRevisionResponse" : {
-        "properties" : {
-          "apiKeyEncryptionVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "apiKeyMasked" : {
-            "type" : "string"
-          },
-          "baseUrl" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "displayName" : {
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "maxOutputTokens" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "modelConfigId" : {
-            "type" : "string"
-          },
-          "modelName" : {
-            "type" : "string"
-          },
-          "providerName" : {
-            "type" : "string"
-          },
-          "providerType" : {
-            "type" : "string"
-          },
-          "revisionNo" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "temperature" : {
-            "format" : "double",
-            "type" : "number"
-          }
-        },
-        "required" : [ "apiKeyEncryptionVersion", "apiKeyMasked", "baseUrl", "createdAt", "displayName", "id", "modelConfigId", "modelName", "providerName", "providerType", "revisionNo" ],
-        "type" : "object"
-      },
-      "OwnerAiSettingsResponse" : {
-        "properties" : {
-          "defaultChatModelConfigId" : {
-            "type" : "string"
-          },
-          "updatedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "utilityModelConfigId" : {
-            "type" : "string"
-          }
-        },
-        "required" : [ "updatedAt" ],
-        "type" : "object"
-      },
-      "ProcessingTaskResponse" : {
-        "properties" : {
-          "businessId" : {
-            "type" : "string"
-          },
-          "businessKey" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "failureCode" : {
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "lastError" : {
-            "type" : "string"
-          },
-          "maxRetries" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "retryCount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "retryOfTaskId" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "taskType" : {
-            "type" : "string"
-          },
-          "updatedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "required" : [ "createdAt", "id", "maxRetries", "retryCount", "status", "taskType", "updatedAt" ],
-        "type" : "object"
-      },
-      "RegenerateRequest" : {
-        "properties" : {
-          "modelConfigId" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        },
-        "type" : "object"
-      },
-      "RetrievedSource" : {
-        "properties" : {
-          "chunkIndex" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "cited" : {
-            "type" : "boolean"
-          },
-          "contentVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "itemId" : {
-            "type" : "string"
-          },
-          "itemTitle" : {
-            "type" : "string"
-          },
-          "score" : {
-            "format" : "float",
-            "type" : "number"
-          },
-          "snippet" : {
-            "type" : "string"
-          },
-          "sourceId" : {
-            "type" : "string"
-          },
-          "sourceType" : {
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "RevisionSummary" : {
-        "properties" : {
-          "apiKeyMasked" : {
-            "type" : "string"
-          },
-          "baseUrl" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "displayName" : {
-            "type" : "string"
-          },
-          "id" : {
-            "type" : "string"
-          },
-          "maxOutputTokens" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "modelName" : {
-            "type" : "string"
-          },
-          "providerName" : {
-            "type" : "string"
-          },
-          "revisionNo" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "temperature" : {
-            "format" : "double",
-            "type" : "number"
-          }
-        },
-        "required" : [ "apiKeyMasked", "baseUrl", "createdAt", "displayName", "id", "modelName", "providerName", "revisionNo" ],
-        "type" : "object"
-      },
-      "SendMessageRequest" : {
-        "properties" : {
-          "clientMessageId" : {
-            "maxLength" : 64,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "content" : {
-            "minLength" : 1,
-            "type" : "string"
-          },
-          "modelConfigId" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        },
-        "required" : [ "clientMessageId", "content" ],
-        "type" : "object"
-      },
-      "SseEmitter" : {
-        "properties" : {
-          "timeout" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        },
-        "type" : "object"
-      },
-      "TokenUsage" : {
-        "properties" : {
-          "completionTokens" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "promptTokens" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "totalTokens" : {
-            "format" : "int32",
-            "type" : "integer"
-          }
-        },
-        "type" : "object"
-      },
-      "UpdateCandidateDraftRequest" : {
-        "properties" : {
-          "content" : {
-            "minLength" : 1,
-            "type" : "string"
-          },
-          "knowledgeBaseIds" : {
-            "items" : {
-              "type" : "string"
+            "KnowledgeItemForFileResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "indexStatus": {
+                        "type": "string"
+                    },
+                    "sourceType": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
             },
-            "minItems" : 1,
-            "type" : "array"
-          },
-          "rowVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "summary" : {
-            "type" : "string"
-          },
-          "tags" : {
-            "items" : {
-              "type" : "string"
+            "KnowledgeItemResponse": {
+                "properties": {
+                    "content": {
+                        "type": "string"
+                    },
+                    "contentVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "indexErrorCode": {
+                        "type": "string"
+                    },
+                    "indexErrorMessage": {
+                        "type": "string"
+                    },
+                    "indexStatus": {
+                        "type": "string"
+                    },
+                    "indexedVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "knowledgeBaseIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "sourceType": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "content",
+                    "contentVersion",
+                    "createdAt",
+                    "id",
+                    "indexStatus",
+                    "knowledgeBaseIds",
+                    "rowVersion",
+                    "sourceType",
+                    "tags",
+                    "title",
+                    "updatedAt"
+                ],
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "title" : {
-            "minLength" : 1,
-            "type" : "string"
-          }
-        },
-        "required" : [ "content", "knowledgeBaseIds", "title" ],
-        "type" : "object"
-      },
-      "UpdateConversationRequest" : {
-        "properties" : {
-          "defaultModelConfigId" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
-          "rowVersion" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
-          "title" : {
-            "maxLength" : 200,
-            "minLength" : 0,
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "UpdateKnowledgeBaseRequest" : {
-        "properties" : {
-          "description" : {
-            "maxLength" : 2000,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "enabled" : {
-            "type" : "boolean"
-          },
-          "name" : {
-            "maxLength" : 200,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "rowVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          }
-        },
-        "required" : [ "rowVersion" ],
-        "type" : "object"
-      },
-      "UpdateManualNoteRequest" : {
-        "properties" : {
-          "content" : {
-            "maxLength" : 200000,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "knowledgeBaseIds" : {
-            "items" : {
-              "maxLength" : 200,
-              "minLength" : 0,
-              "type" : "string"
+            "MessagePageResponse": {
+                "properties": {
+                    "messages": {
+                        "items": {
+                            "$ref": "#/components/schemas/MessageResponse"
+                        },
+                        "type": "array"
+                    },
+                    "nextBefore": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
             },
-            "minItems" : 1,
-            "type" : "array"
-          },
-          "rowVersion" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "summary" : {
-            "maxLength" : 2000,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "tags" : {
-            "items" : {
-              "type" : "string"
+            "MessageResponse": {
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "conversationId": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "errorCode": {
+                        "type": "string"
+                    },
+                    "generationStatus": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "modelConfigId": {
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "type": "string"
+                    },
+                    "providerName": {
+                        "type": "string"
+                    },
+                    "ragStatus": {
+                        "type": "string"
+                    },
+                    "replyToMessageId": {
+                        "type": "string"
+                    },
+                    "revisionNo": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "sources": {
+                        "items": {
+                            "$ref": "#/components/schemas/RetrievedSource"
+                        },
+                        "type": "array"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "usage": {
+                        "$ref": "#/components/schemas/TokenUsage"
+                    }
+                },
+                "type": "object"
             },
-            "type" : "array"
-          },
-          "title" : {
-            "type" : "string"
-          }
+            "ModelConfigResponse": {
+                "properties": {
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "currentRevision": {
+                        "$ref": "#/components/schemas/RevisionSummary"
+                    },
+                    "currentRevisionId": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "providerName": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "displayName",
+                    "enabled",
+                    "id",
+                    "providerName",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "ModelConfigRevisionResponse": {
+                "properties": {
+                    "apiKeyEncryptionVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "apiKeyMasked": {
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "maxOutputTokens": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "modelConfigId": {
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "type": "string"
+                    },
+                    "providerName": {
+                        "type": "string"
+                    },
+                    "providerType": {
+                        "type": "string"
+                    },
+                    "revisionNo": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "temperature": {
+                        "format": "double",
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "apiKeyEncryptionVersion",
+                    "apiKeyMasked",
+                    "baseUrl",
+                    "createdAt",
+                    "displayName",
+                    "id",
+                    "modelConfigId",
+                    "modelName",
+                    "providerName",
+                    "providerType",
+                    "revisionNo"
+                ],
+                "type": "object"
+            },
+            "OwnerAiSettingsResponse": {
+                "properties": {
+                    "defaultChatModelConfigId": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "utilityModelConfigId": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "ProcessingTaskResponse": {
+                "properties": {
+                    "businessId": {
+                        "type": "string"
+                    },
+                    "businessKey": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "failureCode": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "lastError": {
+                        "type": "string"
+                    },
+                    "maxRetries": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "retryCount": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "retryOfTaskId": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "taskType": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "id",
+                    "maxRetries",
+                    "retryCount",
+                    "status",
+                    "taskType",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "RegenerateRequest": {
+                "properties": {
+                    "modelConfigId": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "RetrievedSource": {
+                "properties": {
+                    "chunkIndex": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "cited": {
+                        "type": "boolean"
+                    },
+                    "contentVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "itemId": {
+                        "type": "string"
+                    },
+                    "itemTitle": {
+                        "type": "string"
+                    },
+                    "score": {
+                        "format": "float",
+                        "type": "number"
+                    },
+                    "snippet": {
+                        "type": "string"
+                    },
+                    "sourceId": {
+                        "type": "string"
+                    },
+                    "sourceType": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "RevisionSummary": {
+                "properties": {
+                    "apiKeyMasked": {
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "maxOutputTokens": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "modelName": {
+                        "type": "string"
+                    },
+                    "providerName": {
+                        "type": "string"
+                    },
+                    "revisionNo": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "temperature": {
+                        "format": "double",
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "apiKeyMasked",
+                    "baseUrl",
+                    "createdAt",
+                    "displayName",
+                    "id",
+                    "modelName",
+                    "providerName",
+                    "revisionNo"
+                ],
+                "type": "object"
+            },
+            "SendMessageRequest": {
+                "properties": {
+                    "clientMessageId": {
+                        "maxLength": 64,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "content": {
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "modelConfigId": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "clientMessageId",
+                    "content"
+                ],
+                "type": "object"
+            },
+            "SseEmitter": {
+                "properties": {
+                    "timeout": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "TokenUsage": {
+                "properties": {
+                    "completionTokens": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "promptTokens": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "totalTokens": {
+                        "format": "int32",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateCandidateDraftRequest": {
+                "properties": {
+                    "content": {
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "knowledgeBaseIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "title": {
+                        "minLength": 1,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "content",
+                    "knowledgeBaseIds",
+                    "title"
+                ],
+                "type": "object"
+            },
+            "UpdateConversationRequest": {
+                "properties": {
+                    "defaultModelConfigId": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "rowVersion": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "title": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateKnowledgeBaseRequest": {
+                "properties": {
+                    "description": {
+                        "maxLength": 2000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "name": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "rowVersion"
+                ],
+                "type": "object"
+            },
+            "UpdateManualNoteRequest": {
+                "properties": {
+                    "content": {
+                        "maxLength": 200000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "knowledgeBaseIds": {
+                        "items": {
+                            "maxLength": 200,
+                            "minLength": 0,
+                            "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "summary": {
+                        "maxLength": 2000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "knowledgeBaseIds",
+                    "rowVersion"
+                ],
+                "type": "object"
+            },
+            "UpdateModelConfigRequest": {
+                "properties": {
+                    "apiKey": {
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "maxOutputTokens": {
+                        "format": "int32",
+                        "maximum": 1000000,
+                        "minimum": 1,
+                        "type": "integer"
+                    },
+                    "modelName": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "providerName": {
+                        "maxLength": 100,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "temperature": {
+                        "format": "double",
+                        "maximum": 2.0,
+                        "minimum": 0.0,
+                        "type": "number"
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateOwnerAiSettingsRequest": {
+                "properties": {
+                    "defaultChatModelConfigId": {
+                        "type": "string"
+                    },
+                    "utilityModelConfigId": {
+                        "minLength": 1,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "utilityModelConfigId"
+                ],
+                "type": "object"
+            },
+            "UtilityCapabilityTestResult": {
+                "properties": {
+                    "candidateSchemaValid": {
+                        "type": "boolean"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "routerSchemaValid": {
+                        "type": "boolean"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "testedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "candidateSchemaValid",
+                    "message",
+                    "routerSchemaValid",
+                    "success",
+                    "testedAt"
+                ],
+                "type": "object"
+            }
+        }
+    },
+    "info": {
+        "title": "OpenAPI definition",
+        "version": "v0"
+    },
+    "openapi": "3.1.0",
+    "paths": {
+        "/api/v1/candidates": {
+            "get": {
+                "operationId": "list_5",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "required": false,
+                        "schema": {
+                            "default": 1,
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "size",
+                        "required": false,
+                        "schema": {
+                            "default": 20,
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CandidatePageResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "candidate-controller"
+                ]
+            }
         },
-        "required" : [ "knowledgeBaseIds", "rowVersion" ],
-        "type" : "object"
-      },
-      "UpdateModelConfigRequest" : {
-        "properties" : {
-          "apiKey" : {
-            "type" : "string"
-          },
-          "baseUrl" : {
-            "maxLength" : 500,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "displayName" : {
-            "maxLength" : 200,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "maxOutputTokens" : {
-            "format" : "int32",
-            "maximum" : 1000000,
-            "minimum" : 1,
-            "type" : "integer"
-          },
-          "modelName" : {
-            "maxLength" : 200,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "providerName" : {
-            "maxLength" : 100,
-            "minLength" : 0,
-            "type" : "string"
-          },
-          "temperature" : {
-            "format" : "double",
-            "maximum" : 2.0,
-            "minimum" : 0.0,
-            "type" : "number"
-          }
+        "/api/v1/candidates/{id}": {
+            "get": {
+                "operationId": "get_5",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CandidateResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "candidate-controller"
+                ]
+            }
         },
-        "type" : "object"
-      },
-      "UpdateOwnerAiSettingsRequest" : {
-        "properties" : {
-          "defaultChatModelConfigId" : {
-            "type" : "string"
-          },
-          "utilityModelConfigId" : {
-            "minLength" : 1,
-            "type" : "string"
-          }
+        "/api/v1/candidates/{id}/confirm": {
+            "post": {
+                "operationId": "confirm",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CandidateResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "candidate-controller"
+                ]
+            }
         },
-        "required" : [ "utilityModelConfigId" ],
-        "type" : "object"
-      },
-      "UtilityCapabilityTestResult" : {
-        "properties" : {
-          "candidateSchemaValid" : {
-            "type" : "boolean"
-          },
-          "message" : {
-            "type" : "string"
-          },
-          "routerSchemaValid" : {
-            "type" : "boolean"
-          },
-          "success" : {
-            "type" : "boolean"
-          },
-          "testedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          }
+        "/api/v1/candidates/{id}/draft": {
+            "put": {
+                "operationId": "updateDraft",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "If-Match",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateCandidateDraftRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CandidateResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "candidate-controller"
+                ]
+            }
         },
-        "required" : [ "candidateSchemaValid", "message", "routerSchemaValid", "success", "testedAt" ],
-        "type" : "object"
-      }
+        "/api/v1/candidates/{id}/reject": {
+            "post": {
+                "operationId": "reject",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "If-Match",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CandidateResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "candidate-controller"
+                ]
+            }
+        },
+        "/api/v1/candidates/{id}/restore": {
+            "post": {
+                "operationId": "restore",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "If-Match",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CandidateResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "candidate-controller"
+                ]
+            }
+        },
+        "/api/v1/conversations": {
+            "get": {
+                "operationId": "list_3",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/ConversationResponse"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "conversation-controller"
+                ]
+            },
+            "post": {
+                "operationId": "create_2",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateConversationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConversationResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "conversation-controller"
+                ]
+            }
+        },
+        "/api/v1/conversations/{conversationId}/extraction": {
+            "post": {
+                "operationId": "trigger",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "conversationId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExtractionTaskResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "extraction-controller"
+                ]
+            }
+        },
+        "/api/v1/conversations/{id}": {
+            "delete": {
+                "operationId": "delete_3",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "conversation-controller"
+                ]
+            },
+            "get": {
+                "operationId": "get_3",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConversationResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "conversation-controller"
+                ]
+            },
+            "patch": {
+                "operationId": "update_3",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateConversationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConversationResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "conversation-controller"
+                ]
+            }
+        },
+        "/api/v1/conversations/{id}/messages": {
+            "get": {
+                "operationId": "messages",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "before",
+                        "required": false,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "required": false,
+                        "schema": {
+                            "default": 20,
+                            "format": "int32",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MessagePageResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "conversation-controller"
+                ]
+            },
+            "post": {
+                "operationId": "send",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SendMessageRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SseEmitter"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "generation-controller"
+                ]
+            }
+        },
+        "/api/v1/conversations/{id}/messages/regenerate": {
+            "post": {
+                "operationId": "regenerate",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegenerateRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SseEmitter"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "generation-controller"
+                ]
+            }
+        },
+        "/api/v1/conversations/{id}/stop": {
+            "post": {
+                "operationId": "stop",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "generation-controller"
+                ]
+            }
+        },
+        "/api/v1/files": {
+            "post": {
+                "operationId": "upload",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "knowledgeBaseIds",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "file": {
+                                        "format": "binary",
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "file"
+                                ],
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FileUploadResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "document-controller"
+                ]
+            }
+        },
+        "/api/v1/files/{id}": {
+            "get": {
+                "operationId": "get_4",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FileMetadataResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "document-controller"
+                ]
+            }
+        },
+        "/api/v1/files/{id}/download": {
+            "get": {
+                "operationId": "download",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "format": "binary",
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "document-controller"
+                ]
+            }
+        },
+        "/api/v1/health": {
+            "get": {
+                "operationId": "health",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "additionalProperties": {},
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "health-controller"
+                ]
+            }
+        },
+        "/api/v1/knowledge-bases": {
+            "get": {
+                "operationId": "list_2",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/KnowledgeBaseResponse"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-base-controller"
+                ]
+            },
+            "post": {
+                "operationId": "create_1",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateKnowledgeBaseRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeBaseResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-base-controller"
+                ]
+            }
+        },
+        "/api/v1/knowledge-bases/{id}": {
+            "delete": {
+                "operationId": "delete_2",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "If-Match",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-base-controller"
+                ]
+            },
+            "get": {
+                "operationId": "get_2",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeBaseResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-base-controller"
+                ]
+            },
+            "put": {
+                "operationId": "update_2",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateKnowledgeBaseRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeBaseResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-base-controller"
+                ]
+            }
+        },
+        "/api/v1/knowledge-bases/{id}/disable": {
+            "put": {
+                "operationId": "disable_1",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "If-Match",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-base-controller"
+                ]
+            }
+        },
+        "/api/v1/knowledge-bases/{id}/enable": {
+            "put": {
+                "operationId": "enable_1",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "If-Match",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-base-controller"
+                ]
+            }
+        },
+        "/api/v1/knowledge-items": {
+            "get": {
+                "operationId": "list_1",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/KnowledgeItemResponse"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-item-controller"
+                ]
+            },
+            "post": {
+                "operationId": "createManualNote",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateManualNoteRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeItemResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-item-controller"
+                ]
+            }
+        },
+        "/api/v1/knowledge-items/{id}": {
+            "delete": {
+                "operationId": "delete_1",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "If-Match",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-item-controller"
+                ]
+            },
+            "get": {
+                "operationId": "get_1",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeItemResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-item-controller"
+                ]
+            },
+            "put": {
+                "operationId": "update_1",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateManualNoteRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeItemResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-item-controller"
+                ]
+            }
+        },
+        "/api/v1/knowledge-items/{itemId}/file": {
+            "get": {
+                "operationId": "getByItem",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "itemId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FileMetadataResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "document-controller"
+                ]
+            }
+        },
+        "/api/v1/model-configs": {
+            "get": {
+                "operationId": "list",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/ModelConfigResponse"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            },
+            "post": {
+                "operationId": "create",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateModelConfigRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ModelConfigResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/model-configs/{id}": {
+            "delete": {
+                "operationId": "delete",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            },
+            "get": {
+                "operationId": "get",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ModelConfigResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            },
+            "put": {
+                "operationId": "update",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateModelConfigRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ModelConfigResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/model-configs/{id}/disable": {
+            "put": {
+                "operationId": "disable",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/model-configs/{id}/enable": {
+            "put": {
+                "operationId": "enable",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/model-configs/{id}/revisions": {
+            "get": {
+                "operationId": "listRevisions",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/ModelConfigRevisionResponse"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/model-configs/{id}/revisions/{revisionId}": {
+            "get": {
+                "operationId": "getRevision",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "revisionId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ModelConfigRevisionResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/model-configs/{id}/test-connection": {
+            "post": {
+                "operationId": "testConnection",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConnectionTestResult"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/model-configs/{id}/test-utility-capability": {
+            "post": {
+                "operationId": "testUtilityCapability",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UtilityCapabilityTestResult"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/owner-ai-settings": {
+            "get": {
+                "operationId": "getOwnerSettings",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OwnerAiSettingsResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            },
+            "put": {
+                "operationId": "updateOwnerSettings",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateOwnerAiSettingsRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OwnerAiSettingsResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "model-config-controller"
+                ]
+            }
+        },
+        "/api/v1/processing-tasks": {
+            "get": {
+                "operationId": "list_4",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/ProcessingTaskResponse"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "processing-task-controller"
+                ]
+            }
+        },
+        "/api/v1/processing-tasks/{id}/retry": {
+            "post": {
+                "operationId": "retry",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProcessingTaskResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "processing-task-controller"
+                ]
+            }
+        }
     }
-  },
-  "info" : {
-    "title" : "OpenAPI definition",
-    "version" : "v0"
-  },
-  "openapi" : "3.1.0",
-  "paths" : {
-    "/api/v1/candidates" : {
-      "get" : {
-        "operationId" : "list_5",
-        "parameters" : [ {
-          "in" : "query",
-          "name" : "status",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "page",
-          "required" : false,
-          "schema" : {
-            "default" : 1,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "size",
-          "required" : false,
-          "schema" : {
-            "default" : 20,
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CandidatePageResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "candidate-controller" ]
-      }
-    },
-    "/api/v1/candidates/{id}" : {
-      "get" : {
-        "operationId" : "get_4",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CandidateResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "candidate-controller" ]
-      }
-    },
-    "/api/v1/candidates/{id}/confirm" : {
-      "post" : {
-        "operationId" : "confirm",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CandidateResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "candidate-controller" ]
-      }
-    },
-    "/api/v1/candidates/{id}/draft" : {
-      "put" : {
-        "operationId" : "updateDraft",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "header",
-          "name" : "If-Match",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/UpdateCandidateDraftRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CandidateResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "candidate-controller" ]
-      }
-    },
-    "/api/v1/candidates/{id}/reject" : {
-      "post" : {
-        "operationId" : "reject",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "header",
-          "name" : "If-Match",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CandidateResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "candidate-controller" ]
-      }
-    },
-    "/api/v1/candidates/{id}/restore" : {
-      "post" : {
-        "operationId" : "restore",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "header",
-          "name" : "If-Match",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CandidateResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "candidate-controller" ]
-      }
-    },
-    "/api/v1/conversations" : {
-      "get" : {
-        "operationId" : "list_3",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/ConversationResponse"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "conversation-controller" ]
-      },
-      "post" : {
-        "operationId" : "create_2",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/CreateConversationRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ConversationResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "conversation-controller" ]
-      }
-    },
-    "/api/v1/conversations/{conversationId}/extraction" : {
-      "post" : {
-        "operationId" : "trigger",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "conversationId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ExtractionTaskResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "extraction-controller" ]
-      }
-    },
-    "/api/v1/conversations/{id}" : {
-      "delete" : {
-        "operationId" : "delete_3",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "conversation-controller" ]
-      },
-      "get" : {
-        "operationId" : "get_3",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ConversationResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "conversation-controller" ]
-      },
-      "patch" : {
-        "operationId" : "update_3",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/UpdateConversationRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ConversationResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "conversation-controller" ]
-      }
-    },
-    "/api/v1/conversations/{id}/messages" : {
-      "get" : {
-        "operationId" : "messages",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "before",
-          "required" : false,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "limit",
-          "required" : false,
-          "schema" : {
-            "default" : 20,
-            "format" : "int32",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/MessagePageResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "conversation-controller" ]
-      },
-      "post" : {
-        "operationId" : "send",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/SendMessageRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "text/event-stream" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/SseEmitter"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "generation-controller" ]
-      }
-    },
-    "/api/v1/conversations/{id}/messages/regenerate" : {
-      "post" : {
-        "operationId" : "regenerate",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/RegenerateRequest"
-              }
-            }
-          }
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "text/event-stream" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/SseEmitter"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "generation-controller" ]
-      }
-    },
-    "/api/v1/conversations/{id}/stop" : {
-      "post" : {
-        "operationId" : "stop",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "generation-controller" ]
-      }
-    },
-    "/api/v1/health" : {
-      "get" : {
-        "operationId" : "health",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "additionalProperties" : { },
-                  "type" : "object"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "health-controller" ]
-      }
-    },
-    "/api/v1/knowledge-bases" : {
-      "get" : {
-        "operationId" : "list_2",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/KnowledgeBaseResponse"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-base-controller" ]
-      },
-      "post" : {
-        "operationId" : "create_1",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/CreateKnowledgeBaseRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/KnowledgeBaseResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-base-controller" ]
-      }
-    },
-    "/api/v1/knowledge-bases/{id}" : {
-      "delete" : {
-        "operationId" : "delete_2",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "header",
-          "name" : "If-Match",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-base-controller" ]
-      },
-      "get" : {
-        "operationId" : "get_2",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/KnowledgeBaseResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-base-controller" ]
-      },
-      "put" : {
-        "operationId" : "update_2",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/UpdateKnowledgeBaseRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/KnowledgeBaseResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-base-controller" ]
-      }
-    },
-    "/api/v1/knowledge-bases/{id}/disable" : {
-      "put" : {
-        "operationId" : "disable_1",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "header",
-          "name" : "If-Match",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-base-controller" ]
-      }
-    },
-    "/api/v1/knowledge-bases/{id}/enable" : {
-      "put" : {
-        "operationId" : "enable_1",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "header",
-          "name" : "If-Match",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-base-controller" ]
-      }
-    },
-    "/api/v1/knowledge-items" : {
-      "get" : {
-        "operationId" : "list_1",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/KnowledgeItemResponse"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-item-controller" ]
-      },
-      "post" : {
-        "operationId" : "createManualNote",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/CreateManualNoteRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/KnowledgeItemResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-item-controller" ]
-      }
-    },
-    "/api/v1/knowledge-items/{id}" : {
-      "delete" : {
-        "operationId" : "delete_1",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "header",
-          "name" : "If-Match",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-item-controller" ]
-      },
-      "get" : {
-        "operationId" : "get_1",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/KnowledgeItemResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-item-controller" ]
-      },
-      "put" : {
-        "operationId" : "update_1",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/UpdateManualNoteRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/KnowledgeItemResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "knowledge-item-controller" ]
-      }
-    },
-    "/api/v1/model-configs" : {
-      "get" : {
-        "operationId" : "list",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/ModelConfigResponse"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      },
-      "post" : {
-        "operationId" : "create",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/CreateModelConfigRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ModelConfigResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/model-configs/{id}" : {
-      "delete" : {
-        "operationId" : "delete",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      },
-      "get" : {
-        "operationId" : "get",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ModelConfigResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      },
-      "put" : {
-        "operationId" : "update",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/UpdateModelConfigRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ModelConfigResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/model-configs/{id}/disable" : {
-      "put" : {
-        "operationId" : "disable",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/model-configs/{id}/enable" : {
-      "put" : {
-        "operationId" : "enable",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/model-configs/{id}/revisions" : {
-      "get" : {
-        "operationId" : "listRevisions",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/ModelConfigRevisionResponse"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/model-configs/{id}/revisions/{revisionId}" : {
-      "get" : {
-        "operationId" : "getRevision",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "path",
-          "name" : "revisionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ModelConfigRevisionResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/model-configs/{id}/test-connection" : {
-      "post" : {
-        "operationId" : "testConnection",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ConnectionTestResult"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/model-configs/{id}/test-utility-capability" : {
-      "post" : {
-        "operationId" : "testUtilityCapability",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/UtilityCapabilityTestResult"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/owner-ai-settings" : {
-      "get" : {
-        "operationId" : "getOwnerSettings",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/OwnerAiSettingsResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      },
-      "put" : {
-        "operationId" : "updateOwnerSettings",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/UpdateOwnerAiSettingsRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/OwnerAiSettingsResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "model-config-controller" ]
-      }
-    },
-    "/api/v1/processing-tasks" : {
-      "get" : {
-        "operationId" : "list_4",
-        "parameters" : [ {
-          "in" : "query",
-          "name" : "status",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/ProcessingTaskResponse"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "processing-task-controller" ]
-      }
-    },
-    "/api/v1/processing-tasks/{id}/retry" : {
-      "post" : {
-        "operationId" : "retry",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProcessingTaskResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "processing-task-controller" ]
-      }
-    }
-  }
 }
