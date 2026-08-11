@@ -12,6 +12,8 @@ import {
 import { listKnowledgeBases } from '../api/knowledge-bases'
 import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 import type { KnowledgeItemResponse } from '../api/types/knowledge-item'
+import { getFileMetadataByItem, downloadFileUrl } from '../api/files'
+import type { FileMetadataResponse } from '../api/files'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +23,9 @@ const loading = ref(true)
 const saving = ref(false)
 const item = ref<KnowledgeItemResponse | null>(null)
 const knowledgeBases = ref<KnowledgeBaseResponse[]>([])
+const fileMeta = ref<FileMetadataResponse | null>(null)
+
+const isUpload = computed(() => item.value?.sourceType === 'UPLOAD_FILE')
 
 const editMode = ref(false)
 const form = reactive<{
@@ -42,6 +47,11 @@ async function load() {
   loading.value = true
   try {
     item.value = await getKnowledgeItem(itemId)
+    try {
+      fileMeta.value = await getFileMetadataByItem(itemId)
+    } catch {
+      fileMeta.value = null
+    }
     if (isPending.value) {
       startPolling()
     } else {
@@ -145,6 +155,25 @@ function statusTagType(status: string): 'success' | 'warning' | 'danger' | 'info
   return 'info'
 }
 
+function parseStatusType(status: string | undefined): 'success' | 'warning' | 'danger' | 'info' {
+  if (status === 'SUCCEEDED') return 'success'
+  if (status === 'FAILED') return 'danger'
+  if (status === 'PROCESSING') return 'warning'
+  return 'info'
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
+  return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+}
+
+function downloadFile() {
+  if (!fileMeta.value?.id) return
+  window.open(downloadFileUrl(fileMeta.value.id), '_blank')
+}
+
 onMounted(async () => {
   try {
     knowledgeBases.value = await listKnowledgeBases()
@@ -162,7 +191,9 @@ onBeforeUnmount(stopPolling)
     <template v-if="item">
       <div class="page-header">
         <el-button link @click="router.push('/knowledge-bases')">← 返回知识库</el-button>
-        <el-button v-if="!editMode" type="primary" @click="enterEdit"> 编辑 </el-button>
+        <el-button v-if="!editMode && !isUpload" type="primary" @click="enterEdit">
+          编辑
+        </el-button>
         <el-button v-if="!editMode" type="danger" plain @click="confirmDelete"> 删除 </el-button>
       </div>
 
@@ -177,6 +208,30 @@ onBeforeUnmount(stopPolling)
             已索引 v{{ item.indexedVersion }}
           </span>
           <span class="meta-item">来源：{{ item.sourceType }}</span>
+        </div>
+        <div v-if="fileMeta" class="file-box">
+          <div class="file-row">
+            <span class="label">文件：</span>
+            <span class="file-name">{{ fileMeta.originalFilename }}</span>
+            <el-tag size="small">{{ fileMeta.detectedMimeType }}</el-tag>
+            <span class="meta-item">{{ formatBytes(fileMeta.byteSize ?? 0) }}</span>
+            <span class="meta-item">SHA-256 {{ (fileMeta.sha256 ?? '').slice(0, 12) }}…</span>
+          </div>
+          <div class="file-row">
+            <span class="label">解析状态：</span>
+            <el-tag size="small" :type="parseStatusType(fileMeta.parseStatus)">{{
+              fileMeta.parseStatus
+            }}</el-tag>
+            <el-button size="small" link @click="downloadFile"> 下载原文件 </el-button>
+          </div>
+          <div v-if="fileMeta.parseStatus === 'FAILED'" class="error-box">
+            <strong>解析失败：</strong>
+            {{ fileMeta.parseErrorCode ?? 'UNKNOWN' }}
+            <span v-if="fileMeta.parseErrorMessage"> — {{ fileMeta.parseErrorMessage }} </span>
+            <el-button size="small" type="danger" link @click="router.push('/processing')">
+              前往任务页重试
+            </el-button>
+          </div>
         </div>
         <div v-if="item.indexStatus === 'FAILED'" class="error-box">
           <strong>索引失败：</strong>
@@ -284,6 +339,26 @@ onBeforeUnmount(stopPolling)
   padding: 8px 12px;
   border-radius: 6px;
   margin-bottom: 12px;
+}
+.file-box {
+  background: #f6f8fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+}
+.file-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.file-name {
+  font-weight: 500;
+}
+.meta-item {
+  color: #888;
 }
 .summary {
   color: #555;
