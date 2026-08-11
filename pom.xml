@@ -30,6 +30,8 @@
         <spotless.version>2.44.4</spotless.version>
         <google-java-format.version>1.25.2</google-java-format.version>
         <spring-ai.version>2.0.0</spring-ai.version>
+        <tika.version>2.9.0</tika.version>
+        <commonmark.version>0.24.0</commonmark.version>
     </properties>
 
     <dependencyManagement>
@@ -50,6 +52,16 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-core</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.commonmark</groupId>
+                <artifactId>commonmark</artifactId>
+                <version>${commonmark.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.testcontainers</groupId>
