@@ -153,6 +153,11 @@ class MarkdownTextExtractor extends AbstractVisitor {
           }
 
           @Override
+          public void visit(Code code) {
+            sb.append(code.getLiteral());
+          }
+
+          @Override
           public void visit(Link link) {
             visitChildren(link);
           }

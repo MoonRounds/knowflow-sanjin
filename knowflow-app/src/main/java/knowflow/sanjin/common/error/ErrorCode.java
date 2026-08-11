@@ -70,6 +70,7 @@ public final class ErrorCode {
   public static final String FILE_UNSUPPORTED_TYPE = "不支持的文件类型";
   public static final String FILE_STORED_MISSING = "原文件缺失";
   public static final String DOCUMENT_PARSE_FAILED = "文档解析失败";
+  public static final String DOCUMENT_PARSE_READ_FAILED = "文档读取失败";
   public static final String DOCUMENT_PARSE_UNKNOWN = "文档解析未知错误";
   public static final String DOCUMENT_FILE_NOT_FOUND = "文件元数据不存在";
 }

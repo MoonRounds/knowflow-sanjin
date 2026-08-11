@@ -44,6 +44,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * 全局异常 → RFC 9457 Problem Details 转换：稳定 errorCode + correlationId。
@@ -318,6 +319,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handleFileTooLarge(FileTooLargeException ex) {
     return problem(
         HttpStatus.UNPROCESSABLE_ENTITY, "文件超过大小限制", ex.getMessage(), ErrorCode.FILE_TOO_LARGE);
+  }
+
+  /** multipart 解析层超限：统一映射为 422 + FILE_TOO_LARGE（与业务层 FileTooLargeException 一致）。 */
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ProblemDetail> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+    return problem(
+        HttpStatus.UNPROCESSABLE_ENTITY, "文件超过大小限制", "上传文件超过大小上限", ErrorCode.FILE_TOO_LARGE);
   }
 
   @ExceptionHandler(FileUnsupportedTypeException.class)

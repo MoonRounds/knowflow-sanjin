@@ -28,6 +28,10 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+  servlet:
+    multipart:
+      max-file-size: ${KNOWFLOW_MULTIPART_MAX_FILE_SIZE:5MB}
+      max-request-size: ${KNOWFLOW_MULTIPART_MAX_REQUEST_SIZE:5MB}
 
 mybatis-plus:
   configuration:

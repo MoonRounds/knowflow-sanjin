@@ -13,7 +13,6 @@ import knowflow.sanjin.modules.document.config.DocumentProperties;
 import knowflow.sanjin.modules.document.controller.FileMetadataAssembler;
 import knowflow.sanjin.modules.document.entity.FileMetadata;
 import knowflow.sanjin.modules.document.exception.FileMetadataNotFoundException;
-import knowflow.sanjin.modules.document.exception.FileTooLargeException;
 import knowflow.sanjin.modules.document.exception.FileUnsupportedTypeException;
 import knowflow.sanjin.modules.document.exception.InvalidFileContentException;
 import knowflow.sanjin.modules.document.exception.StoredFileMissingException;
@@ -91,17 +90,15 @@ public class DocumentUploadService {
     String normalizedFilename = sanitizeFilename(originalFilename);
     List<Long> kbIds = parseKnowledgeBaseIds(knowledgeBaseIdsJson);
 
-    // 1. 流式接收至临时文件，同时计算原始字节 SHA-256
-    FileStorageService.StagedFile staged;
+    // 1. 流式接收至临时文件，同时计算原始字节 SHA-256；超过大小上限即中断并清理临时文件
+    FileStorageService.StagedFile staged = null;
     try {
-      staged = storage.stage(in);
+      staged = storage.stage(in, properties.getMaxFileBytes());
     } catch (IOException e) {
       throw new IllegalStateException("文件写入失败", e);
     }
 
     try {
-      checkSizeLimit(staged);
-
       // 2. MIME 与文本有效性检测（读取实际字节，不信任扩展名/Content-Type）
       String detectedMime;
       try (InputStream fileIn = Files.newInputStream(staged.path())) {
@@ -130,7 +127,9 @@ public class DocumentUploadService {
         throw new IllegalStateException("文件落盘失败", e);
       }
     } finally {
-      localFileStore.deleteTempQuietly(staged.path());
+      if (staged != null) {
+        localFileStore.deleteTempQuietly(staged.path());
+      }
     }
   }
 
@@ -259,14 +258,6 @@ public class DocumentUploadService {
       return objectMapper.writeValueAsString(kbIds);
     } catch (IOException e) {
       throw new IllegalStateException("知识库 id 序列化失败", e);
-    }
-  }
-
-  private void checkSizeLimit(FileStorageService.StagedFile staged) {
-    long size = sizeOf(staged);
-    long max = properties.getMaxFileBytes();
-    if (size > max) {
-      throw new FileTooLargeException("文件大小 " + size + " 字节超过上限 " + max + " 字节");
     }
   }
 

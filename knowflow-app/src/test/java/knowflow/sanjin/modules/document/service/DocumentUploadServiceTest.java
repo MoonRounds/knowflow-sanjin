@@ -1,6 +1,7 @@
 package knowflow.sanjin.modules.document.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -14,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import knowflow.sanjin.modules.document.config.DocumentProperties;
 import knowflow.sanjin.modules.document.entity.FileMetadata;
+import knowflow.sanjin.modules.document.exception.FileTooLargeException;
 import knowflow.sanjin.modules.document.mapper.FileMetadataMapper;
 import knowflow.sanjin.modules.document.vo.FileUploadResponse;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
@@ -146,6 +148,100 @@ class DocumentUploadServiceTest {
             org.mockito.ArgumentMatchers.anyString());
     // 正式文件落盘
     assertThat(java.nio.file.Files.list(tempDir).count()).isGreaterThan(0);
+  }
+
+  @Test
+  void oversizedFileRejectedWithoutLeavingTempOrCommittedFiles() throws Exception {
+    initTableInfo();
+    FileMetadataMapper fileMapper = mock(FileMetadataMapper.class);
+    KnowledgeService knowledgeService = mock(KnowledgeService.class);
+    TaskSubmissionService taskSubmissionService = mock(TaskSubmissionService.class);
+    MimeDetectionService mime = new MimeDetectionService();
+    FileStorageService storage = new FileStorageService(props());
+    LocalFileStore store = new LocalFileStore(props());
+
+    DocumentProperties props = props();
+    props.setMaxFileBytes(10);
+    DocumentUploadService service =
+        new DocumentUploadService(
+            fileMapper,
+            new CurrentOwnerProvider(),
+            props,
+            mime,
+            storage,
+            store,
+            knowledgeService,
+            taskSubmissionService);
+
+    byte[] payload = new byte[11];
+    java.util.Arrays.fill(payload, (byte) 'a');
+    assertThatThrownBy(
+            () ->
+                service.upload(
+                    "big.md", "text/markdown", new ByteArrayInputStream(payload), "[\"1\"]"))
+        .isInstanceOf(FileTooLargeException.class);
+
+    // 未创建任何任务，临时文件目录为空（无遗留临时文件）
+    org.mockito.Mockito.verifyNoInteractions(taskSubmissionService);
+    try (var stream = java.nio.file.Files.list(tempDir.resolve("tmp"))) {
+      assertThat(stream).isEmpty();
+    }
+  }
+
+  @Test
+  void repairMissingFileDeletesOrphanOnDbFailure() throws Exception {
+    initTableInfo();
+    FileMetadataMapper fileMapper = mock(FileMetadataMapper.class);
+    KnowledgeService knowledgeService = mock(KnowledgeService.class);
+    TaskSubmissionService taskSubmissionService = mock(TaskSubmissionService.class);
+    MimeDetectionService mime = new MimeDetectionService();
+    FileStorageService storage = new FileStorageService(props());
+    LocalFileStore store = new LocalFileStore(props());
+
+    FileMetadata existing = new FileMetadata();
+    existing.setId(5L);
+    existing.setOwnerId(1L);
+    existing.setKnowledgeItemId(9L);
+    existing.setStorageKey("stored-key");
+    existing.setStatus("ACTIVE");
+    // 磁盘文件缺失 → 进入修复路径；DB 更新存储键失败
+    when(fileMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
+    org.mockito.Mockito.doThrow(new RuntimeException("db down"))
+        .when(fileMapper)
+        .updateById(any(FileMetadata.class));
+
+    KnowledgeItem item = new KnowledgeItem();
+    item.setId(9L);
+    item.setOwnerId(1L);
+    item.setTitle("已有");
+    item.setStatus("ACTIVE");
+    when(knowledgeService.getByIdAndOwner(9L)).thenReturn(item);
+
+    DocumentUploadService service =
+        new DocumentUploadService(
+            fileMapper,
+            new CurrentOwnerProvider(),
+            props(),
+            mime,
+            storage,
+            store,
+            knowledgeService,
+            taskSubmissionService);
+
+    assertThatThrownBy(
+            () ->
+                service.upload(
+                    "a.md",
+                    "text/markdown",
+                    new ByteArrayInputStream("# x\n".getBytes(StandardCharsets.UTF_8)),
+                    "[\"1\"]"))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("db down");
+
+    // 修复路径落盘的 newKey 原文件已被补偿删除，根目录无孤立文件
+    try (var stream = java.nio.file.Files.list(tempDir)) {
+      assertThat(stream.filter(p -> java.nio.file.Files.isRegularFile(p))).isEmpty();
+    }
   }
 
   private static boolean tableInfoInitialized = false;

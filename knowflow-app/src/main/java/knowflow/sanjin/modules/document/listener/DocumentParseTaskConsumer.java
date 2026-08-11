@@ -80,8 +80,7 @@ public class DocumentParseTaskConsumer {
   private void handleRetryable(
       ProcessingTask task, RetryableDocumentException e, Channel channel, long deliveryTag) {
     markFileParsing(task.getBusinessId(), DocumentConstants.PARSE_STATUS_PENDING, null, summary(e));
-    int nextRetry =
-        taskService.failRetryable(task.getId(), ErrorCode.DOCUMENT_PARSE_FAILED, summary(e));
+    int nextRetry = taskService.failRetryable(task.getId(), e.getFailureCode(), summary(e));
     if (nextRetry > 0) {
       publisher.publishToDocumentRetryQueue(task.getId(), nextRetry - 1);
       ackQuietly(channel, deliveryTag);
@@ -90,23 +89,23 @@ public class DocumentParseTaskConsumer {
       markFileParsing(
           task.getBusinessId(),
           DocumentConstants.PARSE_STATUS_FAILED,
-          ErrorCode.DOCUMENT_PARSE_FAILED,
+          e.getFailureCode(),
           summary(e));
       ackAndNackToDlq(channel, deliveryTag);
-      log.warn("文档解析任务 {} 重试耗尽，failureCode={}", task.getId(), ErrorCode.DOCUMENT_PARSE_FAILED);
+      log.warn("文档解析任务 {} 重试耗尽，failureCode={}", task.getId(), e.getFailureCode());
     }
   }
 
   private void handleTerminal(
       ProcessingTask task, TerminalDocumentException e, Channel channel, long deliveryTag) {
-    taskService.failTerminal(task.getId(), ErrorCode.DOCUMENT_PARSE_FAILED, summary(e));
+    taskService.failTerminal(task.getId(), e.getFailureCode(), summary(e));
     markFileParsing(
         task.getBusinessId(),
         DocumentConstants.PARSE_STATUS_FAILED,
-        ErrorCode.DOCUMENT_PARSE_FAILED,
+        e.getFailureCode(),
         summary(e));
     ackAndNackToDlq(channel, deliveryTag);
-    log.warn("文档解析任务 {} 终态失败 code={}", task.getId(), ErrorCode.DOCUMENT_PARSE_FAILED);
+    log.warn("文档解析任务 {} 终态失败 code={}", task.getId(), e.getFailureCode());
   }
 
   private void markFileParsing(

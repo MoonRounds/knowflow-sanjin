@@ -11,6 +11,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.UUID;
 import knowflow.sanjin.modules.document.config.DocumentProperties;
+import knowflow.sanjin.modules.document.exception.FileTooLargeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -32,17 +33,27 @@ public class FileStorageService {
     this.properties = properties;
   }
 
-  /** 将流式输入写入临时文件，返回临时路径与原始字节 SHA-256。 */
-  public StagedFile stage(InputStream in) throws IOException {
+  /**
+   * 将流式输入写入临时文件，返回临时路径与原始字节 SHA-256。
+   *
+   * <p>写入过程中累计字节数，超过 maxBytes 即中断并清理临时文件后抛 {@link FileTooLargeException}，避免超大文件占满磁盘。
+   */
+  public StagedFile stage(InputStream in, long maxBytes) throws IOException {
     Path root = properties.storageRootPath();
     Path tmpDir = root.resolve("tmp");
     Files.createDirectories(tmpDir);
     Path tmp = Files.createTempFile(tmpDir, "upload-", ".tmp");
     MessageDigest digest = sha256();
+    long total = 0;
     try (var out = Files.newOutputStream(tmp)) {
       byte[] buf = new byte[64 * 1024];
       int read;
       while ((read = in.read(buf)) != -1) {
+        total += read;
+        if (total > maxBytes) {
+          Files.deleteIfExists(tmp);
+          throw new FileTooLargeException("文件超过大小上限 " + maxBytes + " 字节");
+        }
         out.write(buf, 0, read);
         digest.update(buf, 0, read);
       }

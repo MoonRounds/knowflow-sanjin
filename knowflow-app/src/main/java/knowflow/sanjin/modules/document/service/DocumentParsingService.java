@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.document.service;
 
 import java.io.InputStream;
 import java.util.Locale;
+import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.modules.document.DocumentConstants;
 import knowflow.sanjin.modules.document.entity.FileMetadata;
 import knowflow.sanjin.modules.document.exception.RetryableDocumentException;
@@ -61,7 +62,8 @@ public class DocumentParsingService {
       throw new TerminalDocumentException("KnowledgeItem " + file.getKnowledgeItemId() + " 不存在");
     }
     if (localFileStore.missing(file.getStorageKey())) {
-      throw new TerminalDocumentException("原文件缺失（存储键=" + file.getStorageKey() + "）");
+      throw new TerminalDocumentException(
+          ErrorCode.FILE_STORED_MISSING, "原文件缺失（存储键=" + file.getStorageKey() + "）");
     }
 
     boolean isMarkdown = isMarkdownFile(file.getOriginalFilename());
@@ -69,9 +71,11 @@ public class DocumentParsingService {
     try (InputStream in = storage.read(file.getStorageKey())) {
       parsed = parser.parse(in, file.getOriginalFilename(), isMarkdown);
     } catch (java.io.IOException e) {
-      throw new RetryableDocumentException("读取原文件失败：" + e.getMessage(), e);
+      throw new RetryableDocumentException(
+          ErrorCode.DOCUMENT_PARSE_READ_FAILED, "读取原文件失败：" + e.getMessage(), e);
     } catch (knowflow.sanjin.modules.document.exception.DocumentParseException e) {
-      throw new RetryableDocumentException("文档解析失败：" + e.getMessage(), e);
+      throw new RetryableDocumentException(
+          ErrorCode.DOCUMENT_PARSE_FAILED, "文档解析失败：" + e.getMessage(), e);
     }
 
     // 更新 Item 内容与 title（contentVersion 保持 1；索引由独立任务推进 indexedVersion）
