@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>知流 · 个人学习与知识沉淀</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Noto+Sans+SC:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f5f1e8;
+    --paper-2:#ebe5d8;
+    --ink:#191815;
+    --muted:#777064;
+    --line:#cec4b2;
+    --hot:#ff5a36;
+    --hot-soft:#ffe0d7;
+    --green:#264f3d;
+    --green-soft:#dbe8d7;
+    --yellow:#f2cf4a;
+    --blue:#8ca7e8;
+    --white:#fffdf8;
+    --shadow:0 20px 60px rgba(45,36,23,.09);
+    --round:"Nunito","Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--round);font-weight:600}
+  body{overflow-x:hidden}
+  button,input,textarea{font:inherit} button{color:inherit}
+  ::selection{background:var(--yellow);color:var(--ink)}
+
+  .grain{position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:99;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.78' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E")}
+
+  .shell{min-height:100vh;display:grid;grid-template-columns:176px 1fr}
+  .rail{position:sticky;top:0;height:100vh;border-right:1px solid var(--ink);display:flex;flex-direction:column;align-items:stretch;padding:22px 16px 18px;background:#eee8dc;z-index:20}
+  .mark{width:100%;height:62px;border-radius:18px;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;letter-spacing:-1px;box-shadow:5px 5px 0 var(--yellow);transform:rotate(-1deg)}
+  .mark:after{content:"↗";font-size:14px;margin-left:8px;color:var(--yellow)}
+  .railnav{margin-top:40px;display:flex;flex-direction:column;gap:8px}
+  .railbtn{width:100%;height:48px;border:1px solid transparent;background:transparent;border-radius:14px;cursor:pointer;display:flex;align-items:center;gap:10px;padding:0 12px;position:relative;transition:.2s ease;font-size:13px;font-weight:800;text-align:left}
+  .railbtn svg{width:18px;height:18px;stroke-width:2;flex:0 0 auto}
+  .railbtn .navtext{white-space:nowrap}
+  .railbtn:hover,.railbtn.active{background:var(--white);border-color:var(--ink);transform:translateX(3px);box-shadow:3px 3px 0 var(--ink)}
+  .railbtn.active:after{content:"";width:7px;height:7px;background:var(--hot);border-radius:50%;position:absolute;right:10px;top:9px}
+  .railspacer{flex:1}
+  .rail .footerlabel{font-size:9px;letter-spacing:.12em;color:var(--muted);padding:0 8px 8px;font-weight:900}
+  .avatar{height:44px;border-radius:14px;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-weight:900;border:1px solid var(--ink);font-size:12px;margin-top:10px}
+
+  .page{min-width:0}
+  .mast{height:86px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 38px;position:sticky;top:0;background:rgba(245,241,232,.91);backdrop-filter:blur(14px);z-index:15}
+  .brand{display:flex;align-items:baseline;gap:14px}
+  .brand h1{font-weight:900;font-size:30px;margin:0;letter-spacing:-1.5px}
+  .brand small{font-size:10px;letter-spacing:.08em;color:var(--muted);font-weight:800}
+  .today{display:flex;align-items:center;gap:18px;color:var(--muted);font-size:12px;font-weight:700}
+  .dotlive{display:inline-flex;align-items:center;gap:7px;color:var(--ink);font-weight:800}
+  .dotlive:before{content:"";width:7px;height:7px;background:var(--hot);border-radius:50%;box-shadow:0 0 0 5px rgba(255,90,54,.12)}
+  .newchat{border:1px solid var(--ink);background:var(--ink);color:var(--paper);height:40px;padding:0 17px;border-radius:14px;cursor:pointer;font-size:12px;font-weight:900;transition:.2s}
+  .newchat:hover{transform:translateY(-2px) rotate(-1deg);box-shadow:0 7px 0 var(--yellow)}
+
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:calc(100vh - 86px)}
+  .main{padding:34px 34px 84px 38px;min-width:0}
+  .aside{border-left:1px solid var(--line);padding:34px 26px;background:rgba(235,229,216,.36)}
+
+  .route{display:grid;grid-template-columns:1.25fr .75fr;gap:22px;margin-bottom:28px;position:relative}
+  .focus{border-top:5px solid var(--ink);padding-top:17px;position:relative;min-height:210px}
+  .focus:after{content:"01";position:absolute;right:8px;top:8px;font-size:74px;line-height:1;font-weight:900;color:rgba(25,24,21,.045);letter-spacing:-6px;pointer-events:none}
+  .eyebrow{font-size:10px;letter-spacing:.12em;color:var(--hot);font-weight:900}
+  .focus h2{font-size:46px;line-height:1.12;font-weight:900;letter-spacing:-3px;margin:12px 0 16px;max-width:790px}
+  .focus p{font-size:14px;line-height:1.9;color:var(--muted);max-width:680px;margin:0;font-weight:600}
+  .focus p strong{color:var(--ink)}
+
+  .focus-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:20px}
+  .focus-meta span{display:inline-flex;align-items:baseline;gap:4px;border:1px solid var(--ink);background:var(--white);padding:7px 10px;border-radius:999px;font-size:9px;font-weight:800;box-shadow:2px 2px 0 rgba(25,24,21,.09)}
+  .focus-meta span b{font-size:14px;font-weight:900}
+  .focus-meta em{font-style:normal;font-size:10px;font-weight:900;color:var(--hot);margin-left:4px}
+
+  .flow{border:1px solid var(--ink);background:var(--yellow);padding:18px 18px 16px;display:flex;flex-direction:column;justify-content:space-between;min-height:205px;box-shadow:7px 7px 0 var(--ink);border-radius:22px 5px 22px 5px;transform:rotate(.5deg)}
+  .flowtop{display:flex;justify-content:space-between;align-items:center}
+  .flow h3{font-size:15px;margin:0;font-weight:900;letter-spacing:-.3px}
+  .flowcount{font-size:10px;font-weight:900;border:1px solid var(--ink);border-radius:999px;padding:5px 8px;background:rgba(255,255,255,.35)}
+  .flowline{display:flex;gap:4px;align-items:flex-start;margin-top:26px}
+  .step{flex:1;min-width:0}
+  .stepbar{height:7px;border-radius:999px;background:rgba(23,23,19,.18);margin-bottom:8px;position:relative;overflow:hidden}
+  .stepbar.on:after{content:"";position:absolute;inset:0;background:var(--ink)}
+  .stepbar.current:after{content:"";position:absolute;left:0;top:0;bottom:0;width:58%;background:var(--hot)}
+  .step span{font-size:9px;white-space:nowrap;color:#3f3b2f;font-weight:800}
+  .flow:after{content:"聊过的不散，学会的留下。";font-size:11px;font-weight:900;margin-top:17px;letter-spacing:.03em}
+
+  .workspace{border:1px solid var(--ink);background:rgba(255,253,248,.76);box-shadow:var(--shadow);border-radius:24px;overflow:hidden}
+  .workspace-head{min-height:66px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:10px 16px 10px 20px;gap:12px}
+  .thread-title{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:900;letter-spacing:-.2px}
+  .thread-title .pulse{width:9px;height:9px;background:var(--green);border-radius:50%;box-shadow:0 0 0 5px var(--green-soft)}
+  .switches{display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .pill{height:32px;padding:0 11px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font-size:10px;cursor:pointer;font-weight:800}
+  .pill.active{background:var(--green-soft);color:var(--green);border-color:#94ac9b}
+
+  .messages{padding:28px 23px 18px;min-height:430px;background-image:linear-gradient(rgba(67,62,51,.042) 1px,transparent 1px);background-size:100% 42px}
+  .msg{display:grid;grid-template-columns:34px minmax(0,1fr);gap:13px;margin-bottom:25px;max-width:880px}
+  .who{width:31px;height:31px;border-radius:11px;display:grid;place-items:center;font-size:10px;font-weight:900;border:1px solid var(--ink);background:var(--white)}
+  .msg.me{margin-left:auto;grid-template-columns:minmax(0,1fr) 34px}.msg.me .who{order:2;background:var(--ink);color:var(--paper)}
+  .msg.me .bubble{order:1;background:#ebe4d7;border-color:#bcb3a2;border-radius:18px 5px 18px 18px}
+  .bubble{border:1px solid var(--line);background:var(--white);padding:16px 17px 17px;box-shadow:2px 3px 0 rgba(23,23,19,.07);border-radius:5px 18px 18px 18px}
+  .bubble p{font-size:14px;line-height:1.9;margin:0 0 9px;font-weight:600}.bubble p:last-child{margin:0}.bubble strong{font-weight:900}
+  .code-note{font:700 11px/1.8 var(--round);background:#20221e;color:#f2f0e9;padding:12px 14px;margin:13px 0;border-left:4px solid var(--yellow);overflow:auto;border-radius:0 10px 10px 0}
+  .contextflag{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--green);border-bottom:1px solid #9aae9c;padding-bottom:3px;margin-bottom:10px;font-weight:800}.contextflag:before{content:"↳"}
+
+  .composer{border-top:1px solid var(--line);padding:14px;background:var(--white)}
+  .composebox{border:1px solid var(--ink);display:grid;grid-template-columns:1fr auto;min-height:92px;background:var(--paper);border-radius:18px;overflow:hidden;box-shadow:3px 3px 0 var(--ink)}
+  .composebox textarea{border:0;resize:none;background:transparent;padding:15px 16px;outline:none;font-size:14px;line-height:1.7;color:var(--ink);font-weight:700}
+  .composebox textarea::placeholder{color:#91897c}
+  .send{width:64px;border:0;border-left:1px solid var(--ink);background:var(--hot);cursor:pointer;display:grid;place-items:center;transition:.2s}.send:hover{background:var(--yellow)}.send svg{width:23px;height:23px}
+  .compose-meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:9px;color:var(--muted);font-weight:700}.meta-left{display:flex;gap:14px}.meta-left b{color:var(--ink);font-weight:900}
+
+  .side-section{margin-bottom:30px}
+  .side-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.side-head h3{font-size:12px;font-weight:900;letter-spacing:.02em;margin:0}.side-head span{font-size:9px;color:var(--muted);font-weight:700}
+  .candidate{border:1px solid var(--ink);background:var(--white);padding:16px 15px 14px;position:relative;box-shadow:5px 5px 0 var(--green);border-radius:18px 5px 18px 5px}
+  .candidate:before{content:"待确认";position:absolute;right:8px;top:8px;font-size:8px;border:1px solid var(--hot);color:var(--hot);border-radius:999px;padding:4px 7px;transform:rotate(2deg);font-weight:900}
+  .candidate h4{font-size:17px;font-weight:900;line-height:1.4;letter-spacing:-.5px;margin:1px 58px 9px 0}.candidate p{font-size:11px;line-height:1.8;color:var(--muted);margin:0 0 12px;font-weight:600}
+  .tags{display:flex;gap:5px;flex-wrap:wrap}.tag{font-size:8px;border:1px solid var(--line);padding:5px 7px;background:var(--paper);border-radius:999px;font-weight:800}
+  .candidate-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}.candidate-actions button{height:32px;border:1px solid var(--ink);background:transparent;font-size:9px;cursor:pointer;border-radius:10px;font-weight:900}.candidate-actions button:first-child{background:var(--ink);color:var(--paper)}
+
+  .indexbox{border-top:2px solid var(--ink);padding-top:9px}.domain{display:grid;grid-template-columns:1fr auto;align-items:center;padding:11px 0;border-bottom:1px dashed #c6bfaf;cursor:pointer}.domain:hover .domainname{padding-left:5px}.domainname{display:flex;align-items:center;gap:9px;font-size:12px;transition:.2s;font-weight:800}.domainname i{display:block;width:10px;height:10px;border-radius:50%;border:2px solid var(--ink)}.domain:nth-child(1) i{background:var(--hot)}.domain:nth-child(2) i{background:var(--yellow)}.domain:nth-child(3) i{background:var(--green-soft)}.domain:nth-child(4) i{background:var(--blue)}.domain em{font-style:normal;font-size:9px;color:var(--muted);font-weight:800}
+
+  .memory-card{background:var(--green);color:#f3f0e8;padding:17px;margin-top:12px;position:relative;overflow:hidden;border-radius:18px}.memory-card:after{content:"记";position:absolute;right:0;bottom:-26px;font-size:88px;line-height:1;font-weight:900;color:rgba(255,255,255,.06)}.memory-card h4{margin:0 0 7px;font-size:12px;font-weight:900}.memory-card p{font-size:10px;line-height:1.8;margin:0;color:#d8ded5;font-weight:600}.memory-card .tiny{margin-top:11px;font-size:8px;color:#b7c6b8;font-weight:800}
+
+  .mini-map{margin-top:22px;border:1px solid var(--ink);height:148px;position:relative;background:var(--paper);border-radius:18px;overflow:hidden}.mini-map:before{content:"";position:absolute;inset:0;background-image:radial-gradient(#aaa394 1px,transparent 1px);background-size:13px 13px;opacity:.45}.node{position:absolute;border:1px solid var(--ink);background:var(--white);border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:900;z-index:2;box-shadow:2px 2px 0 rgba(0,0,0,.08)}.node.a{width:60px;height:60px;left:22px;top:42px;background:var(--yellow)}.node.b{width:46px;height:46px;right:38px;top:18px;background:var(--green-soft)}.node.c{width:52px;height:52px;right:64px;bottom:12px}.line{position:absolute;height:1px;background:var(--ink);transform-origin:left center;z-index:1;opacity:.55}.line.l1{width:118px;left:68px;top:62px;transform:rotate(-14deg)}.line.l2{width:108px;left:66px;top:77px;transform:rotate(15deg)}
+
+  .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:var(--paper);padding:11px 16px;border-radius:999px;font-size:11px;font-weight:800;z-index:100;transition:.25s ease;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}
+
+  /* AI 对话工作台 */
+  .view-hidden{display:none!important}
+  .ai-chat-view{display:grid;grid-template-columns:250px minmax(520px,1fr) 318px;min-height:calc(100vh - 86px);background:var(--paper)}
+  .chat-sessions{border-right:1px solid var(--line);padding:28px 16px 22px;background:#eee8dc;display:flex;flex-direction:column;min-width:0}
+  .chat-side-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:0 5px 18px}.chat-side-top h2{font-size:27px;letter-spacing:-1.6px;line-height:1.05;margin:7px 0 0;font-weight:900}.chat-plus{width:38px;height:38px;border:1px solid var(--ink);background:var(--yellow);border-radius:12px;font-size:20px;font-weight:900;cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+  .chat-search{height:42px;border:1px solid var(--line);background:var(--white);border-radius:13px;display:flex;align-items:center;gap:8px;padding:0 12px;margin:0 1px 20px}.chat-search span{font-size:18px}.chat-search input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--ink);font-size:11px;font-weight:700}.chat-search input::placeholder{color:#9a9286}
+  .session-label{font-size:9px;color:var(--muted);letter-spacing:.1em;font-weight:900;padding:8px 7px}
+  .session-item{position:relative;border:1px solid transparent;background:transparent;width:100%;text-align:left;border-radius:15px;padding:12px 38px 12px 28px;margin-bottom:4px;cursor:pointer;transition:.2s}.session-item:hover{background:rgba(255,253,248,.7)}.session-item.active{background:var(--white);border-color:var(--ink);box-shadow:3px 3px 0 var(--ink)}.session-item b{display:block;font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.session-item small{display:block;font-size:9px;color:var(--muted);font-weight:700;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.session-item em{position:absolute;right:11px;top:12px;font-size:8px;font-style:normal;color:var(--muted);font-weight:900}.session-dot{position:absolute;left:11px;top:16px;width:8px;height:8px;border-radius:50%;background:var(--hot);border:1px solid var(--ink)}.session-dot.yellow{background:var(--yellow)}.session-dot.blue{background:var(--blue)}.session-dot.green{background:var(--green-soft)}
+  .session-foot{margin-top:auto;border-top:1px dashed var(--line);padding:16px 7px 0;display:flex;justify-content:space-between;gap:10px;font-size:8px;color:var(--muted);font-weight:800}.session-foot strong{font-size:13px;color:var(--ink);display:block;margin-top:2px}
+
+  .chat-core{min-width:0;display:flex;flex-direction:column;background:var(--white)}
+  .chat-core-head{min-height:84px;padding:17px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px;background:rgba(255,253,248,.92);position:sticky;top:86px;z-index:8;backdrop-filter:blur(12px)}.chat-title-row{display:flex;align-items:center;gap:10px}.chat-title-row h2{font-size:17px;margin:0;font-weight:900;letter-spacing:-.5px}.chat-core-head p{margin:5px 0 0 19px;font-size:9px;color:var(--muted);font-weight:700}.live-ring{width:9px;height:9px;border-radius:50%;background:var(--hot);box-shadow:0 0 0 5px var(--hot-soft)}.chat-head-actions{display:flex;gap:8px;align-items:center}.model-chip{height:46px;display:flex;align-items:center;gap:9px;border:1px solid var(--ink);background:var(--paper);border-radius:14px;padding:0 10px;cursor:pointer;box-shadow:2px 2px 0 var(--ink)}.model-logo{width:25px;height:25px;border-radius:8px;background:var(--ink);color:var(--paper);display:grid;place-items:center;font-size:11px;font-weight:900}.model-chip span:nth-child(2){display:flex;flex-direction:column;align-items:flex-start;line-height:1.15}.model-chip small{font-size:7px;color:var(--muted);font-weight:900}.model-chip b{font-size:10px;font-weight:900}.model-chip i{font-style:normal;color:var(--muted);font-size:10px}.quiet-btn{width:42px;height:42px;border:1px solid var(--line);background:transparent;border-radius:13px;cursor:pointer;font-weight:900}
+  .chat-principle{margin:20px 24px 0;border:1px solid var(--ink);border-radius:16px;background:var(--yellow);padding:12px 14px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;box-shadow:4px 4px 0 var(--ink);transform:rotate(-.2deg)}.principle-mark{font-size:23px;font-weight:900}.chat-principle div{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}.chat-principle b{font-size:11px;font-weight:900}.chat-principle span{font-size:9px;color:#5c5235;font-weight:800}.chat-principle em{font-size:8px;font-style:normal;font-weight:900;border:1px solid var(--ink);border-radius:999px;padding:4px 7px;background:rgba(255,255,255,.4)}
+  .chat-stream{padding:34px 46px 24px;flex:1;overflow:auto}.chat-turn{max-width:850px;margin:0 auto 32px}.turn-meta{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:9px;color:var(--muted);font-weight:800}.turn-meta>span:first-child{color:var(--ink);font-weight:900}.ai-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--ink);color:var(--paper)!important;height:24px;padding:0 9px;border-radius:8px}.route-badge{background:var(--green-soft);color:var(--green)!important;border:1px solid #9fb2a1;border-radius:999px;padding:3px 7px;font-size:8px}.turn-body{font-size:14px;line-height:1.95;font-weight:600}.turn-body p{margin:0 0 13px}.user-turn .turn-body{display:inline-block;background:var(--paper-2);border:1px solid var(--line);border-radius:4px 17px 17px 17px;padding:13px 16px}.user-turn{display:flex;flex-direction:column;align-items:flex-end}.user-turn .turn-meta{width:auto}.lead{font-size:17px;line-height:1.65;letter-spacing:-.3px}.concept-compare{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;border:1px solid var(--ink);background:var(--paper);border-radius:18px;padding:15px 17px;margin:17px 0;box-shadow:4px 4px 0 var(--yellow)}.concept-compare>div:not(.compare-arrow){display:flex;flex-direction:column;gap:3px}.concept-compare small{font-size:8px;color:var(--muted);font-weight:900}.concept-compare strong{font-size:16px;font-weight:900}.concept-compare span{font-size:9px;color:var(--muted)}.compare-arrow{font-size:24px;font-weight:900;color:var(--hot)}.answer-tools{display:flex;gap:7px;flex-wrap:wrap;margin-top:18px}.answer-tools button{border:1px solid var(--line);background:transparent;border-radius:999px;height:29px;padding:0 10px;font-size:8px;color:var(--muted);font-weight:900;cursor:pointer}.answer-tools button:hover{border-color:var(--ink);color:var(--ink);background:var(--paper)}
+  .chat-composer-wrap{padding:0 28px 22px;background:var(--white);position:sticky;bottom:0;z-index:7}.prompt-suggestions{display:flex;gap:7px;flex-wrap:wrap;margin:0 auto 9px;max-width:850px}.prompt-suggestions button{border:1px dashed var(--line);background:transparent;border-radius:999px;padding:6px 10px;font-size:8px;color:var(--muted);font-weight:800;cursor:pointer}.prompt-suggestions button:hover{border-style:solid;border-color:var(--ink);color:var(--ink)}.chat-composer{max-width:850px;margin:auto;border:1px solid var(--ink);background:var(--paper);border-radius:20px;box-shadow:4px 4px 0 var(--ink);overflow:hidden}.chat-composer textarea{width:100%;height:75px;border:0;outline:0;resize:none;background:transparent;padding:15px 16px 6px;font-size:13px;font-weight:700;line-height:1.6}.chat-composer textarea::placeholder{color:#938b7e}.composer-bottom{display:flex;justify-content:space-between;align-items:center;padding:7px 9px 9px}.composer-tools{display:flex;gap:6px}.composer-tools button{height:28px;border:1px solid var(--line);background:var(--white);border-radius:9px;padding:0 9px;font-size:8px;font-weight:900;cursor:pointer}.chat-send{height:34px;border:1px solid var(--ink);border-radius:11px;background:var(--hot);display:flex;align-items:center;gap:10px;padding:0 7px 0 13px;cursor:pointer;font-size:9px;font-weight:900}.chat-send b{width:22px;height:22px;border-radius:7px;background:var(--ink);color:var(--paper);display:grid;place-items:center}.chat-hint{max-width:850px;margin:8px auto 0;text-align:center;font-size:7px;color:#9b9386;font-weight:700}
+
+  .chat-inspector{border-left:1px solid var(--line);background:var(--paper);padding:24px 18px;overflow:auto}.inspector-section{margin-bottom:24px}.inspector-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}.inspector-head h3{margin:4px 0 0;font-size:14px;font-weight:900;letter-spacing:-.3px}.status-dot,.memory-switch{font-size:8px;font-weight:900;border:1px solid var(--ink);border-radius:999px;padding:4px 7px;background:var(--white)}.memory-switch{background:var(--green-soft);color:var(--green);border-color:#96aa99}.trace-list{border-top:2px solid var(--ink)}.trace{display:grid;grid-template-columns:25px 1fr auto;gap:9px;align-items:center;padding:12px 0;border-bottom:1px dashed var(--line)}.trace i{width:23px;height:23px;border-radius:8px;background:var(--ink);color:var(--paper);display:grid;place-items:center;font-size:8px;font-style:normal;font-weight:900}.trace b{display:block;font-size:9px;font-weight:900}.trace span{display:block;font-size:8px;color:var(--muted);font-weight:700;margin-top:2px;line-height:1.4}.trace em{font-style:normal;font-size:10px;font-weight:900;color:var(--green)}.trace.skipped i{background:var(--paper-2);color:var(--muted)}.trace.skipped em{color:var(--muted)}
+  .memory-panel{background:var(--green);color:var(--paper);padding:15px;border-radius:17px;box-shadow:4px 4px 0 var(--yellow)}.memory-panel .eyebrow{color:#c7d7c8}.memory-panel .inspector-head h3{color:#fff}.memory-quote{font-size:9px;line-height:1.7;color:#d8e2d8;padding:10px 0 12px}.memory-meter{height:6px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden}.memory-meter span{display:block;height:100%;background:var(--yellow);border-radius:inherit}.memory-foot{display:flex;justify-content:space-between;margin-top:6px;font-size:7px;color:#c3d2c4;font-weight:800}.memory-foot b{color:var(--yellow)}
+  .knowledge-chips{display:flex;flex-wrap:wrap;gap:7px}.knowledge-chips button{border:1px solid var(--line);background:var(--white);border-radius:999px;padding:7px 9px;font-size:8px;font-weight:900;cursor:pointer}.knowledge-chips button.on{border-color:var(--ink);box-shadow:2px 2px 0 var(--ink)}.knowledge-chips em{font-style:normal;color:var(--muted);margin-left:3px}
+  .distill-panel{border:1px solid var(--ink);border-radius:4px 18px 18px 18px;padding:15px;background:var(--hot-soft);position:relative;box-shadow:4px 4px 0 var(--hot)}.distill-panel .spark{position:absolute;right:12px;top:9px;font-size:22px;color:var(--hot)}.distill-panel small{font-size:8px;color:var(--hot);font-weight:900}.distill-panel h3{font-size:18px;margin:2px 0 5px;font-weight:900}.distill-panel p{font-size:9px;line-height:1.6;color:var(--muted);margin:0 0 12px}.distill-panel button{width:100%;height:34px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:10px;font-size:9px;font-weight:900;cursor:pointer}
+
+  @media(max-width:1160px){.shell{grid-template-columns:156px 1fr}.layout{grid-template-columns:1fr}.aside{border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:28px}.route{grid-template-columns:1fr}.flow{min-height:160px}.focus h2{font-size:42px}}
+  @media(max-width:780px){.shell{grid-template-columns:1fr}.rail{position:fixed;left:10px;right:10px;bottom:10px;top:auto;width:auto;height:70px;border:1px solid var(--ink);border-radius:20px;flex-direction:row;align-items:center;padding:7px 9px;background:var(--paper);z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.14)}.mark{width:54px;height:50px;font-size:14px;box-shadow:none;flex:0 0 auto}.mark:after{display:none}.railnav{margin:0 auto;flex-direction:row;gap:3px}.railbtn{width:44px;height:46px;padding:0;justify-content:center}.railbtn .navtext{display:none}.railspacer,.rail .footerlabel{display:none}.avatar{width:48px;height:46px;margin:0;font-size:10px}.mast{padding:0 15px;height:72px}.brand h1{font-size:25px}.brand small,.today>span:not(.dotlive){display:none}.layout{min-height:calc(100vh - 72px)}.main{padding:22px 14px 104px}.aside{padding:26px 14px 104px;grid-template-columns:1fr}.focus{min-height:0}.focus h2{font-size:34px;letter-spacing:-2px}.focus-meta em{width:100%;margin:2px 0 0}.route{gap:17px}.workspace-head{height:auto;gap:10px;align-items:flex-start;padding:13px}.switches{flex-wrap:wrap;justify-content:flex-end}.messages{padding:19px 12px}.msg{grid-template-columns:29px 1fr;gap:8px}.msg.me{grid-template-columns:1fr 29px}.compose-meta{align-items:flex-start;gap:8px}.meta-left{flex-wrap:wrap}.newchat{padding:0 12px}.flow{border-radius:18px;transform:none}.workspace{border-radius:18px}.bubble p{font-size:13px}}
+
+  @media(max-width:1280px){.ai-chat-view{grid-template-columns:220px minmax(500px,1fr) 285px}.chat-stream{padding-left:32px;padding-right:32px}}
+  @media(max-width:1080px){.ai-chat-view{grid-template-columns:220px 1fr}.chat-inspector{display:none}.chat-core-head{top:86px}}
+  @media(max-width:780px){.ai-chat-view{grid-template-columns:1fr;min-height:calc(100vh - 72px);padding-bottom:80px}.chat-sessions{display:none}.chat-core-head{top:72px;padding:12px 14px;min-height:72px}.chat-core-head p{display:none}.chat-title-row h2{font-size:13px;max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.model-chip{height:38px;padding:0 7px}.model-logo{width:22px;height:22px}.quiet-btn{display:none}.chat-principle{margin:13px 12px 0}.chat-principle span{display:none}.chat-stream{padding:24px 16px 16px}.chat-turn{margin-bottom:26px}.lead{font-size:15px}.concept-compare{grid-template-columns:1fr;gap:7px}.compare-arrow{transform:rotate(90deg);justify-self:center;font-size:18px}.chat-composer-wrap{padding:0 12px 18px}.prompt-suggestions{overflow:auto;flex-wrap:nowrap;padding-bottom:2px}.prompt-suggestions button{white-space:nowrap}.chat-hint{display:none}}
+
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="shell">
+  <aside class="rail" aria-label="主导航">
+    <div class="mark">知流</div>
+    <nav class="railnav">
+      <button class="railbtn active" data-view="flowView" aria-label="学习流" title="学习流">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7h10M4 12h16M4 17h8"/><path d="M17 4l3 3-3 3"/></svg><span class="navtext">学习流</span>
+      </button>
+      <button class="railbtn" data-view="chatView" aria-label="AI 对话" title="AI 对话">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M9 9h6M9 12h4"/></svg><span class="navtext">AI 对话</span>
+      </button>
+      <button class="railbtn" data-static="1" aria-label="知识库" title="知识库">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H20v16H7.5A2.5 2.5 0 0 0 5 21.5z"/><path d="M5 5.5v16M9 7h7M9 11h5"/></svg><span class="navtext">知识库</span>
+      </button>
+      <button class="railbtn" data-static="1" aria-label="知识候选" title="知识候选">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3l2.2 5.3L20 9l-4.3 3.8L17 18l-5-2.8L7 18l1.3-5.2L4 9l5.8-.7z"/></svg><span class="navtext">待沉淀</span>
+      </button>
+      <button class="railbtn" data-static="1" aria-label="导入笔记" title="导入笔记">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 16V4M7.5 8.5 12 4l4.5 4.5"/><path d="M5 14v5h14v-5"/></svg><span class="navtext">导入笔记</span>
+      </button>
+    </nav>
+    <div class="railspacer"></div>
+    <div class="footerlabel">我的空间</div>
+    <button class="railbtn" data-static="1" aria-label="设置" title="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A7 7 0 0 0 15 6l-.3-2.6h-4L10.5 6A7 7 0 0 0 9 7.1l-2.4-1-2 3.4L6.5 11a7 7 0 0 0 0 2L4.6 14.5l2 3.4 2.4-1A7 7 0 0 0 10.5 18l.3 2.6h4L15 18a7 7 0 0 0 1.5-1.1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z"/></svg><span class="navtext">系统设置</span>
+    </button>
+    <div class="avatar">三金</div>
+  </aside>
+
+  <section class="page">
+    <header class="mast">
+      <div class="brand">
+        <h1>知流</h1>
+        <small>个人学习与知识沉淀系统</small>
+      </div>
+      <div class="today">
+        <span>八月十一日 · 星期二</span>
+        <span class="dotlive">学习中</span>
+        <button class="newchat" id="newChat">＋ 新建学习话题</button>
+      </div>
+    </header>
+
+    <div class="layout" id="flowView">
+      <main class="main">
+        <section class="route">
+          <div class="focus">
+            <div class="eyebrow">当前学习焦点 / 线程安全</div>
+            <h2>先聊懂，<br>再把真正有用的留下。</h2>
+            <p>你正在学习 <strong>ConcurrentHashMap</strong>。知流不替你囤积答案，而是把对话里真正值得保留的理解，变成以后还能再次调用的个人知识。</p>
+            <div class="focus-meta">
+              <span><b>12</b> 次追问</span><span><b>3</b> 条候选</span><span><b>1</b> 条已沉淀</span><em>不是收藏，是回流。</em>
+            </div>
+          </div>
+          <div class="flow">
+            <div class="flowtop">
+              <h3>这条知识正在流动</h3>
+              <span class="flowcount">03 / 06</span>
+            </div>
+            <div class="flowline">
+              <div class="step"><div class="stepbar on"></div><span>对话</span></div>
+              <div class="step"><div class="stepbar on"></div><span>识别价值</span></div>
+              <div class="step"><div class="stepbar current"></div><span>知识提炼</span></div>
+              <div class="step"><div class="stepbar"></div><span>你的确认</span></div>
+              <div class="step"><div class="stepbar"></div><span>沉淀</span></div>
+              <div class="step"><div class="stepbar"></div><span>再次调用</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="workspace">
+          <div class="workspace-head">
+            <div class="thread-title"><span class="pulse"></span>ConcurrentHashMap：JDK 7 与 JDK 8</div>
+            <div class="switches">
+              <button class="pill active" id="ragToggle">个人知识：自动</button>
+              <button class="pill">模型：DeepSeek</button>
+              <button class="pill">会话记忆：开启</button>
+            </div>
+          </div>
+
+          <div class="messages" id="messages">
+            <article class="msg me">
+              <div class="who">我</div>
+              <div class="bubble"><p>ConcurrentHashMap 为什么线程安全？</p></div>
+            </article>
+            <article class="msg">
+              <div class="who">知</div>
+              <div class="bubble">
+                <span class="contextflag">本轮未调用个人知识库 · 使用当前会话上下文</span>
+                <p><strong>关键不是“用了锁”，而是锁的粒度和并发控制方式。</strong></p>
+                <p>以 JDK 8 为例，ConcurrentHashMap 取消了 Segment，核心结构变成数组 + 链表 / 红黑树。写入时会结合 CAS 与 synchronized，把竞争尽量限制在单个桶节点上，而读取大多不需要加锁。</p>
+                <div class="code-note">JDK 8：CAS 初始化 / 定位桶 → 桶为空直接 CAS → 冲突时锁住桶头节点 → 链表或红黑树更新</div>
+                <p>所以它的“线程安全”不是来自一个全局大锁，而是来自一组针对不同状态设计的并发控制策略。</p>
+              </div>
+            </article>
+            <article class="msg me">
+              <div class="who">我</div>
+              <div class="bubble"><p>那 JDK 7 呢？为什么后来要改？</p></div>
+            </article>
+            <article class="msg">
+              <div class="who">知</div>
+              <div class="bubble">
+                <span class="contextflag">已理解“那”仍指 ConcurrentHashMap · 会话记忆命中</span>
+                <p>JDK 7 的核心是 <strong>Segment 分段锁</strong>。可以把整个 Map 想成被拆成多个独立小区域，每个 Segment 自己持有一把 ReentrantLock。</p>
+                <p>它比 Hashtable 的全表锁并发度高很多，但 Segment 本身是一层额外结构，而且并发粒度最终受 Segment 数量影响。JDK 8 把锁进一步下沉到桶节点，结构也更直接。</p>
+              </div>
+            </article>
+          </div>
+
+          <div class="composer">
+            <div class="composebox">
+              <textarea id="prompt" placeholder="继续追问，或把今天真正没弄懂的地方写下来……"></textarea>
+              <button class="send" id="send" aria-label="发送">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h13M13 6l6 6-6 6" stroke-width="1.8"/></svg>
+              </button>
+            </div>
+            <div class="compose-meta">
+              <div class="meta-left"><span><b>知识路由</b> 自动判断</span><span><b>嵌入模型</b> 系统固定</span><span><b>回答</b> 流式输出</span></div>
+              <span>⌘ + Enter 发送</span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="aside">
+        <section class="side-section">
+          <div class="side-head"><h3>待沉淀</h3><span>1 条值得你判断</span></div>
+          <div class="candidate" id="candidate">
+            <h4>ConcurrentHashMap 从分段锁到桶级并发</h4>
+            <p>JDK 7 通过 Segment + ReentrantLock 提升并发度；JDK 8 取消 Segment，以 CAS、桶头 synchronized 与更直接的数据结构降低额外层级。</p>
+            <div class="tags"><span class="tag">Java 并发</span><span class="tag">ConcurrentHashMap</span><span class="tag">JDK 7 / 8</span></div>
+            <div class="candidate-actions"><button id="accept">确认沉淀</button><button id="edit">先修改</button></div>
+          </div>
+        </section>
+
+        <section class="side-section">
+          <div class="side-head"><h3>你的知识索引</h3><span>按知识域组织</span></div>
+          <div class="indexbox">
+            <div class="domain"><span class="domainname"><i></i>Java 与 JVM</span><em>128</em></div>
+            <div class="domain"><span class="domainname"><i></i>Redis</span><em>64</em></div>
+            <div class="domain"><span class="domainname"><i></i>Spring 生态</span><em>91</em></div>
+            <div class="domain"><span class="domainname"><i></i>RAG 实践</span><em>37</em></div>
+          </div>
+          <div class="mini-map" aria-label="知识关联示意">
+            <div class="line l1"></div><div class="line l2"></div>
+            <div class="node a">Java</div><div class="node b">Redis</div><div class="node c">Spring</div>
+          </div>
+        </section>
+
+        <section class="side-section">
+          <div class="side-head"><h3>当前会话记忆</h3><span>短期上下文</span></div>
+          <div class="memory-card">
+            <h4>正在记住什么？</h4>
+            <p>当前主题围绕 ConcurrentHashMap 的线程安全机制，用户已从 JDK 8 追问到 JDK 7，下一步可能继续比较实现细节或版本演进原因。</p>
+            <div class="tiny">仅用于本次对话连续性 · 不等于长期知识</div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="ai-chat-view view-hidden" id="chatView" aria-label="AI 对话工作台">
+      <aside class="chat-sessions">
+        <div class="chat-side-top">
+          <div>
+            <div class="eyebrow">AI 对话 / 学习入口</div>
+            <h2>把问题聊透。</h2>
+          </div>
+          <button class="chat-plus" id="chatPlus" aria-label="新建对话">＋</button>
+        </div>
+        <label class="chat-search"><span>⌕</span><input placeholder="找一段旧对话…" /></label>
+        <div class="session-label">今天</div>
+        <button class="session-item active" data-topic="ConcurrentHashMap：JDK 7 与 JDK 8">
+          <span class="session-dot"></span><b>ConcurrentHashMap</b><small>JDK 7 为什么后来要改？</small><em>12</em>
+        </button>
+        <button class="session-item" data-topic="Redis 分布式锁到底安全吗？">
+          <span class="session-dot yellow"></span><b>Redis 分布式锁</b><small>Redisson 看门狗与续期</small><em>8</em>
+        </button>
+        <button class="session-item" data-topic="Spring AI 的 Chat Memory 怎么设计？">
+          <span class="session-dot blue"></span><b>Spring AI Memory</b><small>History ≠ Memory ≠ Knowledge</small><em>6</em>
+        </button>
+        <div class="session-label">更早</div>
+        <button class="session-item" data-topic="RAG 的召回率为什么不稳定？">
+          <span class="session-dot green"></span><b>RAG 召回</b><small>Chunk、Query Rewrite 与 Rerank</small><em>9</em>
+        </button>
+        <div class="session-foot">
+          <span>本月对话 <strong>28</strong></span><span>沉淀知识 <strong>17</strong></span>
+        </div>
+      </aside>
+
+      <main class="chat-core">
+        <header class="chat-core-head">
+          <div>
+            <div class="chat-title-row"><span class="live-ring"></span><h2 id="chatTopicTitle">ConcurrentHashMap：JDK 7 与 JDK 8</h2></div>
+            <p>当前会话有短期记忆；长期知识只在需要时被路由进来。</p>
+          </div>
+          <div class="chat-head-actions">
+            <button class="model-chip" id="modelCycle"><span class="model-logo">D</span><span><small>当前模型</small><b id="modelName">DeepSeek</b></span><i>⌄</i></button>
+            <button class="quiet-btn" id="chatMore">•••</button>
+          </div>
+        </header>
+
+        <div class="chat-principle">
+          <span class="principle-mark">↳</span>
+          <div><b>这不是一段孤立回答。</b><span>我会先理解当前会话，再决定要不要调用你的长期知识。</span></div>
+          <em>Memory ON</em>
+        </div>
+
+        <div class="chat-stream" id="chatStream">
+          <article class="chat-turn user-turn">
+            <div class="turn-meta"><span>你</span><time>16:12</time></div>
+            <div class="turn-body"><p>那 JDK 7 呢？为什么后来要改？</p></div>
+          </article>
+
+          <article class="chat-turn ai-turn">
+            <div class="turn-meta"><span class="ai-badge">知流</span><time>16:12</time><span class="route-badge">会话记忆命中</span></div>
+            <div class="turn-body">
+              <p class="lead"><strong>JDK 7 的核心不是“锁少了”，而是把一张表拆成多个可独立加锁的 Segment。</strong></p>
+              <p>你上一轮问的是 ConcurrentHashMap，所以这里的“那”仍然沿用当前主题。JDK 7 通过 <b>Segment + ReentrantLock</b> 把不同 key 的写入竞争分散到多个区域。</p>
+              <div class="concept-compare">
+                <div><small>JDK 7</small><strong>分段锁</strong><span>锁住 Segment</span></div>
+                <div class="compare-arrow">→</div>
+                <div><small>JDK 8</small><strong>桶级并发</strong><span>CAS + synchronized</span></div>
+              </div>
+              <p>后来改掉 Segment，主要是为了让结构更直接、并发粒度更细，同时避免固定 Segment 数量对并发度形成上限。</p>
+              <div class="answer-tools">
+                <button>有帮助</button><button>没讲透</button><button id="distillBtn">✦ 提炼这段</button><button>复制</button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="chat-composer-wrap">
+          <div class="prompt-suggestions">
+            <button>继续对比扩容过程</button><button>给我画调用链</button><button>用面试回答方式总结</button>
+          </div>
+          <div class="chat-composer">
+            <textarea id="chatPrompt" placeholder="继续追问。模糊一点也没关系，我会结合上下文理解……"></textarea>
+            <div class="composer-bottom">
+              <div class="composer-tools"><button title="上传文件">＋</button><button title="知识路由">知识：自动</button><button title="会话记忆">记忆：开</button></div>
+              <button class="chat-send" id="chatSend"><span>发送</span><b>↗</b></button>
+            </div>
+          </div>
+          <div class="chat-hint">Enter 换行 · ⌘ / Ctrl + Enter 发送 · 回答完成后可自动生成知识候选，但不会直接写入知识库</div>
+        </div>
+      </main>
+
+      <aside class="chat-inspector">
+        <section class="inspector-section route-trace">
+          <div class="inspector-head"><div><span class="eyebrow">本轮怎么回答</span><h3>知识路由轨迹</h3></div><span class="status-dot">自动</span></div>
+          <div class="trace-list">
+            <div class="trace done"><i>1</i><div><b>理解问题</b><span>识别“那”指向当前主题</span></div><em>✓</em></div>
+            <div class="trace done"><i>2</i><div><b>判断是否需要 RAG</b><span>当前追问依赖通用知识即可</span></div><em>✓</em></div>
+            <div class="trace skipped"><i>3</i><div><b>个人知识检索</b><span>本轮跳过，避免无意义召回</span></div><em>—</em></div>
+            <div class="trace done"><i>4</i><div><b>模型生成</b><span>DeepSeek · 会话上下文 6 条</span></div><em>✓</em></div>
+          </div>
+        </section>
+
+        <section class="inspector-section memory-panel">
+          <div class="inspector-head"><div><span class="eyebrow">短期上下文</span><h3>会话记忆</h3></div><span class="memory-switch">ON</span></div>
+          <div class="memory-quote">“当前主题：ConcurrentHashMap 线程安全；已从 JDK 8 追问至 JDK 7，用户在理解版本演进。”</div>
+          <div class="memory-meter"><span style="width:62%"></span></div>
+          <div class="memory-foot"><span>6 条消息参与上下文</span><b>62%</b></div>
+        </section>
+
+        <section class="inspector-section knowledge-panel">
+          <div class="inspector-head"><div><span class="eyebrow">长期知识</span><h3>可调用的知识域</h3></div></div>
+          <div class="knowledge-chips"><button class="on">Java 与 JVM <em>128</em></button><button>Spring 生态 <em>91</em></button><button>Redis <em>64</em></button><button>RAG 实践 <em>37</em></button></div>
+        </section>
+
+        <section class="inspector-section distill-panel" id="distillPanel">
+          <span class="spark">✦</span>
+          <div><small>对话结束后</small><h3>值得留下吗？</h3><p>系统可以从本轮聊天中提炼知识候选，由你确认之后再沉淀。</p></div>
+          <button id="makeCandidate">生成知识候选 ↗</button>
+        </section>
+      </aside>
+    </section>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+  const toast = (text) => {
+    const el = document.getElementById('toast');
+    el.textContent = text; el.classList.add('show');
+    clearTimeout(window.__toast); window.__toast=setTimeout(()=>el.classList.remove('show'),1800);
+  };
+
+  function switchView(id){
+    const flow=document.getElementById('flowView');
+    const chat=document.getElementById('chatView');
+    if(id==='chatView'){
+      flow.classList.add('view-hidden'); chat.classList.remove('view-hidden');
+    }else{
+      chat.classList.add('view-hidden'); flow.classList.remove('view-hidden');
+    }
+    document.querySelectorAll('.railbtn[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===id));
+  }
+  document.querySelectorAll('.railbtn').forEach(btn=>btn.addEventListener('click',()=>{
+    if(btn.dataset.view){ switchView(btn.dataset.view); toast(btn.getAttribute('title') || '已切换'); }
+    else { toast(btn.getAttribute('title') + ' · 原型入口'); }
+  }));
+
+  document.getElementById('ragToggle').addEventListener('click', e=>{
+    const modes=['个人知识：自动','个人知识：关闭','个人知识：强制'];
+    let i=modes.indexOf(e.currentTarget.textContent.trim());
+    e.currentTarget.textContent=modes[(i+1)%modes.length];
+    toast('知识路由策略已切换');
+  });
+
+  document.getElementById('accept').addEventListener('click',()=>{
+    const card=document.getElementById('candidate');
+    card.innerHTML='<h4>已进入知识处理队列</h4><p>这条知识已由你确认。下一步将进行切分、向量化与索引；失败时应可重试，而不会制造重复向量。</p><div class="tags"><span class="tag">状态：处理中</span><span class="tag">最终一致</span></div>';
+    card.style.boxShadow='4px 4px 0 var(--yellow)'; toast('已确认，不直接阻塞当前聊天');
+  });
+  document.getElementById('edit').addEventListener('click',()=>toast('原型：这里进入知识候选编辑态'));
+  document.getElementById('newChat').addEventListener('click',()=>{switchView('chatView'); document.getElementById('chatPrompt').focus(); toast('已进入 AI 对话 · 新话题不会继承旧会话记忆');});
+
+  function submit(){
+    const input=document.getElementById('prompt');
+    const value=input.value.trim(); if(!value){toast('先写下你的问题');return;}
+    const list=document.getElementById('messages');
+    const article=document.createElement('article'); article.className='msg me';
+    article.innerHTML='<div class="who">我</div><div class="bubble"><p></p></div>';
+    article.querySelector('p').textContent=value; list.appendChild(article); input.value='';
+    list.scrollTop=list.scrollHeight; toast('原型已记录输入 · 后端接入后走 SSE');
+  }
+  document.getElementById('send').addEventListener('click',submit);
+  document.getElementById('prompt').addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter')submit()});
+
+
+  // AI 对话工作台交互
+  document.querySelectorAll('.session-item').forEach(item=>item.addEventListener('click',()=>{
+    document.querySelectorAll('.session-item').forEach(i=>i.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('chatTopicTitle').textContent=item.dataset.topic;
+    toast('已切换会话');
+  }));
+  const models=['DeepSeek','Qwen','OpenAI','Ollama'];
+  document.getElementById('modelCycle').addEventListener('click',()=>{
+    const el=document.getElementById('modelName');
+    const next=models[(models.indexOf(el.textContent)+1)%models.length];
+    el.textContent=next; document.querySelector('.model-logo').textContent=next[0];
+    toast('模型已切换为 '+next);
+  });
+  document.getElementById('chatPlus').addEventListener('click',()=>{document.getElementById('chatPrompt').focus();toast('新会话：短期记忆将重新开始');});
+  document.getElementById('chatMore').addEventListener('click',()=>toast('原型：重命名 / 导出 / 删除会话'));
+  document.getElementById('distillBtn').addEventListener('click',()=>{document.getElementById('distillPanel').scrollIntoView({behavior:'smooth',block:'center'});toast('已定位知识提炼入口');});
+  document.getElementById('makeCandidate').addEventListener('click',e=>{e.currentTarget.textContent='✓ 已生成候选，等待你的确认';e.currentTarget.style.background='var(--green)';toast('知识候选已生成 · 尚未写入知识库');});
+  document.querySelectorAll('.prompt-suggestions button').forEach(btn=>btn.addEventListener('click',()=>{document.getElementById('chatPrompt').value=btn.textContent;document.getElementById('chatPrompt').focus();}));
+  document.querySelectorAll('.knowledge-chips button').forEach(btn=>btn.addEventListener('click',()=>btn.classList.toggle('on')));
+
+  function submitChat(){
+    const input=document.getElementById('chatPrompt'); const value=input.value.trim(); if(!value){toast('先写下你想继续追问的内容');return;}
+    const stream=document.getElementById('chatStream');
+    const user=document.createElement('article'); user.className='chat-turn user-turn';
+    user.innerHTML='<div class="turn-meta"><span>你</span><time>刚刚</time></div><div class="turn-body"><p></p></div>';
+    user.querySelector('p').textContent=value; stream.appendChild(user); input.value='';
+    const ai=document.createElement('article'); ai.className='chat-turn ai-turn';
+    ai.innerHTML='<div class="turn-meta"><span class="ai-badge">知流</span><time>正在回答</time><span class="route-badge">正在判断知识路由</span></div><div class="turn-body"><p class="lead"><strong>正在组织回答<span class="typing-dots">…</span></strong></p></div>';
+    stream.appendChild(ai); ai.scrollIntoView({behavior:'smooth',block:'end'});
+    setTimeout(()=>{
+      ai.querySelector('time').textContent='刚刚'; ai.querySelector('.route-badge').textContent='会话记忆命中 · 未调用 RAG';
+      ai.querySelector('.turn-body').innerHTML='<p class="lead"><strong>我会沿着当前上下文继续，而不是把它当成一个全新的问题。</strong></p><p>这个静态原型已经把“会话记忆 → 是否需要个人知识 → 模型回答 → 知识候选”的链路表现出来。真实后端接入后，这里可以直接替换为 SSE 流式内容。</p><div class="answer-tools"><button>有帮助</button><button>继续追问</button><button>✦ 提炼这段</button><button>复制</button></div>';
+      ai.scrollIntoView({behavior:'smooth',block:'end'});
+    },650);
+  }
+  document.getElementById('chatSend').addEventListener('click',submitChat);
+  document.getElementById('chatPrompt').addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter')submitChat()});
+
+</script>
+</body>
+</html>

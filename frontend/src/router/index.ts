@@ -6,7 +6,12 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/chat',
+      redirect: '/flow',
+    },
+    {
+      path: '/flow',
+      name: 'Flow',
+      component: () => import('../views/FlowView.vue'),
     },
     {
       path: '/chat',

@@ -1,0 +1,78 @@
+/*
+ * KnowFlow Design Tokens
+ *
+ * 提炼自 docs/design/knowflow-preview-v3.html 的视觉语言：
+ * 暖纸底 + 深墨字 + 橙/黄/深绿点缀，圆润但有力量感。
+ * 原生 CSS 变量，零依赖；同时覆盖 Element Plus 主色变量使其融入纸感。
+ */
+:root {
+  /* ---- color: surface ---- */
+  --kf-paper: #f5f1e8;
+  --kf-paper-2: #ebe5d8;
+  --kf-paper-3: #eee8dc;
+  --kf-white: #fffdf8;
+
+  /* ---- color: ink / text ---- */
+  --kf-ink: #191815;
+  --kf-muted: #777064;
+
+  /* ---- color: line / border ---- */
+  --kf-line: #cec4b2;
+  --kf-line-dashed: #c6bfaf;
+
+  /* ---- color: accent ---- */
+  --kf-hot: #ff5a36;
+  --kf-hot-soft: #ffe0d7;
+  --kf-yellow: #f2cf4a;
+  --kf-green: #264f3d;
+  --kf-green-soft: #dbe8d7;
+  --kf-blue: #8ca7e8;
+
+  /* ---- typography ---- */
+  --kf-font-round:
+    'Nunito', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui,
+    sans-serif;
+  --kf-font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --kf-text-xs: 0.625rem; /* 10px */
+  --kf-text-sm: 0.75rem; /* 12px */
+  --kf-text-base: 0.875rem; /* 14px */
+  --kf-text-lg: 1.125rem; /* 18px */
+  --kf-text-display: 2.875rem; /* 46px */
+
+  /* ---- spacing ---- */
+  --kf-space-1: 4px;
+  --kf-space-2: 8px;
+  --kf-space-3: 12px;
+  --kf-space-4: 16px;
+  --kf-space-5: 24px;
+  --kf-space-6: 34px;
+
+  /* ---- radius ---- */
+  --kf-radius-sm: 8px;
+  --kf-radius-md: 14px;
+  --kf-radius-lg: 20px;
+  --kf-radius-pill: 999px;
+
+  /* ---- border ---- */
+  --kf-border-1: 1px solid var(--kf-ink);
+
+  /* ---- shadow ---- */
+  --kf-shadow-card: 0 20px 60px rgba(45, 36, 23, 0.09);
+  --kf-shadow-hard: 4px 4px 0 var(--kf-ink);
+
+  /* ---- layout ---- */
+  --kf-rail-w: 176px;
+  --kf-mast-h: 86px;
+
+  /* ---- Element Plus 主色融入纸感（覆盖 --el-color-primary 及其浅深档） ---- */
+  --el-color-primary: var(--kf-ink);
+  --el-color-primary-light-3: #4a4a45;
+  --el-color-primary-light-5: #6f6d66;
+  --el-color-primary-light-7: #a09c92;
+  --el-color-primary-light-8: #c9c4b8;
+  --el-color-primary-light-9: var(--kf-paper-2);
+  --el-color-primary-dark-2: #000;
+  --el-color-success: var(--kf-green);
+  --el-color-warning: #b8822a;
+  --el-color-danger: var(--kf-hot);
+}
