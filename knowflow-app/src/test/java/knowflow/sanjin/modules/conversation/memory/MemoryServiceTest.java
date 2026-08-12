@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.service.ConversationService;
+import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -34,7 +35,7 @@ class MemoryServiceTest {
     properties = new MemoryProperties();
     properties.setTurns(10);
     InMemoryMemoryStore store = new InMemoryMemoryStore();
-    repository = new ChatMemoryRepositoryImpl(store, properties);
+    repository = new ChatMemoryRepositoryImpl(store, properties, new CurrentOwnerProvider());
     conversationService = mock(ConversationService.class);
     service = new MemoryService(repository, conversationService, properties);
   }

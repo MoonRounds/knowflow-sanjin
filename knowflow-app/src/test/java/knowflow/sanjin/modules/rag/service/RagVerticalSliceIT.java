@@ -202,7 +202,7 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     SendMessageRequest send = new SendMessageRequest();
     send.setClientMessageId("rag-1");
     send.setContent("Spring 的 REQUIRED 传播行为是什么？");
-    send.setModelConfigId(modelConfigId);
+    send.setModelConfigId(modelConfigId.toString());
     generationService.send(conversationId, send);
     awaitSlotReleased();
 
@@ -246,7 +246,7 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     SendMessageRequest send = new SendMessageRequest();
     send.setClientMessageId("rag-2");
     send.setContent("你好");
-    send.setModelConfigId(modelConfigId);
+    send.setModelConfigId(modelConfigId.toString());
     generationService.send(conversationId, send);
     awaitSlotReleased();
 
@@ -295,7 +295,7 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     SendMessageRequest send = new SendMessageRequest();
     send.setClientMessageId("rag-inj");
     send.setContent("REQUIRED 传播行为是什么？");
-    send.setModelConfigId(modelConfigId);
+    send.setModelConfigId(modelConfigId.toString());
     generationService.send(conversationId, send);
     awaitSlotReleased();
 

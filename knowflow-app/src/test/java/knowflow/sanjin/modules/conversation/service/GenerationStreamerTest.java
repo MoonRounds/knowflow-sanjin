@@ -4,11 +4,13 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import knowflow.sanjin.common.error.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /** GenerationStreamer 单元测试：验证失败/取消路径会发出 generation.failed 事件并终结状态。 */
@@ -64,6 +66,34 @@ class GenerationStreamerTest {
   }
 
   @Test
+  @DisplayName("should finalize as client-disconnected when emitter send throws IOException")
+  void shouldFinalizeOnDirectEmitterDisconnect() throws Exception {
+    SseEmitter emitter = mock(SseEmitter.class);
+    doThrow(new IOException("broken pipe"))
+        .when(emitter)
+        .send(any(SseEmitter.SseEventBuilder.class));
+
+    streamer().stream(context(), emitter);
+
+    verify(finalizer)
+        .fail(eq(1L), eq(42L), anyString(), eq(ErrorCode.GENERATION_CLIENT_DISCONNECTED), any());
+    verify(emitter).complete();
+  }
+
+  @Test
+  @DisplayName("should prefer CANCELLED when stop interrupts an active provider stream")
+  void shouldPreferCancelledWhenProviderIsInterrupted() throws Exception {
+    when(executor.isCancelled(42L)).thenReturn(false, true);
+    when(modelClientFacade.stream(any(), any(), any(), any(), any()))
+        .thenThrow(new RuntimeException("interrupted provider stream"));
+
+    streamer().stream(context(), new SseEmitter());
+
+    verify(finalizer).cancel(eq(1L), eq(42L), anyString(), any());
+    verify(finalizer, never()).fail(anyLong(), anyLong(), anyString(), anyString(), any());
+  }
+
+  @Test
   @DisplayName("should emit generation.completed and complete finalizer on success")
   void shouldCompleteOnSuccess() throws Exception {
     when(executor.isCancelled(42L)).thenReturn(false);
@@ -76,9 +106,13 @@ class GenerationStreamerTest {
               return "Hello";
             });
 
-    SseEmitter emitter = new SseEmitter();
+    SseEmitter emitter = mock(SseEmitter.class);
     streamer().stream(context(), emitter);
 
-    verify(finalizer).complete(eq(1L), eq(42L), eq("Hello"), eq(10), any(), any(), eq(true), any());
+    InOrder order = inOrder(finalizer, emitter);
+    order
+        .verify(finalizer)
+        .complete(eq(1L), eq(42L), eq("Hello"), eq(10), any(), any(), eq(true), any());
+    order.verify(emitter, times(2)).send(any(SseEmitter.SseEventBuilder.class));
   }
 }

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
+import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import knowflow.sanjin.testinfra.RedisMemoryTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -36,12 +37,12 @@ class ChatMemoryRepositoryRedisIT extends RedisMemoryTestBase {
   @Test
   void setsTtlOnSaveAndRefreshOnOverwrite() {
     repository.saveAll("101", List.of(new UserMessage("u")));
-    Long ttl1 = redisTemplate.getExpire("knowflow:chat-memory:v1:chat:101");
+    Long ttl1 = redisTemplate.getExpire("knowflow:chat-memory:v1:1:chat:101");
     assertThat(ttl1).isNotNull().isGreaterThan(0);
 
     // 覆盖写入刷新 TTL
     repository.saveAll("101", List.of(new UserMessage("u2"), new AssistantMessage("a2")));
-    Long ttl2 = redisTemplate.getExpire("knowflow:chat-memory:v1:chat:101");
+    Long ttl2 = redisTemplate.getExpire("knowflow:chat-memory:v1:1:chat:101");
     assertThat(ttl2).isNotNull().isGreaterThan(0);
   }
 
@@ -50,11 +51,11 @@ class ChatMemoryRepositoryRedisIT extends RedisMemoryTestBase {
     repository.saveAll("102", List.of(new UserMessage("u102")));
     repository.saveAll("103", List.of(new UserMessage("u103")));
 
-    Set<String> keys = redisTemplate.keys("knowflow:chat-memory:v1:chat:*");
+    Set<String> keys = redisTemplate.keys("knowflow:chat-memory:v1:1:chat:*");
     assertThat(keys).isNotNull();
     assertThat(keys)
         .containsExactlyInAnyOrder(
-            "knowflow:chat-memory:v1:chat:102", "knowflow:chat-memory:v1:chat:103");
+            "knowflow:chat-memory:v1:1:chat:102", "knowflow:chat-memory:v1:1:chat:103");
   }
 
   @Test
@@ -62,7 +63,7 @@ class ChatMemoryRepositoryRedisIT extends RedisMemoryTestBase {
     repository.saveAll("104", List.of(new UserMessage("u")));
     repository.deleteByConversationId("104");
 
-    assertThat(redisTemplate.hasKey("knowflow:chat-memory:v1:chat:104")).isFalse();
+    assertThat(redisTemplate.hasKey("knowflow:chat-memory:v1:1:chat:104")).isFalse();
     assertThat(repository.findByConversationId("104")).isEmpty();
   }
 
@@ -73,7 +74,8 @@ class ChatMemoryRepositoryRedisIT extends RedisMemoryTestBase {
     ChatMemoryRepositoryImpl repo =
         new ChatMemoryRepositoryImpl(
             new RedisMemoryStore(redisTemplate, new tools.jackson.databind.ObjectMapper()),
-            shortTtl);
+            shortTtl,
+            new CurrentOwnerProvider());
     repo.saveAll("105", List.of(new UserMessage("u")));
 
     // 等 TTL 过期

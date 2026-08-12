@@ -104,7 +104,7 @@ class GenerationServiceIT extends MySQLTestBase {
     SendMessageRequest req = new SendMessageRequest();
     req.setClientMessageId(clientId);
     req.setContent(content);
-    req.setModelConfigId(modelConfig.getId());
+    req.setModelConfigId(modelConfig.getId().toString());
     return req;
   }
 

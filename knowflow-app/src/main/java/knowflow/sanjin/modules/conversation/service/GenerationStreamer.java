@@ -66,8 +66,17 @@ public class GenerationStreamer {
       }
 
       boolean active = conversationService.isActiveGeneration(ctx.conversationId(), msgId);
-      // 流式结束后解析 cited，再把 sources.available 发送在 completed 之前
+      // 流式结束后解析 cited，并在对客户端宣告 completed 前先提交 MySQL Tx2、释放 active slot。
       List<RetrievedSource> cited = markCited(ctx.ragContext(), content.toString(), snapshot);
+      finalizer.complete(
+          ctx.conversationId(),
+          msgId,
+          content.toString(),
+          promptTokens.get(),
+          completionTokens.get(),
+          totalTokens.get(),
+          active,
+          snapshot);
       emitSourcesAvailable(ctx, emitter, cited, snapshot);
       emitCompleted(
           ctx,
@@ -78,33 +87,43 @@ public class GenerationStreamer {
           promptTokens,
           completionTokens,
           totalTokens);
-      finalizer.complete(
-          ctx.conversationId(),
-          msgId,
-          content.toString(),
-          promptTokens.get(),
-          completionTokens.get(),
-          totalTokens.get(),
-          active,
-          snapshot);
 
     } catch (CancelledGenerationException e) {
       log.info("Generation {} cancelled by user", msgId);
       finalizer.cancel(ctx.conversationId(), msgId, content.toString(), snapshot);
       emitFailed(ctx, emitter, GENERATION_CANCELLED, "cancelled", content.toString());
 
+    } catch (java.io.IOException e) {
+      // emitter.send 可直接抛 IOException（客户端断开）；不能只由上层记录日志，否则消息与
+      // conversation active slot 会永久停留在 GENERATING。
+      log.info("Generation {} client disconnected while emitting, finalizing", msgId);
+      finalizer.fail(
+          ctx.conversationId(),
+          msgId,
+          content.toString(),
+          GENERATION_CLIENT_DISCONNECTED,
+          snapshot);
+
     } catch (RuntimeException e) {
-      Throwable cause = rootCause(e);
-      String errorCode;
-      if (cause instanceof java.io.IOException || cause instanceof java.net.SocketException) {
-        log.info("Generation {} client disconnected, finalizing", msgId);
-        errorCode = GENERATION_CLIENT_DISCONNECTED;
+      if (executor.isCancelled(msgId)) {
+        // stop 请求会中断底层流，Provider 客户端通常以 RuntimeException 结束；取消标志优先于
+        // Provider 错误分类，确保用户停止稳定落为 CANCELLED。
+        log.info("Generation {} cancelled while provider stream was active", msgId);
+        finalizer.cancel(ctx.conversationId(), msgId, content.toString(), snapshot);
+        emitFailed(ctx, emitter, GENERATION_CANCELLED, "cancelled", content.toString());
       } else {
-        log.warn("Generation {} failed: {}", msgId, cause.getClass().getSimpleName());
-        errorCode = mapErrorCode(cause);
+        Throwable cause = rootCause(e);
+        String errorCode;
+        if (cause instanceof java.io.IOException || cause instanceof java.net.SocketException) {
+          log.info("Generation {} client disconnected, finalizing", msgId);
+          errorCode = GENERATION_CLIENT_DISCONNECTED;
+        } else {
+          log.warn("Generation {} failed: {}", msgId, cause.getClass().getSimpleName());
+          errorCode = mapErrorCode(cause);
+        }
+        finalizer.fail(ctx.conversationId(), msgId, content.toString(), errorCode, snapshot);
+        emitFailed(ctx, emitter, errorCode, "failed", content.toString());
       }
-      finalizer.fail(ctx.conversationId(), msgId, content.toString(), errorCode, snapshot);
-      emitFailed(ctx, emitter, errorCode, "failed", content.toString());
     } finally {
       emitter.complete();
     }

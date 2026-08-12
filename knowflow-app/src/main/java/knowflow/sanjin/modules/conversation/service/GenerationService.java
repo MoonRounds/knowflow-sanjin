@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.conversation.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import knowflow.sanjin.common.util.ApiValueParser;
 import knowflow.sanjin.modules.conversation.dto.RegenerateRequest;
 import knowflow.sanjin.modules.conversation.dto.SendMessageRequest;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
@@ -70,7 +71,11 @@ public class GenerationService {
   public SseEmitter send(Long conversationId, SendMessageRequest request) {
     GenerationPrepare.PreparedSend prepared;
     try {
-      prepared = prepare.prepareSend(conversationId, request);
+      Long requestedModelConfigId =
+          request.getModelConfigId() == null
+              ? null
+              : ApiValueParser.positiveId(request.getModelConfigId(), "modelConfigId");
+      prepared = prepare.prepareSend(conversationId, request, requestedModelConfigId);
     } catch (DuplicateKeyException e) {
       // clientMessageId 幂等：重复请求不创建新流，返回空流，客户端对账最终状态
       log.info(
@@ -84,9 +89,12 @@ public class GenerationService {
 
   /** 重新生成：在最新 assistant 消息上创建新 attempt。 */
   public SseEmitter regenerate(Long conversationId, RegenerateRequest request) {
+    Long requestedModelConfigId =
+        request == null || request.getModelConfigId() == null
+            ? null
+            : ApiValueParser.positiveId(request.getModelConfigId(), "modelConfigId");
     GenerationPrepare.PreparedSend prepared =
-        prepare.prepareRegenerate(
-            conversationId, request != null ? request.getModelConfigId() : null);
+        prepare.prepareRegenerate(conversationId, requestedModelConfigId);
     return dispatchStream(conversationId, prepared);
   }
 

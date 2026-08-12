@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 
 import java.time.Duration;
 import java.util.List;
+import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -28,7 +29,8 @@ class ChatMemoryRepositoryImplTest {
 
   @Test
   void savesAndLoadsMessagesWithRoleContentRoundTrip() {
-    ChatMemoryRepositoryImpl repo = new ChatMemoryRepositoryImpl(store, properties);
+    ChatMemoryRepositoryImpl repo =
+        new ChatMemoryRepositoryImpl(store, properties, new CurrentOwnerProvider());
     repo.saveAll("42", List.of(new UserMessage("u1"), new AssistantMessage("a1")));
 
     List<Message> loaded = repo.findByConversationId("42");
@@ -41,7 +43,8 @@ class ChatMemoryRepositoryImplTest {
 
   @Test
   void isolatesKeysByConversationId() {
-    ChatMemoryRepositoryImpl repo = new ChatMemoryRepositoryImpl(store, properties);
+    ChatMemoryRepositoryImpl repo =
+        new ChatMemoryRepositoryImpl(store, properties, new CurrentOwnerProvider());
     repo.saveAll("1", List.of(new UserMessage("u1")));
     repo.saveAll("2", List.of(new UserMessage("u2")));
 
@@ -53,15 +56,17 @@ class ChatMemoryRepositoryImplTest {
   @Test
   void usesVersionedKeyPrefixAndPassesTtl() {
     MemoryStore mockStore = mock(MemoryStore.class);
-    ChatMemoryRepositoryImpl repo = new ChatMemoryRepositoryImpl(mockStore, properties);
+    ChatMemoryRepositoryImpl repo =
+        new ChatMemoryRepositoryImpl(mockStore, properties, new CurrentOwnerProvider());
     repo.saveAll("7", List.of(new UserMessage("u")));
 
-    verify(mockStore).save(eq("knowflow:chat-memory:v1:chat:7"), any(), eq(Duration.ofDays(7)));
+    verify(mockStore).save(eq("knowflow:chat-memory:v1:1:chat:7"), any(), eq(Duration.ofDays(7)));
   }
 
   @Test
   void findConversationIdsReturnsConversationIds() {
-    ChatMemoryRepositoryImpl repo = new ChatMemoryRepositoryImpl(store, properties);
+    ChatMemoryRepositoryImpl repo =
+        new ChatMemoryRepositoryImpl(store, properties, new CurrentOwnerProvider());
     repo.saveAll("11", List.of(new UserMessage("u")));
     repo.saveAll("12", List.of(new UserMessage("u")));
 
@@ -70,7 +75,8 @@ class ChatMemoryRepositoryImplTest {
 
   @Test
   void deleteRemovesByConversationId() {
-    ChatMemoryRepositoryImpl repo = new ChatMemoryRepositoryImpl(store, properties);
+    ChatMemoryRepositoryImpl repo =
+        new ChatMemoryRepositoryImpl(store, properties, new CurrentOwnerProvider());
     repo.saveAll("5", List.of(new UserMessage("u")));
     repo.deleteByConversationId("5");
 
@@ -79,7 +85,8 @@ class ChatMemoryRepositoryImplTest {
 
   @Test
   void findMissingConversationReturnsEmpty() {
-    ChatMemoryRepositoryImpl repo = new ChatMemoryRepositoryImpl(store, properties);
+    ChatMemoryRepositoryImpl repo =
+        new ChatMemoryRepositoryImpl(store, properties, new CurrentOwnerProvider());
     assertThat(repo.findByConversationId("nope")).isEmpty();
   }
 }

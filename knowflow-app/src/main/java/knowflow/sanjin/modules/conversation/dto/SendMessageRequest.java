@@ -12,7 +12,7 @@ public class SendMessageRequest {
 
   @NotBlank private String content;
 
-  private Long modelConfigId;
+  private String modelConfigId;
 
   public String getClientMessageId() {
     return clientMessageId;
@@ -30,11 +30,11 @@ public class SendMessageRequest {
     this.content = content;
   }
 
-  public Long getModelConfigId() {
+  public String getModelConfigId() {
     return modelConfigId;
   }
 
-  public void setModelConfigId(Long modelConfigId) {
+  public void setModelConfigId(String modelConfigId) {
     this.modelConfigId = modelConfigId;
   }
 }

@@ -47,7 +47,8 @@ public class GenerationPrepare {
    * DuplicateKeyException。
    */
   @Transactional
-  public PreparedSend prepareSend(Long conversationId, SendMessageRequest request) {
+  public PreparedSend prepareSend(
+      Long conversationId, SendMessageRequest request, Long requestedModelConfigId) {
     conversationService.lockConversation(conversationId); // 串行化
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     ChatMessage dup = findByClientMessageId(conversationId, ownerId, request.getClientMessageId());
@@ -55,7 +56,7 @@ public class GenerationPrepare {
       throw new DuplicateKeyException("clientMessageId already used");
     }
 
-    ModelConfigRevision revision = resolveRevision(conversationId, request.getModelConfigId());
+    ModelConfigRevision revision = resolveRevision(conversationId, requestedModelConfigId);
     Conversation convo = conversationService.getByIdAndOwner(conversationId);
     long lastSeq = conversationService.lastSequence(conversationId, ownerId);
     long userSeq = lastSeq + 1;
@@ -95,9 +96,9 @@ public class GenerationPrepare {
     }
 
     // 请求指定模型时更新 Conversation default
-    if (request.getModelConfigId() != null
-        && !request.getModelConfigId().equals(convo.getDefaultModelConfigId())) {
-      conversationService.updateDefaultModelConfig(conversationId, request.getModelConfigId());
+    if (requestedModelConfigId != null
+        && !requestedModelConfigId.equals(convo.getDefaultModelConfigId())) {
+      conversationService.updateDefaultModelConfig(conversationId, requestedModelConfigId);
     }
 
     return new PreparedSend(userMsg, assistantMsg, revision);

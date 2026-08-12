@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import knowflow.sanjin.common.util.ApiValueParser;
 import knowflow.sanjin.modules.conversation.assembler.ConversationAssembler;
 import knowflow.sanjin.modules.conversation.assembler.MessageAssembler;
 import knowflow.sanjin.modules.conversation.dto.CreateConversationRequest;
@@ -52,30 +53,35 @@ public class ConversationController {
   }
 
   @GetMapping("/conversations/{id}")
-  public ConversationResponse get(@PathVariable Long id) {
-    return ConversationAssembler.toResponse(service.getByIdAndOwner(id));
+  public ConversationResponse get(@PathVariable String id) {
+    return ConversationAssembler.toResponse(
+        service.getByIdAndOwner(ApiValueParser.positiveId(id, "id")));
   }
 
   @PatchMapping("/conversations/{id}")
   public ConversationResponse update(
-      @PathVariable Long id, @Valid @RequestBody UpdateConversationRequest request) {
-    return ConversationAssembler.toResponse(service.update(id, request));
+      @PathVariable String id, @Valid @RequestBody UpdateConversationRequest request) {
+    return ConversationAssembler.toResponse(
+        service.update(ApiValueParser.positiveId(id, "id"), request));
   }
 
   @DeleteMapping("/conversations/{id}")
-  public ResponseEntity<Void> delete(@PathVariable Long id) {
-    service.softDelete(id);
+  public ResponseEntity<Void> delete(@PathVariable String id) {
+    long conversationId = ApiValueParser.positiveId(id, "id");
+    service.softDelete(conversationId);
     // 删除事务提交后清理 Memory 投影（容错：Redis 故障不阻塞删除）
-    memoryService.clear(id);
+    memoryService.clear(conversationId);
     return ResponseEntity.noContent().build();
   }
 
   @GetMapping("/conversations/{id}/messages")
   public MessagePageResponse messages(
-      @PathVariable Long id,
-      @RequestParam(name = "before", required = false) Long before,
+      @PathVariable String id,
+      @RequestParam(name = "before", required = false) String before,
       @RequestParam(name = "limit", defaultValue = "20") int limit) {
-    List<ChatMessage> page = service.listMessages(id, before, limit);
+    Long conversationId = ApiValueParser.positiveId(id, "id");
+    Long beforeSeq = before == null ? null : ApiValueParser.positiveId(before, "before");
+    List<ChatMessage> page = service.listMessages(conversationId, beforeSeq, limit);
     MessagePageResponse response = new MessagePageResponse();
     // 预载 trace 快照，assistant 消息内嵌当时 sources/cited
     List<Long> assistantIds =
@@ -88,7 +94,7 @@ public class ConversationController {
     response.setMessages(messages);
     if (!messages.isEmpty()) {
       // 下一页为比当前页第一条（最小 sequence）更早的消息
-      response.setNextBefore(page.get(0).getId().toString());
+      response.setNextBefore(page.get(0).getSequence().toString());
     }
     return response;
   }

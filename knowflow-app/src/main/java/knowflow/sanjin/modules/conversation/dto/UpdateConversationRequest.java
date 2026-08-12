@@ -8,7 +8,7 @@ public class UpdateConversationRequest {
   @Size(max = 200)
   private String title;
 
-  private Long defaultModelConfigId;
+  private String defaultModelConfigId;
 
   private Long rowVersion;
 
@@ -20,11 +20,11 @@ public class UpdateConversationRequest {
     this.title = title;
   }
 
-  public Long getDefaultModelConfigId() {
+  public String getDefaultModelConfigId() {
     return defaultModelConfigId;
   }
 
-  public void setDefaultModelConfigId(Long defaultModelConfigId) {
+  public void setDefaultModelConfigId(String defaultModelConfigId) {
     this.defaultModelConfigId = defaultModelConfigId;
   }
 

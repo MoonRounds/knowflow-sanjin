@@ -52,6 +52,9 @@ public class GenerationFinalizer {
           totalTokens,
           makeActive,
           traceSnapshot);
+    } catch (RuntimeException e) {
+      finalized.remove(assistantMessageId);
+      throw e;
     } finally {
       conversationService.clearActiveGeneration(conversationId);
     }
@@ -72,6 +75,9 @@ public class GenerationFinalizer {
     try {
       traceService.failWithTrace(
           conversationId, assistantMessageId, content, errorCode, traceSnapshot);
+    } catch (RuntimeException e) {
+      finalized.remove(assistantMessageId);
+      throw e;
     } finally {
       conversationService.clearActiveGeneration(conversationId);
     }
@@ -88,6 +94,9 @@ public class GenerationFinalizer {
     }
     try {
       traceService.cancelWithTrace(conversationId, assistantMessageId, content, traceSnapshot);
+    } catch (RuntimeException e) {
+      finalized.remove(assistantMessageId);
+      throw e;
     } finally {
       conversationService.clearActiveGeneration(conversationId);
     }

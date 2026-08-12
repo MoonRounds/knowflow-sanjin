@@ -134,15 +134,15 @@ class ConversationServiceIT extends MySQLTestBase {
     assertThat(page1.get(0).getSequence()).isEqualTo(5L);
     assertThat(page1.get(1).getSequence()).isEqualTo(6L);
 
-    // 第二页：before=page1 第一条 id，返回更早 2 条（seq 3,4）
-    Long before = page1.get(0).getId();
+    // 第二页：before=page1 第一条 sequence，返回更早 2 条（seq 3,4）
+    Long before = page1.get(0).getSequence();
     List<ChatMessage> page2 = service.listMessages(c.getId(), before, 2);
     assertThat(page2).hasSize(2);
     assertThat(page2.get(0).getSequence()).isEqualTo(3L);
     assertThat(page2.get(1).getSequence()).isEqualTo(4L);
 
-    // 第三页：before=page2 第一条 id，返回 seq 1,2
-    List<ChatMessage> page3 = service.listMessages(c.getId(), page2.get(0).getId(), 2);
+    // 第三页：before=page2 第一条 sequence，返回 seq 1,2
+    List<ChatMessage> page3 = service.listMessages(c.getId(), page2.get(0).getSequence(), 2);
     assertThat(page3).hasSize(2);
     assertThat(page3.get(0).getSequence()).isEqualTo(1L);
     assertThat(page3.get(1).getSequence()).isEqualTo(2L);

@@ -786,8 +786,7 @@ export interface components {
             updatedAt: string;
         };
         RegenerateRequest: {
-            /** Format: int64 */
-            modelConfigId?: number;
+            modelConfigId?: string;
         };
         RetrievedSource: {
             /** Format: int32 */
@@ -822,8 +821,7 @@ export interface components {
         SendMessageRequest: {
             clientMessageId: string;
             content: string;
-            /** Format: int64 */
-            modelConfigId?: number;
+            modelConfigId?: string;
         };
         SseEmitter: {
             /** Format: int64 */
@@ -847,8 +845,7 @@ export interface components {
             title: string;
         };
         UpdateConversationRequest: {
-            /** Format: int64 */
-            defaultModelConfigId?: number;
+            defaultModelConfigId?: string;
             /** Format: int64 */
             rowVersion?: number;
             title?: string;
@@ -1116,7 +1113,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -1138,7 +1135,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -1158,7 +1155,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -1182,12 +1179,12 @@ export interface operations {
     messages: {
         parameters: {
             query?: {
-                before?: number;
+                before?: string;
                 limit?: number;
             };
             header?: never;
             path: {
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -1209,7 +1206,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -1235,7 +1232,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -1261,7 +1258,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                id: number;
+                id: string;
             };
             cookie?: never;
         };

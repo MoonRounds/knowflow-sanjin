@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import java.util.List;
 import knowflow.sanjin.common.error.ErrorCode;
+import knowflow.sanjin.common.util.ApiValueParser;
 import knowflow.sanjin.modules.conversation.dto.CreateConversationRequest;
 import knowflow.sanjin.modules.conversation.dto.UpdateConversationRequest;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
@@ -94,7 +95,8 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
       c.setTitle(request.getTitle().trim());
     }
     if (request.getDefaultModelConfigId() != null) {
-      c.setDefaultModelConfigId(request.getDefaultModelConfigId());
+      c.setDefaultModelConfigId(
+          ApiValueParser.positiveId(request.getDefaultModelConfigId(), "defaultModelConfigId"));
     }
     updateById(c);
     return c;
@@ -110,11 +112,7 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
     updateById(c);
   }
 
-  /**
-   * 消息历史游标分页：返回 before 指向消息之前的更早消息，或最新消息；均按 id 正序返回。
-   *
-   * <p>实现：先按 id 倒序取 limit 条，再反转得到正序。自增主键 id 单调递增且充当游标。
-   */
+  /** 消息历史游标分页：before 是会话内 sequence；先倒序取 limit 条，再反转为 sequence 正序。 */
   @Transactional(readOnly = true)
   public List<ChatMessage> listMessages(Long conversationId, Long before, int limit) {
     getByIdAndOwnerInternal(conversationId);
@@ -125,11 +123,11 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
             .eq(ChatMessage::getConversationId, conversationId)
             .eq(ChatMessage::getOwnerId, ownerId);
     if (before != null) {
-      wrapper.lt(ChatMessage::getId, before);
+      wrapper.lt(ChatMessage::getSequence, before);
     }
     List<ChatMessage> page =
         chatMessageMapper.selectList(
-            wrapper.orderByDesc(ChatMessage::getId).last("LIMIT " + safeLimit));
+            wrapper.orderByDesc(ChatMessage::getSequence).last("LIMIT " + safeLimit));
     java.util.Collections.reverse(page);
     return page;
   }
