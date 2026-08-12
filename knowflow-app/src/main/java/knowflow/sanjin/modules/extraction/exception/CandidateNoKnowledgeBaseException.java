@@ -6,7 +6,7 @@ import knowflow.sanjin.common.error.ErrorCode;
 public class CandidateNoKnowledgeBaseException extends RuntimeException {
 
   public CandidateNoKnowledgeBaseException(Long id) {
-    super("Candidate " + id + " draft must be associated with at least one KnowledgeBase");
+    super("候选 " + id + " 草稿必须关联至少一个知识库");
   }
 
   public String getErrorCode() {

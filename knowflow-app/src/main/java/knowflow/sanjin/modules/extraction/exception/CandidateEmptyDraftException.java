@@ -6,7 +6,7 @@ import knowflow.sanjin.common.error.ErrorCode;
 public class CandidateEmptyDraftException extends RuntimeException {
 
   public CandidateEmptyDraftException(Long id, String field) {
-    super("Candidate " + id + " draft is missing required field: " + field);
+    super("候选 " + id + " 草稿缺少必填字段: " + field);
   }
 
   public String getErrorCode() {

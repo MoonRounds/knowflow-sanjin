@@ -4,6 +4,6 @@ package knowflow.sanjin.modules.conversation.exception;
 public class NoDefaultModelConfigException extends RuntimeException {
 
   public NoDefaultModelConfigException(Long conversationId) {
-    super("No default chat model configured for conversation " + conversationId);
+    super("会话 " + conversationId + " 未配置默认聊天模型");
   }
 }

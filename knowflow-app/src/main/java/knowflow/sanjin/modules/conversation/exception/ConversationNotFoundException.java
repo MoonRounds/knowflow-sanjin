@@ -6,7 +6,7 @@ public class ConversationNotFoundException extends RuntimeException {
   private final Long id;
 
   public ConversationNotFoundException(Long id) {
-    super("Conversation not found: id=" + id);
+    super("会话不存在: id=" + id);
     this.id = id;
   }
 

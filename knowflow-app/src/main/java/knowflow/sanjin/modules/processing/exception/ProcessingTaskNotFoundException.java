@@ -6,7 +6,7 @@ public class ProcessingTaskNotFoundException extends RuntimeException {
   private final Long id;
 
   public ProcessingTaskNotFoundException(Long id) {
-    super("ProcessingTask not found: " + id);
+    super("处理任务不存在: " + id);
     this.id = id;
   }
 

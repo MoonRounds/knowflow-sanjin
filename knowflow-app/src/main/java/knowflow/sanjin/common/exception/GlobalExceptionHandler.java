@@ -2,6 +2,7 @@ package knowflow.sanjin.common.exception;
 
 import java.util.UUID;
 import knowflow.sanjin.common.error.ErrorCode;
+import knowflow.sanjin.common.filter.CorrelationIdFilter;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.MessageNotFoundException;
@@ -33,10 +34,12 @@ import knowflow.sanjin.modules.modelconfig.exception.ModelConfigInUseException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigNotFoundException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigRevisionChangedException;
 import knowflow.sanjin.modules.modelconfig.exception.UtilityCapabilityRequiredException;
+import knowflow.sanjin.modules.modelconfig.exception.UtilityModelNotConfiguredException;
 import knowflow.sanjin.modules.processing.exception.ProcessingTaskNotFoundException;
 import knowflow.sanjin.modules.processing.exception.ProcessingTaskRetryNotAllowedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -50,7 +53,8 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 /**
  * 全局异常 → RFC 9457 Problem Details 转换：稳定 errorCode + correlationId。
  *
- * <p>业务异常映射为稳定错误码；通用异常（校验失败、非法参数）归类为 400；未知异常记日志并返回 通用 500，不透传内部细节。correlationId 贯穿日志与响应便于排查。
+ * <p>业务异常映射为稳定错误码；通用异常（校验失败、非法参数）归类为 400；未知异常记日志并返回 通用 500，不透传内部细节。correlationId 优先取自 {@link
+ * CorrelationIdFilter} 写入的 MDC，使响应与同一请求的日志关联；无 MDC 时兜底生成。
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -61,37 +65,27 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handleNotFound(KnowledgeBaseNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND,
-        "KnowledgeBase not found",
-        "KnowledgeBase with id=" + ex.getId() + " does not exist or is not accessible.",
+        "知识库不存在",
+        "知识库 id=" + ex.getId() + " 不存在或不可访问。",
         ErrorCode.KNOWLEDGE_BASE_NOT_FOUND);
   }
 
   @ExceptionHandler(KnowledgeBaseNameConflictException.class)
   public ResponseEntity<ProblemDetail> handleNameConflict(KnowledgeBaseNameConflictException ex) {
     return problem(
-        HttpStatus.CONFLICT,
-        "Name conflict",
-        "An active KnowledgeBase with the same normalized name already exists.",
-        ErrorCode.KNOWLEDGE_BASE_NAME_CONFLICT);
+        HttpStatus.CONFLICT, "名称冲突", "已存在同名规范化知识库。", ErrorCode.KNOWLEDGE_BASE_NAME_CONFLICT);
   }
 
   @ExceptionHandler(KnowledgeBaseVersionConflictException.class)
   public ResponseEntity<ProblemDetail> handleVersionConflict(
       KnowledgeBaseVersionConflictException ex) {
     return problem(
-        HttpStatus.CONFLICT,
-        "Version conflict",
-        ex.getMessage(),
-        ErrorCode.KNOWLEDGE_BASE_VERSION_CONFLICT);
+        HttpStatus.CONFLICT, "版本冲突", ex.getMessage(), ErrorCode.KNOWLEDGE_BASE_VERSION_CONFLICT);
   }
 
   @ExceptionHandler(KnowledgeBaseInUseException.class)
   public ResponseEntity<ProblemDetail> handleKnowledgeBaseInUse(KnowledgeBaseInUseException ex) {
-    return problem(
-        HttpStatus.CONFLICT,
-        "KnowledgeBase in use",
-        ex.getMessage(),
-        ErrorCode.KNOWLEDGE_BASE_IN_USE);
+    return problem(HttpStatus.CONFLICT, "知识库使用中", ex.getMessage(), ErrorCode.KNOWLEDGE_BASE_IN_USE);
   }
 
   @ExceptionHandler(KnowledgeItemNotFoundException.class)
@@ -99,8 +93,8 @@ public class GlobalExceptionHandler {
       KnowledgeItemNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND,
-        "KnowledgeItem not found",
-        "KnowledgeItem with id=" + ex.getId() + " does not exist or is not accessible.",
+        "知识条目不存在",
+        "知识条目 id=" + ex.getId() + " 不存在或不可访问。",
         ErrorCode.KNOWLEDGE_ITEM_NOT_FOUND);
   }
 
@@ -109,10 +103,8 @@ public class GlobalExceptionHandler {
       KnowledgeBaseRefNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND,
-        "KnowledgeBase not found",
-        "Referenced KnowledgeBase with id="
-            + ex.getKnowledgeBaseId()
-            + " does not exist or is not accessible.",
+        "知识库不存在",
+        "引用的知识库 id=" + ex.getKnowledgeBaseId() + " 不存在或不可访问。",
         ErrorCode.KNOWLEDGE_BASE_REF_NOT_FOUND);
   }
 
@@ -120,20 +112,14 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handleKnowledgeItemVersionConflict(
       KnowledgeItemVersionConflictException ex) {
     return problem(
-        HttpStatus.CONFLICT,
-        "Version conflict",
-        ex.getMessage(),
-        ErrorCode.KNOWLEDGE_ITEM_VERSION_CONFLICT);
+        HttpStatus.CONFLICT, "版本冲突", ex.getMessage(), ErrorCode.KNOWLEDGE_ITEM_VERSION_CONFLICT);
   }
 
   @ExceptionHandler(KnowledgeIndexTaskConflictException.class)
   public ResponseEntity<ProblemDetail> handleKnowledgeIndexTaskConflict(
       KnowledgeIndexTaskConflictException ex) {
     return problem(
-        HttpStatus.CONFLICT,
-        "Index task conflict",
-        ex.getMessage(),
-        ErrorCode.KNOWLEDGE_INDEX_TASK_CONFLICT);
+        HttpStatus.CONFLICT, "索引任务冲突", ex.getMessage(), ErrorCode.KNOWLEDGE_INDEX_TASK_CONFLICT);
   }
 
   @ExceptionHandler(ProcessingTaskNotFoundException.class)
@@ -141,8 +127,8 @@ public class GlobalExceptionHandler {
       ProcessingTaskNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND,
-        "ProcessingTask not found",
-        "ProcessingTask with id=" + ex.getId() + " does not exist or is not accessible.",
+        "处理任务不存在",
+        "处理任务 id=" + ex.getId() + " 不存在或不可访问。",
         ErrorCode.PROCESSING_TASK_NOT_FOUND);
   }
 
@@ -150,18 +136,15 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handleProcessingTaskRetryNotAllowed(
       ProcessingTaskRetryNotAllowedException ex) {
     return problem(
-        HttpStatus.CONFLICT,
-        "Retry not allowed",
-        ex.getMessage(),
-        ErrorCode.PROCESSING_TASK_RETRY_NOT_ALLOWED);
+        HttpStatus.CONFLICT, "不允许重试", ex.getMessage(), ErrorCode.PROCESSING_TASK_RETRY_NOT_ALLOWED);
   }
 
   @ExceptionHandler(ModelConfigNotFoundException.class)
   public ResponseEntity<ProblemDetail> handleModelConfigNotFound(ModelConfigNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND,
-        "ModelConfig not found",
-        "ModelConfig with id=" + ex.getId() + " does not exist or is not accessible.",
+        "模型配置不存在",
+        "模型配置 id=" + ex.getId() + " 不存在或不可访问。",
         ErrorCode.MODEL_CONFIG_NOT_FOUND);
   }
 
@@ -169,15 +152,14 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handleModelConfigDisabled(ModelConfigDisabledException ex) {
     return problem(
         HttpStatus.CONFLICT,
-        "ModelConfig disabled",
-        "ModelConfig with id=" + ex.getId() + " is disabled and cannot be selected.",
+        "模型配置已禁用",
+        "模型配置 id=" + ex.getId() + " 已禁用，无法使用。",
         ErrorCode.MODEL_CONFIG_DISABLED);
   }
 
   @ExceptionHandler(ModelConfigInUseException.class)
   public ResponseEntity<ProblemDetail> handleModelConfigInUse(ModelConfigInUseException ex) {
-    return problem(
-        HttpStatus.CONFLICT, "ModelConfig in use", ex.getMessage(), ErrorCode.MODEL_CONFIG_IN_USE);
+    return problem(HttpStatus.CONFLICT, "模型配置使用中", ex.getMessage(), ErrorCode.MODEL_CONFIG_IN_USE);
   }
 
   @ExceptionHandler(UtilityCapabilityRequiredException.class)
@@ -185,28 +167,28 @@ public class GlobalExceptionHandler {
       UtilityCapabilityRequiredException ex) {
     return problem(
         HttpStatus.CONFLICT,
-        "Utility capability test required",
+        "需要先通过能力测试",
         ex.getMessage(),
         ErrorCode.UTILITY_CAPABILITY_TEST_REQUIRED);
+  }
+
+  @ExceptionHandler(UtilityModelNotConfiguredException.class)
+  public ResponseEntity<ProblemDetail> handleUtilityModelNotConfigured(
+      UtilityModelNotConfiguredException ex) {
+    return problem(HttpStatus.BAD_REQUEST, "未配置Utility模型", ex.getMessage(), ex.getErrorCode());
   }
 
   @ExceptionHandler(ModelConfigRevisionChangedException.class)
   public ResponseEntity<ProblemDetail> handleRevisionChanged(
       ModelConfigRevisionChangedException ex) {
     return problem(
-        HttpStatus.CONFLICT,
-        "ModelConfig revision changed",
-        ex.getMessage(),
-        ErrorCode.MODEL_CONFIG_REVISION_CHANGED);
+        HttpStatus.CONFLICT, "模型配置版本已变更", ex.getMessage(), ErrorCode.MODEL_CONFIG_REVISION_CHANGED);
   }
 
   @ExceptionHandler(ModelCallTimeoutException.class)
   public ResponseEntity<ProblemDetail> handleModelCallTimeout(ModelCallTimeoutException ex) {
     return problem(
-        HttpStatus.GATEWAY_TIMEOUT,
-        "Model call timeout",
-        "The model call did not complete within the allowed time.",
-        ErrorCode.MODEL_CALL_TIMEOUT);
+        HttpStatus.GATEWAY_TIMEOUT, "模型调用超时", "模型调用未在允许时间内完成。", ErrorCode.MODEL_CALL_TIMEOUT);
   }
 
   @ExceptionHandler(ConversationNotFoundException.class)
@@ -214,8 +196,8 @@ public class GlobalExceptionHandler {
       ConversationNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND,
-        "Conversation not found",
-        "Conversation with id=" + ex.getId() + " does not exist or is not accessible.",
+        "会话不存在",
+        "会话 id=" + ex.getId() + " 不存在或不可访问。",
         ErrorCode.CONVERSATION_NOT_FOUND);
   }
 
@@ -223,12 +205,8 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handleMessageNotFound(MessageNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND,
-        "Message not found",
-        "Message with id="
-            + ex.getMessageId()
-            + " does not exist in conversation "
-            + ex.getConversationId()
-            + ".",
+        "消息不存在",
+        "会话 " + ex.getConversationId() + " 中的消息 " + ex.getMessageId() + " 不存在。",
         ErrorCode.MESSAGE_NOT_FOUND);
   }
 
@@ -236,10 +214,7 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handleActiveGenerationExists(
       ActiveGenerationExistsException ex) {
     return problem(
-        HttpStatus.CONFLICT,
-        "Active generation exists",
-        ex.getMessage(),
-        ErrorCode.ACTIVE_GENERATION_EXISTS);
+        HttpStatus.CONFLICT, "存在进行中的生成", ex.getMessage(), ErrorCode.ACTIVE_GENERATION_EXISTS);
   }
 
   @ExceptionHandler(NoDefaultModelConfigException.class)
@@ -247,8 +222,8 @@ public class GlobalExceptionHandler {
       NoDefaultModelConfigException ex) {
     return problem(
         HttpStatus.BAD_REQUEST,
-        "No default model config",
-        "No default chat model is configured. Please select a model before sending a message.",
+        "未配置默认模型",
+        "未配置默认聊天模型，请先选择模型再发送消息。",
         ErrorCode.NO_DEFAULT_MODEL_CONFIG);
   }
 
@@ -268,19 +243,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handleExtractionTaskNotFound(
       ExtractionTaskNotFoundException ex) {
     return problem(
-        HttpStatus.NOT_FOUND,
-        "提取任务不存在",
-        "Extraction task with id=" + ex.getId() + " does not exist or is not accessible.",
-        ex.getErrorCode());
+        HttpStatus.NOT_FOUND, "提取任务不存在", "提取任务 id=" + ex.getId() + " 不存在或不可访问。", ex.getErrorCode());
   }
 
   @ExceptionHandler(CandidateNotFoundException.class)
   public ResponseEntity<ProblemDetail> handleCandidateNotFound(CandidateNotFoundException ex) {
     return problem(
-        HttpStatus.NOT_FOUND,
-        "候选不存在",
-        "Candidate with id=" + ex.getId() + " does not exist or is not accessible.",
-        ex.getErrorCode());
+        HttpStatus.NOT_FOUND, "候选不存在", "候选 id=" + ex.getId() + " 不存在或不可访问。", ex.getErrorCode());
   }
 
   @ExceptionHandler(CandidateVersionConflictException.class)
@@ -310,10 +279,7 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ProblemDetail> handlePreconditionRequired(
       PreconditionRequiredException ex) {
     return problem(
-        HttpStatus.PRECONDITION_REQUIRED,
-        "Precondition required",
-        ex.getMessage(),
-        ErrorCode.IF_MATCH_REQUIRED);
+        HttpStatus.PRECONDITION_REQUIRED, "缺少乐观锁版本", ex.getMessage(), ErrorCode.IF_MATCH_REQUIRED);
   }
 
   @ExceptionHandler(FileTooLargeException.class)
@@ -356,14 +322,13 @@ public class GlobalExceptionHandler {
     return problem(
         HttpStatus.NOT_FOUND,
         "文件元数据不存在",
-        "FileMetadata with id=" + ex.getId() + " does not exist or is not accessible.",
+        "文件元数据 id=" + ex.getId() + " 不存在或不可访问。",
         ErrorCode.DOCUMENT_FILE_NOT_FOUND);
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<ProblemDetail> handleIllegalArgument(IllegalArgumentException ex) {
-    return problem(
-        HttpStatus.BAD_REQUEST, "Invalid argument", ex.getMessage(), ErrorCode.INVALID_ARGUMENT);
+    return problem(HttpStatus.BAD_REQUEST, "参数非法", ex.getMessage(), ErrorCode.INVALID_ARGUMENT);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -372,8 +337,8 @@ public class GlobalExceptionHandler {
         ex.getBindingResult().getFieldErrors().stream()
             .map(error -> error.getField() + ": " + error.getDefaultMessage())
             .reduce((left, right) -> left + "; " + right)
-            .orElse("Validation failed");
-    return problem(HttpStatus.BAD_REQUEST, "Validation error", detail, ErrorCode.VALIDATION_ERROR);
+            .orElse("参数校验失败");
+    return problem(HttpStatus.BAD_REQUEST, "校验失败", detail, ErrorCode.VALIDATION_ERROR);
   }
 
   @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
@@ -381,35 +346,41 @@ public class GlobalExceptionHandler {
       HttpMediaTypeNotSupportedException ex) {
     return problem(
         HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-        "Unsupported media type",
-        "Request Content-Type is not supported.",
+        "不支持的媒体类型",
+        "请求的 Content-Type 不受支持。",
         ErrorCode.UNSUPPORTED_MEDIA_TYPE);
   }
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ProblemDetail> handleGeneral(Exception ex) {
-    String correlationId = UUID.randomUUID().toString();
-    log.error("Unhandled exception, correlationId={}", correlationId, ex);
+    String correlationId = currentCorrelationId();
+    log.error("未处理异常，correlationId={}", correlationId, ex);
     return problem(
         HttpStatus.INTERNAL_SERVER_ERROR,
-        "Internal server error",
-        "An unexpected error occurred. Please try again later.",
+        "系统内部错误",
+        "系统内部错误，请稍后重试。",
         ErrorCode.INTERNAL_ERROR,
         correlationId);
   }
 
   private ResponseEntity<ProblemDetail> problem(
       HttpStatus status, String title, String detail, String errorCode) {
-    return problem(status, title, detail, errorCode, UUID.randomUUID().toString());
+    return problem(status, title, detail, errorCode, currentCorrelationId());
   }
 
   private ResponseEntity<ProblemDetail> problem(
       HttpStatus status, String title, String detail, String errorCode, String correlationId) {
-    log.warn("Request failed: errorCode={}, correlationId={}", errorCode, correlationId);
+    log.warn("请求失败: errorCode={}, correlationId={}", errorCode, correlationId);
     ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
     body.setTitle(title);
     body.setProperty("errorCode", errorCode);
     body.setProperty("correlationId", correlationId);
     return ResponseEntity.status(status).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(body);
+  }
+
+  /** 优先取 {@link CorrelationIdFilter} 写入的 MDC；无 MDC（如直接调用 handler）时兜底生成。 */
+  private static String currentCorrelationId() {
+    String id = MDC.get(CorrelationIdFilter.CORRELATION_ID_KEY);
+    return id != null ? id : UUID.randomUUID().toString();
   }
 }

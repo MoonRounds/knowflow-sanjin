@@ -6,7 +6,7 @@ public class ModelConfigDisabledException extends RuntimeException {
   private final Long id;
 
   public ModelConfigDisabledException(Long id) {
-    super("ModelConfig is disabled: " + id);
+    super("模型配置已禁用: " + id);
     this.id = id;
   }
 

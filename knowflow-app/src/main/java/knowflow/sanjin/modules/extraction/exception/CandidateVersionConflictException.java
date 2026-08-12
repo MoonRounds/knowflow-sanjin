@@ -6,7 +6,7 @@ import knowflow.sanjin.common.error.ErrorCode;
 public class CandidateVersionConflictException extends RuntimeException {
 
   public CandidateVersionConflictException(Long id) {
-    super("Candidate " + id + " was modified concurrently; reload and retry");
+    super("候选 " + id + " 已被并发修改，请刷新后重试");
   }
 
   public String getErrorCode() {

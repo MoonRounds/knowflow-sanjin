@@ -6,7 +6,7 @@ public class KnowledgeBaseNameConflictException extends RuntimeException {
   private final String name;
 
   public KnowledgeBaseNameConflictException(String name) {
-    super("KnowledgeBase with this name already exists: " + name);
+    super("已存在同名知识库: " + name);
     this.name = name;
   }
 

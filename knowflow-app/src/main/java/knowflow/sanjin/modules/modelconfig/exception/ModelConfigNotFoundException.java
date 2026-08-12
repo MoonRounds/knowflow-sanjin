@@ -6,7 +6,7 @@ public class ModelConfigNotFoundException extends RuntimeException {
   private final Long id;
 
   public ModelConfigNotFoundException(Long id) {
-    super("ModelConfig not found: " + id);
+    super("模型配置不存在: " + id);
     this.id = id;
   }
 

@@ -4,6 +4,6 @@ package knowflow.sanjin.modules.knowledge.exception;
 public class KnowledgeItemVersionConflictException extends RuntimeException {
 
   public KnowledgeItemVersionConflictException() {
-    super("KnowledgeItem has been modified by another request");
+    super("知识条目已被其他请求修改，请刷新后重试");
   }
 }

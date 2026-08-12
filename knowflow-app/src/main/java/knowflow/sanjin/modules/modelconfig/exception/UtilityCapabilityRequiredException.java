@@ -6,7 +6,7 @@ public class UtilityCapabilityRequiredException extends RuntimeException {
   private final Long id;
 
   public UtilityCapabilityRequiredException(Long id) {
-    super("ModelConfig " + id + " current revision has not passed the Utility capability test");
+    super("模型配置 " + id + " 的当前版本未通过 Utility 能力测试");
     this.id = id;
   }
 

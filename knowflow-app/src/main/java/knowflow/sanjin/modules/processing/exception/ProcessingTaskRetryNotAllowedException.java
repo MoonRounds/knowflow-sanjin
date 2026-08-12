@@ -7,7 +7,7 @@ public class ProcessingTaskRetryNotAllowedException extends RuntimeException {
   private final String status;
 
   public ProcessingTaskRetryNotAllowedException(Long taskId, String status) {
-    super("ProcessingTask " + taskId + " with status " + status + " cannot be retried");
+    super("处理任务 " + taskId + " 状态为 " + status + "，不允许重试");
     this.taskId = taskId;
     this.status = status;
   }

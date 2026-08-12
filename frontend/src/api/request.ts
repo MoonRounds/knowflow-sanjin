@@ -30,7 +30,7 @@ export async function parseProblem(response: Response): Promise<ApiError> {
   return new ApiError(response.status, message, errorCode, correlationId)
 }
 
-/** 统一 fetch 封装：JSON 序列化、Problem Details 解析、204 空响应。 */
+/** 统一 fetch 封装：JSON 序列化、Problem Details 解析、204 空响应、超时兜底。 */
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // RequestInit.headers 不能整体覆盖 JSON 默认头；If-Match 等调用方头部必须与
   // Content-Type 合并，否则带 JSON body 的乐观锁请求会被浏览器作为 text/plain 发送。
@@ -38,9 +38,12 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string> | undefined),
   }
+  // 慢后端挂起时兜底中断，避免 loading 永久卡死；调用方自定义 signal 通过 AbortSignal.any 合并。
+  const timeoutSignal = AbortSignal.timeout(60_000)
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
+    signal: init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal,
   })
   if (!response.ok) {
     throw await parseProblem(response)

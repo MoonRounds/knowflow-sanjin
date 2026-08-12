@@ -7,10 +7,6 @@ package knowflow.sanjin.modules.knowledge.exception;
 public class KnowledgeIndexTaskConflictException extends RuntimeException {
 
   public KnowledgeIndexTaskConflictException(Long itemId, int contentVersion) {
-    super(
-        "An active index task already exists for KnowledgeItem "
-            + itemId
-            + " contentVersion "
-            + contentVersion);
+    super("知识条目 " + itemId + " 的 contentVersion " + contentVersion + " 已存在进行中的索引任务");
   }
 }

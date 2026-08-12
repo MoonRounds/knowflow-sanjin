@@ -6,7 +6,7 @@ public class KnowledgeBaseRefNotFoundException extends RuntimeException {
   private final Long knowledgeBaseId;
 
   public KnowledgeBaseRefNotFoundException(Long knowledgeBaseId) {
-    super("Referenced KnowledgeBase not found or not accessible: " + knowledgeBaseId);
+    super("引用的知识库不存在或不可访问: " + knowledgeBaseId);
     this.knowledgeBaseId = knowledgeBaseId;
   }
 

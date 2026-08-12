@@ -6,7 +6,7 @@ import knowflow.sanjin.common.error.ErrorCode;
 public class ExtractionInputOverBudgetException extends RuntimeException {
 
   public ExtractionInputOverBudgetException(int inputChars, int maxChars) {
-    super("Extraction input " + inputChars + " chars exceeds the limit of " + maxChars + " chars");
+    super("提取输入 " + inputChars + " 字符超过上限 " + maxChars + " 字符");
   }
 
   public String getErrorCode() {

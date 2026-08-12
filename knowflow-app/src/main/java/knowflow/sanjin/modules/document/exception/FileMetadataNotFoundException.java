@@ -5,7 +5,7 @@ public class FileMetadataNotFoundException extends RuntimeException {
   private final Long id;
 
   public FileMetadataNotFoundException(Long id) {
-    super("FileMetadata with id=" + id + " does not exist or is not accessible.");
+    super("文件元数据不存在或不可访问: id=" + id);
     this.id = id;
   }
 

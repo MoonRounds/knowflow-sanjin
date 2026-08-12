@@ -6,7 +6,7 @@ public class KnowledgeItemNotFoundException extends RuntimeException {
   private final Long id;
 
   public KnowledgeItemNotFoundException(Long id) {
-    super("KnowledgeItem not found: " + id);
+    super("知识条目不存在: " + id);
     this.id = id;
   }
 

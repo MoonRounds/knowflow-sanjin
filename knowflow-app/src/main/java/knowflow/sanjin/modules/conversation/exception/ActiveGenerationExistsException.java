@@ -4,6 +4,6 @@ package knowflow.sanjin.modules.conversation.exception;
 public class ActiveGenerationExistsException extends RuntimeException {
 
   public ActiveGenerationExistsException(Long conversationId) {
-    super("Conversation " + conversationId + " already has an active generation");
+    super("会话 " + conversationId + " 已存在进行中的生成");
   }
 }

@@ -25,6 +25,7 @@ public final class ErrorCode {
   public static final String MODEL_CALL_TIMEOUT = "模型调用超时";
   public static final String UTILITY_CAPABILITY_TEST_REQUIRED = "Utility 能力测试未通过";
   public static final String MODEL_CONFIG_REVISION_CHANGED = "模型配置版本已变更";
+  public static final String UTILITY_MODEL_NOT_CONFIGURED = "未配置Utility模型";
 
   // ---- Conversation ----
   public static final String CONVERSATION_NOT_FOUND = "会话不存在";
@@ -46,6 +47,9 @@ public final class ErrorCode {
   // ---- ProcessingTask ----
   public static final String PROCESSING_TASK_NOT_FOUND = "处理任务不存在";
   public static final String PROCESSING_TASK_RETRY_NOT_ALLOWED = "处理任务不允许重试";
+
+  // ---- Conversation Title ----
+  public static final String CONVERSATION_TITLE_GENERATION_FAILED = "会话标题生成失败";
 
   // ---- Knowledge Extraction ----
   public static final String EXTRACTION_INPUT_OVER_BUDGET = "提取输入超过预算";

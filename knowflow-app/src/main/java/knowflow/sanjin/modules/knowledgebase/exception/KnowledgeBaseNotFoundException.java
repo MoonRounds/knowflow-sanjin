@@ -6,7 +6,7 @@ public class KnowledgeBaseNotFoundException extends RuntimeException {
   private final Long id;
 
   public KnowledgeBaseNotFoundException(Long id) {
-    super("KnowledgeBase not found: id=" + id);
+    super("知识库不存在: id=" + id);
     this.id = id;
   }
 

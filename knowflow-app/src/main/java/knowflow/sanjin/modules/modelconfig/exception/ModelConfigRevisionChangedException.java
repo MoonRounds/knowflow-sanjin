@@ -6,7 +6,7 @@ public class ModelConfigRevisionChangedException extends RuntimeException {
   private final Long id;
 
   public ModelConfigRevisionChangedException(Long id) {
-    super("ModelConfig " + id + " changed while its capability test was running");
+    super("模型配置 " + id + " 在能力测试期间已被切换");
     this.id = id;
   }
 

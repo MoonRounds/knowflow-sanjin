@@ -6,7 +6,7 @@ import knowflow.sanjin.common.error.ErrorCode;
 public class ExtractionNoCompletedMessagesException extends RuntimeException {
 
   public ExtractionNoCompletedMessagesException(Long conversationId) {
-    super("Conversation " + conversationId + " has no completed active turns to extract");
+    super("会话 " + conversationId + " 没有可提取的已完成消息");
   }
 
   public String getErrorCode() {

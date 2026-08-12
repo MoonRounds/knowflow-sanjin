@@ -8,7 +8,7 @@ public class CandidateNotFoundException extends RuntimeException {
   private final Long id;
 
   public CandidateNotFoundException(Long id) {
-    super("Candidate with id=" + id + " does not exist or is not accessible");
+    super("候选不存在或不可访问: id=" + id);
     this.id = id;
   }
 

@@ -19,6 +19,7 @@ import knowflow.sanjin.modules.modelconfig.exception.ModelConfigInUseException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigNotFoundException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigRevisionChangedException;
 import knowflow.sanjin.modules.modelconfig.exception.UtilityCapabilityRequiredException;
+import knowflow.sanjin.modules.modelconfig.exception.UtilityModelNotConfiguredException;
 import knowflow.sanjin.modules.modelconfig.mapper.ModelConfigMapper;
 import knowflow.sanjin.modules.modelconfig.mapper.ModelConfigRevisionMapper;
 import knowflow.sanjin.modules.modelconfig.mapper.OwnerAiSettingsMapper;
@@ -292,7 +293,7 @@ public class ModelConfigService {
     OwnerAiSettings settings = getOrCreateSettings(ownerId);
     Long utilityId = settings.getUtilityModelConfigId();
     if (utilityId == null) {
-      throw new ModelConfigNotFoundException(null);
+      throw new UtilityModelNotConfiguredException();
     }
     ModelConfig config = getByIdAndOwnerInternal(utilityId);
     if (config.getEnabled() == null || !config.getEnabled()) {

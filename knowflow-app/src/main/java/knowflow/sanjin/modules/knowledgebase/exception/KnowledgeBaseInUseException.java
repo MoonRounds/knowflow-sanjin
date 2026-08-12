@@ -6,9 +6,7 @@ public class KnowledgeBaseInUseException extends RuntimeException {
   private final Long knowledgeBaseId;
 
   public KnowledgeBaseInUseException(Long knowledgeBaseId) {
-    super(
-        "KnowledgeBase is the only owner of some KnowledgeItems and cannot be deleted: "
-            + knowledgeBaseId);
+    super("知识库是部分知识条目的唯一归属，无法删除: " + knowledgeBaseId);
     this.knowledgeBaseId = knowledgeBaseId;
   }
 
