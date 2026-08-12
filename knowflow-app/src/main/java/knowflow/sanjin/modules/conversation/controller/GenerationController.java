@@ -6,6 +6,7 @@ import knowflow.sanjin.modules.conversation.dto.RegenerateRequest;
 import knowflow.sanjin.modules.conversation.dto.SendMessageRequest;
 import knowflow.sanjin.modules.conversation.service.GenerationService;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -34,9 +35,10 @@ public class GenerationController {
     return generationService.regenerate(ApiValueParser.positiveId(id, "id"), request);
   }
 
-  /** 停止当前 active generation（释放 slot，写取消状态）。 */
+  /** 停止当前 active generation（释放 slot，写取消状态）。幂等操作返回 204，避免前端对空响应体做 JSON 解析。 */
   @PostMapping("/conversations/{id}/stop")
-  public void stop(@PathVariable String id) {
+  public ResponseEntity<Void> stop(@PathVariable String id) {
     generationService.stop(ApiValueParser.positiveId(id, "id"));
+    return ResponseEntity.noContent().build();
   }
 }

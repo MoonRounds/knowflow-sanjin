@@ -6,6 +6,7 @@ import {
   getConversation,
   listConversations,
   listMessages,
+  stopGeneration,
   streamSend,
   updateConversation,
 } from '../conversations'
@@ -67,6 +68,27 @@ describe('conversations api client', () => {
   it('deletes a conversation', async () => {
     stubFetchJson(204, undefined)
     await expect(deleteConversation('3')).resolves.toBeUndefined()
+  })
+
+  it('stops generation on 204 no-content', async () => {
+    stubFetchJson(204, undefined)
+    await expect(stopGeneration('3')).resolves.toBeUndefined()
+  })
+
+  // 回归陷阱：stop 端点若退回 200 + 空 body（如 Spring void 返回），request() 会对空体
+  // 调 response.json() 抛 "Unexpected end of JSON input"。前端依赖后端返回 204，后端契约测试见 GenerationControllerTest。
+  it('rejects when backend returns 200 with empty body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError('Unexpected end of JSON input')
+        },
+      }),
+    )
+    await expect(stopGeneration('3')).rejects.toBeInstanceOf(SyntaxError)
   })
 
   it('lists messages with cursor', async () => {
