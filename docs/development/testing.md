@@ -7,6 +7,7 @@
 - Java 21 (推荐 Eclipse Temurin)
 - Node.js 22+
 - npm 10+
+- Docker + Docker Compose（集成测试与 E2E）
 
 ### 本地开发
 
@@ -29,6 +30,7 @@ npm --prefix frontend run build
 npm --prefix frontend run typecheck
 npm --prefix frontend run lint
 npm --prefix frontend run test
+npm --prefix frontend exec -- playwright install chromium # 首次 E2E 前
 ```
 
 ## 验证脚本
@@ -38,14 +40,21 @@ npm --prefix frontend run test
 ```bash
 sh scripts/verify-fast.sh        # 快速验证（单元测试+typecheck+lint+format+build）
 sh scripts/verify-integration.sh # MySQL Testcontainers 集成测试
-sh scripts/verify-all.sh         # 快速验证与集成验证
+sh scripts/verify-e2e.sh         # 隔离基础设施 + stub + Playwright
+sh scripts/verify-failure-drills.sh # 定向 Retry/DLQ/恢复/SSE 演练
+sh scripts/check-tracked-secrets.sh # tracked/待跟踪文件高置信 Secret 扫描
+sh scripts/verify-all.sh         # 默认完整确定性验证
 sh scripts/check-api-contract.sh # 后端运行时检查 OpenAPI 快照漂移
 sh scripts/live-smoke.sh DeepSeek <config-id> # 显式真实 Provider 验证
 ```
 
 - `verify-fast.sh` 不要求 Docker，运行后端单元/结构测试和完整前端静态验证。
-- `verify-integration.sh` 需要 Docker，运行以 `IT` 结尾的 Spring/MySQL 集成测试。
-- `verify-all.sh` 依次调用以上两个事实源入口，并检查 OpenAPI 生成类型无漂移。
+- `verify-integration.sh` 需要 Docker，运行以 `IT` 结尾的 Spring 集成测试（MySQL、Redis、
+  RabbitMQ、Qdrant 按测试需要使用 Testcontainers）。
+- `verify-e2e.sh` 每次创建专用 Compose project/数据库/队列/临时文件目录，Playwright 管理应用、
+  Vite 与本地模型 stub；不复用开发服务器。
+- `verify-all.sh` 依次运行 fast、Secret scan、integration 和 E2E；这是本地与 GitHub Actions
+  的默认完整确定性事实源。
 - `check-api-contract.sh` 需要本地后端已经启动；它比较 `/v3/api-docs` 与
   `docs/api/openapi.json`。集成测试也会校验运行时契约快照。
 
@@ -56,6 +65,8 @@ sh scripts/live-smoke.sh DeepSeek <config-id> # 显式真实 Provider 验证
 - 集成测试使用 Testcontainers（MySQL、Redis、RabbitMQ、Qdrant）。
 - 数据库集成测试不使用 H2。
 - E2E 测试使用 Playwright，验证真实前端闭环。
+- 真实云端 Provider smoke/eval 必须显式执行，不能读取 CI 默认 Secret，也不能把模型波动作为
+  每个 PR 的硬门禁。
 
 ## 代码风格
 

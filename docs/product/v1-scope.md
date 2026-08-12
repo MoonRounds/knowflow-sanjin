@@ -50,3 +50,5 @@ V1 以两个真实前端闭环为完成标准：
 - Prometheus/Grafana 全套监控
 - GraphRAG、Hybrid Search、高级 Rerank
 - MinIO 对象存储
+
+运行与公网部署前置条件见 [V1 已知限制与安全边界](./v1-known-limitations.md)。

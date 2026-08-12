@@ -153,7 +153,7 @@ SSE 最小事件：
 - Manual/Candidate Item 正文可编辑；Upload Item 正文只读。
 - Manual Note 无 Draft；保存即创建 ACTIVE Item 和 Index Task。
 - 已索引 Item 可修改，并区分 `contentVersion` 与 `indexedVersion`。
-- Item lifecycle：`ACTIVE / DELETING / DELETED`。
+- Item lifecycle：`ACTIVE / DELETED`（两态软删，见 ADR 0003）。删除在事务内置 `DELETED` 并创建异步清理任务；Qdrant 清理为最终一致，检索侧已不可见。
 - Item index status：`PENDING / PROCESSING / INDEXED / FAILED`。
 - 旧索引在新版本成功前继续服务；新版本失败时旧索引仍可用。
 - 支持单 Item 强制 Reindex。
