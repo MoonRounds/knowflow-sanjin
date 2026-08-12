@@ -78,7 +78,7 @@ public class DocumentParsingService {
           ErrorCode.DOCUMENT_PARSE_FAILED, "文档解析失败：" + e.getMessage(), e);
     }
 
-    // 更新 Item 内容与 title（contentVersion 保持 1；索引由独立任务推进 indexedVersion）
+    // 更新 Item 内容与 title；初次上传为 v1，软删恢复会预先递增版本。
     KnowledgeItem update = new KnowledgeItem();
     update.setId(item.getId());
     update.setContent(parsed.content());
@@ -94,7 +94,8 @@ public class DocumentParsingService {
     fileMapper.updateById(statusUpdate);
 
     // 解析成功后提交索引任务（已有活动任务则跳过，幂等）
-    knowledgeService.submitIndexTaskAfterParse(item.getId(), item.getOwnerId(), 1);
+    knowledgeService.submitIndexTaskAfterParse(
+        item.getId(), item.getOwnerId(), item.getContentVersion());
     log.info(
         "文档解析成功 fileId={} itemId={} contentChars={}",
         fileId,
