@@ -73,7 +73,7 @@ public class ExtractionTaskConsumer {
 
   private void handleRetryable(
       ProcessingTask task, RetryableExtractionException e, Channel channel, long deliveryTag) {
-    int nextRetry = taskService.failRetryable(task.getId(), e.getFailureCode(), summary(e));
+    int nextRetry = taskService.failWithDomainRetryable(task, e.getFailureCode(), summary(e));
     if (nextRetry > 0) {
       publisher.publishToExtractionRetryQueue(task.getId(), nextRetry - 1);
       ackQuietly(channel, deliveryTag);
@@ -91,7 +91,7 @@ public class ExtractionTaskConsumer {
 
   private void handleTerminal(
       ProcessingTask task, TerminalExtractionException e, Channel channel, long deliveryTag) {
-    taskService.failTerminal(task.getId(), e.getFailureCode(), summary(e));
+    taskService.failWithDomainTerminal(task, e.getFailureCode(), summary(e));
     ackAndNackToDlq(channel, deliveryTag);
     log.warn("提取任务 {} 终态失败 code={}", task.getId(), e.getFailureCode());
   }

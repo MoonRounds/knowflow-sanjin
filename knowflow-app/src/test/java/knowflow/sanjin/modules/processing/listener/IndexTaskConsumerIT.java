@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import knowflow.sanjin.common.config.RabbitProperties;
 import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.modules.knowledge.exception.RetryableIndexException;
@@ -19,7 +20,6 @@ import knowflow.sanjin.modules.processing.service.TaskSubmissionService;
 import knowflow.sanjin.testinfra.MySQLRabbitMQTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -50,8 +50,12 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
   @MockitoBean private IndexingService indexingService;
 
   private ProcessingTask submitTask(String businessKey) {
+    return submitTask(businessKey, 3);
+  }
+
+  private ProcessingTask submitTask(String businessKey, int maxRetries) {
     return submissionService.submit(
-        ProcessingConstants.TASK_TYPE_KNOWLEDGE_INDEX, businessKey, 42L, 1L, null, 3);
+        ProcessingConstants.TASK_TYPE_KNOWLEDGE_INDEX, businessKey, 42L, 1L, null, maxRetries);
   }
 
   @Test
@@ -105,10 +109,26 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
     ProcessingTask updated = taskMapper.selectById(task.getId());
     assertThat(updated.getStatus()).isEqualTo(ProcessingConstants.STATUS_FAILED);
     assertThat(updated.getFailureCode()).isEqualTo(ErrorCode.EMBEDDING_UNAVAILABLE);
+    assertThat(updated.getRetryCount()).isEqualTo(updated.getMaxRetries());
 
-    // 最终失败消息应在 DLQ 中
-    Message dlqMessage = getDlqMessage();
+    // 最终失败消息应在 DLQ 中，且消息 taskId 与 MySQL FAILED 行一致。
+    Object dlqMessage = getDlqMessage(task.getId());
     assertThat(dlqMessage).isNotNull();
+  }
+
+  @Test
+  @DisplayName("should persist QDRANT_UNAVAILABLE and route the same task to DLQ")
+  void shouldFailAndDlqOnQdrantFailure() throws Exception {
+    doThrow(new RetryableIndexException(ErrorCode.QDRANT_UNAVAILABLE, "qdrant down", null))
+        .when(indexingService)
+        .execute(any(ProcessingTask.class));
+
+    ProcessingTask task = submitTask("qdrant-fail", 0);
+
+    waitForStatus(task.getId(), ProcessingConstants.STATUS_FAILED);
+    ProcessingTask updated = taskMapper.selectById(task.getId());
+    assertThat(updated.getFailureCode()).isEqualTo(ErrorCode.QDRANT_UNAVAILABLE);
+    assertThat(getDlqMessage(task.getId())).isNotNull();
   }
 
   @Test
@@ -127,7 +147,7 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
     assertThat(updated.getFailureCode()).isEqualTo(ErrorCode.EMBEDDING_AUTH_FAILURE);
     assertThat(updated.getRetryCount()).isEqualTo(0); // 无重试
 
-    Message dlqMessage = getDlqMessage();
+    Object dlqMessage = getDlqMessage(task.getId());
     assertThat(dlqMessage).isNotNull();
   }
 
@@ -135,10 +155,12 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
   @DisplayName(
       "should ignore duplicate delivery idempotently (claim already in PROCESSING/SUCCEEDED)")
   void shouldIgnoreDuplicateDelivery() throws Exception {
-    CountDownLatch calls = new CountDownLatch(1);
+    CountDownLatch firstCall = new CountDownLatch(1);
+    AtomicInteger calls = new AtomicInteger();
     doAnswer(
             invocation -> {
-              calls.countDown();
+              calls.incrementAndGet();
+              firstCall.countDown();
               return null;
             })
         .when(indexingService)
@@ -147,7 +169,8 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
     ProcessingTask task = submitTask("duplicate-delivery");
     // 第一次消费完成（SUCCEEDED）
     waitForStatus(task.getId(), ProcessingConstants.STATUS_SUCCEEDED);
-    assertThat(calls.getCount()).isEqualTo(0);
+    assertThat(firstCall.getCount()).isEqualTo(0);
+    assertThat(calls.get()).isEqualTo(1);
 
     // 重复发布同一条消息：claim 返回 null（已终态）→ ack 忽略，不再执行
     publisher.publishAfterCommit(task.getId());
@@ -155,10 +178,12 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
     // 轮询短窗口确认未再次执行
     long deadline = System.currentTimeMillis() + 3000;
     while (System.currentTimeMillis() < deadline) {
-      // 如果误执行了，calls 会变为负数（溢出保护）——这里只需等待窗口结束
+      if (calls.get() > 1) {
+        break;
+      }
       Thread.sleep(100);
     }
-    assertThat(calls.getCount()).isEqualTo(0); // 仍为 0：未再次执行
+    assertThat(calls.get()).isEqualTo(1);
     assertThat(taskMapper.selectById(task.getId()).getStatus())
         .isEqualTo(ProcessingConstants.STATUS_SUCCEEDED);
   }
@@ -182,12 +207,12 @@ class IndexTaskConsumerIT extends MySQLRabbitMQTestBase {
             + ")");
   }
 
-  private Message getDlqMessage() {
-    // DLQ 上的消息消费后即消失，这里轮询短窗口抓取
+  private Object getDlqMessage(Long expectedTaskId) {
+    // 使用正式 MessageConverter 读取；原 taskId 字符串在线上以 JSON 消息编码，不比较 raw bytes。
     for (int i = 0; i < 30; i++) {
-      Message msg = rabbitTemplate.receive(rabbitProperties.dlqName(), 500);
-      if (msg != null) {
-        return msg;
+      Object payload = rabbitTemplate.receiveAndConvert(rabbitProperties.dlqName(), 500);
+      if (payload != null && expectedTaskId.toString().equals(String.valueOf(payload))) {
+        return payload;
       }
     }
     return null;

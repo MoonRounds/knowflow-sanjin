@@ -2,11 +2,8 @@ package knowflow.sanjin.modules.document.listener;
 
 import com.rabbitmq.client.Channel;
 import knowflow.sanjin.common.error.ErrorCode;
-import knowflow.sanjin.modules.document.DocumentConstants;
-import knowflow.sanjin.modules.document.entity.FileMetadata;
 import knowflow.sanjin.modules.document.exception.RetryableDocumentException;
 import knowflow.sanjin.modules.document.exception.TerminalDocumentException;
-import knowflow.sanjin.modules.document.mapper.FileMetadataMapper;
 import knowflow.sanjin.modules.document.service.DocumentParsingService;
 import knowflow.sanjin.modules.processing.entity.ProcessingTask;
 import knowflow.sanjin.modules.processing.service.ProcessingTaskService;
@@ -32,17 +29,14 @@ public class DocumentParseTaskConsumer {
   private final ProcessingTaskService taskService;
   private final DocumentParsingService parsingService;
   private final TaskPublisher publisher;
-  private final FileMetadataMapper fileMapper;
 
   public DocumentParseTaskConsumer(
       ProcessingTaskService taskService,
       DocumentParsingService parsingService,
-      TaskPublisher publisher,
-      FileMetadataMapper fileMapper) {
+      TaskPublisher publisher) {
     this.taskService = taskService;
     this.parsingService = parsingService;
     this.publisher = publisher;
-    this.fileMapper = fileMapper;
   }
 
   @RabbitListener(queues = "#{documentWorkQueue.name}", ackMode = "MANUAL")
@@ -57,7 +51,6 @@ public class DocumentParseTaskConsumer {
       return;
     }
     log.debug("已认领文档解析任务 {}", taskId);
-    markFileParsing(task.getBusinessId(), DocumentConstants.PARSE_STATUS_PROCESSING, null, null);
     try {
       parsingService.execute(task);
       taskService.markSucceeded(taskId);
@@ -79,18 +72,12 @@ public class DocumentParseTaskConsumer {
 
   private void handleRetryable(
       ProcessingTask task, RetryableDocumentException e, Channel channel, long deliveryTag) {
-    markFileParsing(task.getBusinessId(), DocumentConstants.PARSE_STATUS_PENDING, null, summary(e));
-    int nextRetry = taskService.failRetryable(task.getId(), e.getFailureCode(), summary(e));
+    int nextRetry = taskService.failWithDomainRetryable(task, e.getFailureCode(), summary(e));
     if (nextRetry > 0) {
       publisher.publishToDocumentRetryQueue(task.getId(), nextRetry - 1);
       ackQuietly(channel, deliveryTag);
       log.warn("文档解析任务 {} 可重试失败，已安排重试 {}", task.getId(), nextRetry);
     } else {
-      markFileParsing(
-          task.getBusinessId(),
-          DocumentConstants.PARSE_STATUS_FAILED,
-          e.getFailureCode(),
-          summary(e));
       ackAndNackToDlq(channel, deliveryTag);
       log.warn("文档解析任务 {} 重试耗尽，failureCode={}", task.getId(), e.getFailureCode());
     }
@@ -98,31 +85,9 @@ public class DocumentParseTaskConsumer {
 
   private void handleTerminal(
       ProcessingTask task, TerminalDocumentException e, Channel channel, long deliveryTag) {
-    taskService.failTerminal(task.getId(), e.getFailureCode(), summary(e));
-    markFileParsing(
-        task.getBusinessId(),
-        DocumentConstants.PARSE_STATUS_FAILED,
-        e.getFailureCode(),
-        summary(e));
+    taskService.failWithDomainTerminal(task, e.getFailureCode(), summary(e));
     ackAndNackToDlq(channel, deliveryTag);
     log.warn("文档解析任务 {} 终态失败 code={}", task.getId(), e.getFailureCode());
-  }
-
-  private void markFileParsing(
-      Long fileId, String parseStatus, String errorCode, String errorMessage) {
-    if (fileId == null) {
-      return;
-    }
-    try {
-      FileMetadata update = new FileMetadata();
-      update.setId(fileId);
-      update.setParseStatus(parseStatus);
-      update.setParseErrorCode(errorCode);
-      update.setParseErrorMessage(errorMessage);
-      fileMapper.updateById(update);
-    } catch (RuntimeException ex) {
-      log.warn("更新文件解析状态 fileId={} 失败", fileId, ex);
-    }
   }
 
   private void ackAndNackToDlq(Channel channel, long deliveryTag) {

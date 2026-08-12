@@ -32,16 +32,19 @@ public class ProcessingTaskService {
   private final CurrentOwnerProvider currentOwnerProvider;
   private final TaskPublisher publisher;
   private final RabbitProperties properties;
+  private final List<ProcessingTaskDomainRecovery> domainRecoveries;
 
   public ProcessingTaskService(
       ProcessingTaskMapper mapper,
       CurrentOwnerProvider currentOwnerProvider,
       TaskPublisher publisher,
-      RabbitProperties properties) {
+      RabbitProperties properties,
+      List<ProcessingTaskDomainRecovery> domainRecoveries) {
     this.mapper = mapper;
     this.currentOwnerProvider = currentOwnerProvider;
     this.publisher = publisher;
     this.properties = properties;
+    this.domainRecoveries = domainRecoveries;
   }
 
   /** 认领任务：PENDING → PROCESSING，并记录投递；并发下只有一个成功。返回 null 表示已被并发认领或不存在。 */
@@ -58,7 +61,9 @@ public class ProcessingTaskService {
     if (mapper.update(null, update) != 1) {
       return null;
     }
-    return mapper.selectById(taskId);
+    ProcessingTask task = mapper.selectById(taskId);
+    domainRecovery(task).ifPresent(recovery -> recovery.markProcessing(task));
+    return task;
   }
 
   /** 标记成功：只有 PROCESSING/PENDING 状态可进入 SUCCEEDED，幂等。 */
@@ -110,6 +115,22 @@ public class ProcessingTaskService {
     return 0;
   }
 
+  /** 索引可重试失败：在一个 MySQL 事务内同时迁移 Task 与当前版本 Item 的投影状态。 */
+  @Transactional
+  public int failWithDomainRetryable(ProcessingTask task, String failureCode, String lastError) {
+    int nextRetry = failRetryable(task.getId(), failureCode, lastError);
+    domainRecovery(task)
+        .ifPresent(
+            recovery -> {
+              if (nextRetry > 0) {
+                recovery.markRetryPending(task);
+              } else {
+                recovery.markFailed(task, failureCode, lastError);
+              }
+            });
+    return nextRetry;
+  }
+
   /** 不可重试失败：直接 FAILED。 */
   @Transactional
   public void failTerminal(Long taskId, String failureCode, String lastError) {
@@ -125,6 +146,13 @@ public class ProcessingTaskService {
             .set(ProcessingTask::getFailureCode, failureCode)
             .set(ProcessingTask::getLastError, lastError)
             .set(ProcessingTask::getFinishedAt, Instant.now()));
+  }
+
+  /** 索引终态失败：Task 与当前版本 Item 的 FAILED 投影必须原子提交。 */
+  @Transactional
+  public void failWithDomainTerminal(ProcessingTask task, String failureCode, String lastError) {
+    failTerminal(task.getId(), failureCode, lastError);
+    domainRecovery(task).ifPresent(recovery -> recovery.markFailed(task, failureCode, lastError));
   }
 
   /** 扫描并重新发布：未投递（从未投递或投递后滞留超时）的 PENDING 任务与卡死 PROCESSING 租约超时。 */
@@ -161,6 +189,7 @@ public class ProcessingTaskService {
               .set(ProcessingTask::getStatus, ProcessingConstants.STATUS_PENDING)
               .set(ProcessingTask::getStartedAt, null);
       if (mapper.update(null, update) == 1) {
+        prepareDomainForRepublish(task);
         republishToWork(task);
         recovered++;
       }
@@ -196,6 +225,8 @@ public class ProcessingTaskService {
     } catch (DuplicateKeyException e) {
       throw new ProcessingTaskRetryNotAllowedException(taskId, "ACTIVE_RETRY_EXISTS");
     }
+    prepareDomainForRetry(original, retry);
+    republishToWork(retry);
     return retry;
   }
 
@@ -229,26 +260,30 @@ public class ProcessingTaskService {
         && !ProcessingConstants.STATUS_PENDING.equals(task.getStatus());
   }
 
-  private static boolean isExtraction(ProcessingTask task) {
-    return knowflow.sanjin.modules.extraction.ExtractionConstants.TASK_TYPE_EXTRACTION.equals(
-        task.getTaskType());
+  /** 手动 Retry 与 PROCESSING 恢复时，把领域可见状态重置为可再次处理。 */
+  private void prepareDomainForRepublish(ProcessingTask task) {
+    domainRecovery(task).ifPresent(recovery -> recovery.prepareForRepublish(task));
   }
 
-  private static boolean isDocumentParse(ProcessingTask task) {
-    return knowflow.sanjin.modules.document.DocumentConstants.TASK_TYPE_DOCUMENT_PARSE.equals(
-        task.getTaskType());
+  private void prepareDomainForRetry(ProcessingTask original, ProcessingTask retry) {
+    domainRecovery(original).ifPresent(recovery -> recovery.prepareForRetry(original, retry));
+  }
+
+  private java.util.Optional<ProcessingTaskDomainRecovery> domainRecovery(ProcessingTask task) {
+    if (task == null) {
+      return java.util.Optional.empty();
+    }
+    return domainRecoveries.stream().filter(recovery -> recovery.supports(task)).findFirst();
   }
 
   /** 直接投递到工作交换机（恢复扫描用）；发布失败静默留待下轮。 */
   private void republishToWork(ProcessingTask task) {
-    if (isExtraction(task)) {
-      publisher.publishAfterCommit(
-          task.getId(), knowflow.sanjin.modules.extraction.ExtractionConstants.WORK_QUEUE_BASE);
-    } else if (isDocumentParse(task)) {
-      publisher.publishAfterCommit(
-          task.getId(), knowflow.sanjin.modules.document.DocumentConstants.WORK_QUEUE_BASE);
-    } else {
+    String queueBase =
+        domainRecovery(task).map(ProcessingTaskDomainRecovery::queueBase).orElse(null);
+    if (queueBase == null) {
       publisher.publishAfterCommit(task.getId());
+    } else {
+      publisher.publishAfterCommit(task.getId(), queueBase);
     }
   }
 
@@ -257,14 +292,6 @@ public class ProcessingTaskService {
     if (task == null) {
       return;
     }
-    if (isExtraction(task)) {
-      publisher.publishAfterCommit(
-          taskId, knowflow.sanjin.modules.extraction.ExtractionConstants.WORK_QUEUE_BASE);
-    } else if (isDocumentParse(task)) {
-      publisher.publishAfterCommit(
-          taskId, knowflow.sanjin.modules.document.DocumentConstants.WORK_QUEUE_BASE);
-    } else {
-      publisher.publishAfterCommit(taskId);
-    }
+    republishToWork(task);
   }
 }

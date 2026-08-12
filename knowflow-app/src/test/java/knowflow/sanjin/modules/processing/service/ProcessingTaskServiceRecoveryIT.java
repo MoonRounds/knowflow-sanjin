@@ -1,11 +1,16 @@
 package knowflow.sanjin.modules.processing.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
+import knowflow.sanjin.modules.knowledge.service.KnowledgeIndexTaskRecovery;
 import knowflow.sanjin.modules.processing.ProcessingConstants;
 import knowflow.sanjin.modules.processing.entity.ProcessingTask;
 import knowflow.sanjin.modules.processing.mapper.ProcessingTaskMapper;
@@ -29,6 +34,8 @@ class ProcessingTaskServiceRecoveryIT extends MySQLTestBase {
   @Autowired private ProcessingTaskService taskService;
 
   @MockitoBean private TaskPublisher publisher;
+
+  @MockitoBean private KnowledgeIndexTaskRecovery indexTaskRecovery;
 
   private ProcessingTask insertTask(
       String businessKey, String status, int attempted, Instant lastDeliveryAt) {
@@ -113,5 +120,41 @@ class ProcessingTaskServiceRecoveryIT extends MySQLTestBase {
     assertThat(taskMapper.selectById(stuck.getId()).getStatus())
         .isEqualTo(ProcessingConstants.STATUS_PENDING);
     verify(publisher).publishAfterCommit(stuck.getId());
+  }
+
+  @Test
+  @DisplayName("manual retry should create a linked PENDING task and publish it after commit")
+  void shouldCreateAndPublishManualRetry() {
+    ProcessingTask failed =
+        insertTask("manual-retry", ProcessingConstants.STATUS_FAILED, 4, Instant.now());
+    clearInvocations(publisher);
+
+    ProcessingTask retry = taskService.manualRetry(failed.getId());
+
+    assertThat(retry.getStatus()).isEqualTo(ProcessingConstants.STATUS_PENDING);
+    assertThat(retry.getRetryOfTaskId()).isEqualTo(failed.getId());
+    assertThat(retry.getBusinessKey()).isEqualTo(failed.getBusinessKey());
+    assertThat(retry.getAttemptedDeliveries()).isZero();
+    verify(publisher).publishAfterCommit(retry.getId());
+  }
+
+  @Test
+  @DisplayName("domain projection failure should roll back the task terminal transition")
+  void shouldRollbackTaskFailureWhenDomainProjectionFails() {
+    ProcessingTask processing =
+        insertTask("KNOWLEDGE_ITEM:42:1", ProcessingConstants.STATUS_PROCESSING, 1, Instant.now());
+    when(indexTaskRecovery.supports(processing)).thenReturn(true);
+    doThrow(new IllegalStateException("injected domain projection failure"))
+        .when(indexTaskRecovery)
+        .markFailed(processing, "INDEX_FAILED", "boom");
+
+    assertThatThrownBy(() -> taskService.failWithDomainTerminal(processing, "INDEX_FAILED", "boom"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("injected domain projection failure");
+
+    ProcessingTask persisted = taskMapper.selectById(processing.getId());
+    assertThat(persisted.getStatus()).isEqualTo(ProcessingConstants.STATUS_PROCESSING);
+    assertThat(persisted.getFailureCode()).isNull();
+    assertThat(persisted.getFinishedAt()).isNull();
   }
 }

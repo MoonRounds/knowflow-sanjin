@@ -72,7 +72,7 @@ public class IndexTaskConsumer {
 
   private void handleRetryable(
       ProcessingTask task, RetryableIndexException e, Channel channel, long deliveryTag) {
-    int nextRetry = taskService.failRetryable(task.getId(), e.getFailureCode(), summary(e));
+    int nextRetry = taskService.failWithDomainRetryable(task, e.getFailureCode(), summary(e));
     if (nextRetry > 0) {
       // 进入 TTL 重试队列：level = retryCount - 1（0/1/2 对应 10s/1m/5m）
       publisher.publishToRetryQueue(task.getId(), nextRetry - 1);
@@ -87,7 +87,7 @@ public class IndexTaskConsumer {
 
   private void handleTerminal(
       ProcessingTask task, TerminalIndexException e, Channel channel, long deliveryTag) {
-    taskService.failTerminal(task.getId(), e.getFailureCode(), summary(e));
+    taskService.failWithDomainTerminal(task, e.getFailureCode(), summary(e));
     ackAndNackToDlq(channel, deliveryTag);
     log.warn("索引任务 {} 终态失败 code={}", task.getId(), e.getFailureCode());
   }

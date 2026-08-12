@@ -87,6 +87,8 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
 
   @Autowired private QdrantClient qdrantClient;
 
+  @Autowired private KnowledgeIndexingService indexingService;
+
   private Long kbId;
 
   @BeforeEach
@@ -268,5 +270,70 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
       Thread.sleep(200);
     }
     knowledgeBaseService.softDelete(kbId, kb.getRowVersion());
+  }
+
+  @Test
+  @Order(5)
+  @DisplayName("late v1 index/delete tasks must not affect the current v2 index")
+  void shouldIgnoreLateOlderVersionTasks() throws Exception {
+    KnowledgeItem created = knowledgeService.createManualNote(noteRequest());
+    waitForIndexed(created.getId());
+
+    knowflow.sanjin.modules.knowledge.dto.UpdateManualNoteRequest update =
+        new knowflow.sanjin.modules.knowledge.dto.UpdateManualNoteRequest();
+    update.setContent("# Current\n\nThe current version must survive late v1 deliveries.");
+    update.setKnowledgeBaseIds(List.of(kbId.toString()));
+    update.setRowVersion(created.getRowVersion());
+    knowledgeService.updateManualNote(created.getId(), update);
+    waitForIndexedVersion(created.getId(), 2);
+
+    assertThat(qdrantClient.countPoints("knowflow_it_dense", versionFilter(created.getId(), 1)))
+        .isZero();
+    assertThat(qdrantClient.countPoints("knowflow_it_dense", versionFilter(created.getId(), 2)))
+        .isGreaterThan(0);
+
+    ProcessingTask staleIndex = new ProcessingTask();
+    staleIndex.setId(-1L);
+    staleIndex.setTaskType(ProcessingConstants.TASK_TYPE_KNOWLEDGE_INDEX);
+    staleIndex.setBusinessId(created.getId());
+    staleIndex.setBusinessKey("KNOWLEDGE_ITEM:" + created.getId() + ":1");
+    indexingService.execute(staleIndex);
+
+    ProcessingTask lateDelete = new ProcessingTask();
+    lateDelete.setId(-2L);
+    lateDelete.setTaskType(ProcessingConstants.TASK_TYPE_KNOWLEDGE_DELETE);
+    lateDelete.setBusinessId(created.getId());
+    lateDelete.setBusinessKey("KNOWLEDGE_ITEM:" + created.getId() + ":1:DELETE");
+    indexingService.execute(lateDelete);
+
+    assertThat(qdrantClient.countPoints("knowflow_it_dense", versionFilter(created.getId(), 1)))
+        .isZero();
+    assertThat(qdrantClient.countPoints("knowflow_it_dense", versionFilter(created.getId(), 2)))
+        .isGreaterThan(0);
+    assertThat(itemMapper.selectById(created.getId()).getIndexedVersion()).isEqualTo(2);
+  }
+
+  private void waitForIndexedVersion(Long itemId, int version) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + 30_000;
+    while (System.currentTimeMillis() < deadline) {
+      KnowledgeItem item = itemMapper.selectById(itemId);
+      if (item != null
+          && "INDEXED".equals(item.getIndexStatus())
+          && Integer.valueOf(version).equals(item.getIndexedVersion())) {
+        return;
+      }
+      Thread.sleep(200);
+    }
+    throw new AssertionError("Timed out waiting for index version " + version);
+  }
+
+  private java.util.Map<String, Object> versionFilter(Long itemId, int version) {
+    return java.util.Map.of(
+        "must",
+        List.of(
+            java.util.Map.of(
+                "key", "knowledge_item_id", "match", java.util.Map.of("value", itemId)),
+            java.util.Map.of(
+                "key", "content_version", "match", java.util.Map.of("value", version))));
   }
 }

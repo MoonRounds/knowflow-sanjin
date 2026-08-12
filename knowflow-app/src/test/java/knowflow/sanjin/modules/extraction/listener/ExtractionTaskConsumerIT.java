@@ -7,8 +7,10 @@ import static org.mockito.Mockito.when;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import knowflow.sanjin.common.config.RabbitProperties;
+import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.entity.Conversation;
 import knowflow.sanjin.modules.conversation.service.ConversationService;
@@ -26,6 +28,7 @@ import knowflow.sanjin.modules.modelconfig.service.ModelConfigService;
 import knowflow.sanjin.modules.processing.ProcessingConstants;
 import knowflow.sanjin.modules.processing.entity.ProcessingTask;
 import knowflow.sanjin.modules.processing.mapper.ProcessingTaskMapper;
+import knowflow.sanjin.modules.processing.service.ProcessingTaskService;
 import knowflow.sanjin.testinfra.MySQLRabbitMQTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +38,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -61,17 +65,24 @@ class ExtractionTaskConsumerIT extends MySQLRabbitMQTestBase {
   private knowflow.sanjin.modules.processing.service.TaskSubmissionService taskSubmissionService;
 
   @Autowired private ProcessingTaskMapper taskMapper;
+  @Autowired private ProcessingTaskService processingTaskService;
   @Autowired private KnowledgeExtractionTaskMapper extractionTaskMapper;
   @Autowired private KnowledgeCandidateMapper candidateMapper;
+
+  @Autowired private RabbitTemplate rabbitTemplate;
+
+  @Autowired private RabbitProperties rabbitProperties;
 
   @MockitoBean private ModelClientFactory modelClientFactory;
 
   private ChatModel chatModel;
+  private final AtomicBoolean forceInvalidExtraction = new AtomicBoolean();
   private Long kbId;
   private Long conversationId;
 
   @BeforeEach
   void setUp() {
+    forceInvalidExtraction.set(false);
     knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest kbReq =
         new knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest();
     kbReq.setName("Extract KB " + System.nanoTime());
@@ -130,7 +141,6 @@ class ExtractionTaskConsumerIT extends MySQLRabbitMQTestBase {
 
   private ChatModel mockChatModel() {
     ChatModel mock = org.mockito.Mockito.mock(ChatModel.class);
-    AtomicInteger n = new AtomicInteger();
     String json =
         "{\"candidates\":[{\"title\":\"提取到的知识\",\"summary\":\"摘要\",\"content\":\"正文内容\","
             + "\"knowledgeBaseIds\":[\""
@@ -140,7 +150,10 @@ class ExtractionTaskConsumerIT extends MySQLRabbitMQTestBase {
         .thenAnswer(
             inv ->
                 ChatResponse.builder()
-                    .generations(List.of(new Generation(new AssistantMessage(json))))
+                    .generations(
+                        List.of(
+                            new Generation(
+                                new AssistantMessage(forceInvalidExtraction.get() ? "{}" : json))))
                     .build());
     return mock;
   }
@@ -168,6 +181,8 @@ class ExtractionTaskConsumerIT extends MySQLRabbitMQTestBase {
         assertThat(updated.getAttemptedDeliveries()).isGreaterThan(0);
         assertThat(updated.getStatus())
             .isEqualTo(knowflow.sanjin.modules.processing.ProcessingConstants.STATUS_FAILED);
+        assertThat(updated.getFailureCode()).isEqualTo(ErrorCode.EXTRACTION_TASK_NOT_FOUND);
+        assertThat(getExtractionDlqMessage(task.getId())).isNotNull();
         return;
       }
       Thread.sleep(200);
@@ -228,6 +243,37 @@ class ExtractionTaskConsumerIT extends MySQLRabbitMQTestBase {
         .isEqualTo(cutoffBefore);
   }
 
+  @Test
+  @DisplayName("手动 Retry 应重绑提取快照到新任务，并由新任务成功生成候选")
+  void shouldRebindSnapshotAndSucceedOnManualRetry() throws InterruptedException {
+    insertTurn(1, "需要沉淀的问题", "需要沉淀的回答");
+    forceInvalidExtraction.set(true);
+
+    KnowledgeExtractionTask snapshot = extractionService.trigger(conversationId);
+    Long originalTaskId = snapshot.getProcessingTaskId();
+    waitForStatus(originalTaskId, ProcessingConstants.STATUS_FAILED);
+    ProcessingTask failed = taskMapper.selectById(originalTaskId);
+    assertThat(failed.getFailureCode()).isEqualTo(ErrorCode.INDEX_SCHEMA_FAILURE);
+
+    forceInvalidExtraction.set(false);
+    ProcessingTask retry = processingTaskService.manualRetry(originalTaskId);
+
+    KnowledgeExtractionTask rebound = extractionTaskMapper.selectById(snapshot.getId());
+    assertThat(retry.getRetryOfTaskId()).isEqualTo(originalTaskId);
+    assertThat(rebound.getProcessingTaskId()).isEqualTo(retry.getId());
+    assertThat(rebound.getCandidateCount()).isNull();
+
+    waitForStatus(retry.getId(), ProcessingConstants.STATUS_SUCCEEDED);
+    KnowledgeExtractionTask completed = extractionTaskMapper.selectById(snapshot.getId());
+    assertThat(completed.getProcessingTaskId()).isEqualTo(retry.getId());
+    assertThat(completed.getCandidateCount()).isEqualTo(1);
+    assertThat(
+            candidateMapper.selectCount(
+                new LambdaQueryWrapper<KnowledgeCandidate>()
+                    .eq(KnowledgeCandidate::getExtractionTaskId, snapshot.getId())))
+        .isEqualTo(1L);
+  }
+
   private void waitForStatus(Long taskId, String status) throws InterruptedException {
     long deadline = System.currentTimeMillis() + 30_000;
     while (System.currentTimeMillis() < deadline) {
@@ -250,5 +296,15 @@ class ExtractionTaskConsumerIT extends MySQLRabbitMQTestBase {
             + ", lastError="
             + (last != null ? last.getLastError() : "null")
             + ")");
+  }
+
+  private Object getExtractionDlqMessage(Long expectedTaskId) {
+    for (int i = 0; i < 30; i++) {
+      Object payload = rabbitTemplate.receiveAndConvert(rabbitProperties.extractionDlqName(), 500);
+      if (payload != null && expectedTaskId.toString().equals(String.valueOf(payload))) {
+        return payload;
+      }
+    }
+    return null;
   }
 }
