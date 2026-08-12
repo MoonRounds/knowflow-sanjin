@@ -36,6 +36,11 @@ export default tseslint.config(
       // Prettier owns template wrapping; keep ESLint focused on correctness.
       'vue/max-attributes-per-line': 'off',
       'vue/singleline-html-element-content-newline': 'off',
+      // Prettier self-closes void/empty HTML elements; align ESLint with it.
+      'vue/html-self-closing': [
+        'error',
+        { html: { void: 'always', normal: 'always', component: 'always' }, svg: 'always', math: 'always' },
+      ],
     },
   },
 )

@@ -14,6 +14,7 @@ import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 import type { KnowledgeItemResponse } from '../api/types/knowledge-item'
 import { getFileMetadataByItem, downloadFileUrl } from '../api/files'
 import type { FileMetadataResponse } from '../api/files'
+import { renderMarkdown } from '../utils/markdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,6 +28,9 @@ const fileMeta = ref<FileMetadataResponse | null>(null)
 
 const isUpload = computed(() => item.value?.sourceType === 'UPLOAD_FILE')
 
+/** 正文按受控 Markdown 渲染（raw HTML 已被 markdown-it 禁用）。 */
+const renderedContent = computed(() => renderMarkdown(item.value?.content ?? ''))
+
 const editMode = ref(false)
 const form = reactive<{
   title: string
@@ -39,8 +43,10 @@ const form = reactive<{
 let pollTimer: number | undefined
 
 const indexStatus = computed(() => item.value?.indexStatus ?? 'PENDING')
+const parseFailed = computed(() => isUpload.value && fileMeta.value?.parseStatus === 'FAILED')
 const isPending = computed(
-  () => indexStatus.value === 'PENDING' || indexStatus.value === 'PROCESSING',
+  () =>
+    !parseFailed.value && (indexStatus.value === 'PENDING' || indexStatus.value === 'PROCESSING'),
 )
 
 async function load() {
@@ -68,8 +74,12 @@ function startPolling() {
   stopPolling()
   pollTimer = setInterval(async () => {
     try {
-      const latest = await getKnowledgeItem(itemId)
+      const [latest, latestFile] = await Promise.all([
+        getKnowledgeItem(itemId),
+        isUpload.value ? getFileMetadataByItem(itemId) : Promise.resolve(null),
+      ])
       item.value = latest
+      if (latestFile) fileMeta.value = latestFile
       if (!isPending.value) {
         stopPolling()
       }
@@ -240,7 +250,7 @@ onBeforeUnmount(stopPolling)
         </div>
         <div v-if="item.summary" class="summary">{{ item.summary }}</div>
         <el-divider />
-        <pre class="content">{{ item.content }}</pre>
+        <div class="content markdown-body" v-html="renderedContent" />
         <el-divider />
         <div class="relations">
           <span class="label">知识库：</span>
@@ -366,10 +376,52 @@ onBeforeUnmount(stopPolling)
   margin-bottom: 8px;
 }
 .content {
-  white-space: pre-wrap;
   word-break: break-word;
-  font-family: inherit;
-  line-height: 1.6;
+  line-height: 1.7;
+}
+.content :deep(h1),
+.content :deep(h2),
+.content :deep(h3) {
+  margin: 1em 0 0.5em;
+  font-weight: 600;
+}
+.content :deep(p) {
+  margin: 0.6em 0;
+}
+.content :deep(pre) {
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+.content :deep(code) {
+  background: #f6f8fa;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.content :deep(pre code) {
+  background: transparent;
+  padding: 0;
+}
+.content :deep(blockquote) {
+  border-left: 3px solid #e4e7ed;
+  margin: 0.6em 0;
+  padding-left: 12px;
+  color: #888;
+}
+.content :deep(table) {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+}
+.content :deep(th),
+.content :deep(td) {
+  border: 1px solid #e4e7ed;
+  padding: 6px 10px;
+  font-size: 0.9em;
+}
+.content :deep(a) {
+  color: #409eff;
 }
 .relations {
   display: flex;

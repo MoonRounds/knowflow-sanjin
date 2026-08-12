@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { RetrievedSource } from '../api/types/conversation'
+import { ragStatusText } from '../utils/rag'
 
 const props = defineProps<{
   ragStatus?: string | null
@@ -11,18 +12,7 @@ const props = defineProps<{
 const router = useRouter()
 const showDiagnostics = ref(false)
 
-const RAG_STATUS_TEXT: Record<string, string> = {
-  NOT_AVAILABLE: '知识库不可用',
-  NOT_NEEDED: '无需检索知识库',
-  USED: '已使用个人知识',
-  NO_RELEVANT_CONTEXT: '未找到相关内容',
-  DEGRADED: '检索降级',
-}
-
-const statusText = computed(() => {
-  if (!props.ragStatus) return null
-  return RAG_STATUS_TEXT[props.ragStatus] ?? props.ragStatus
-})
+const statusText = computed(() => ragStatusText(props.ragStatus))
 
 const hasSources = computed(() => (props.sources ?? []).length > 0)
 

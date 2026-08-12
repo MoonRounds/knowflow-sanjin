@@ -5,6 +5,14 @@ import type {
   RetrievedSource,
 } from '../api/types/conversation'
 
+/** Router 诊断（对应 SSE sources.available 的 router 字段，仅发生过路由调用时出现）。 */
+export interface RouterDiagnostic {
+  needRag: boolean
+  knowledgeBaseIds?: string[]
+  retrievalQuery?: string
+  routeScores?: Array<{ knowledgeBaseId: string; score: number }>
+}
+
 export interface StreamEventHandlers {
   onStarted?: (data: { assistantMessageId?: string }) => void
   onDelta?: (data: { assistantMessageId?: string; delta?: string }) => void
@@ -12,6 +20,7 @@ export interface StreamEventHandlers {
     assistantMessageId?: string
     ragStatus?: string
     sources?: RetrievedSource[]
+    router?: RouterDiagnostic
   }) => void
   onCompleted?: (data: {
     assistantMessageId?: string
@@ -43,6 +52,7 @@ export function dispatchSseEvent(eventName: string, data: unknown, handlers: Str
         assistantMessageId: d.assistantMessageId as string | undefined,
         ragStatus: d.ragStatus as string | undefined,
         sources: d.sources as RetrievedSource[] | undefined,
+        router: d.router as RouterDiagnostic | undefined,
       })
       break
     case 'generation.completed':
@@ -64,6 +74,8 @@ export function dispatchSseEvent(eventName: string, data: unknown, handlers: Str
   }
 }
 
+export type ChatPhase = 'idle' | 'connecting' | 'streaming' | 'completed' | 'failed'
+
 export interface UseChatStreamOptions {
   getConversation: () => ConversationResponse | null
   getMessages: () => MessageResponse[]
@@ -73,14 +85,22 @@ export interface UseChatStreamOptions {
 }
 
 /**
- * Chat 流式状态管理：维护正在生成的 assistant 消息（临时置灰），按 SSE 事件增量更新。
+ * Chat 流式状态机：维护 phase（idle→connecting→streaming→completed/failed）与
+ * 正在生成的 assistant 占位消息。
+ *
+ * `startGeneration()` 返回一个捕获当前 generation token 的 dispatch 闭包。
+ * 每轮生成/停止都会递增 token，旧 dispatch 闭包（旧流仍持有）因 token 不匹配而丢弃全部事件，
+ * 从机制上防止页面切换/重复发送后旧流污染当前会话。
  */
 export function useChatStream(options: UseChatStreamOptions) {
-  const streaming = ref(false)
+  const phase = ref<ChatPhase>('idle')
   const streamError = ref<string | null>(null)
 
   /** 本地占位的流式 assistant 消息（真实 assistantMessageId 未知前使用）。 */
   const pendingAssistant = ref<MessageResponse | null>(null)
+
+  /** generation token：dispatch 闭包携带创建时的 token；token 已递增（新轮/已停止）则事件被丢弃。 */
+  let generationToken = 0
 
   const currentConversation = computed(() => options.getConversation())
 
@@ -96,8 +116,37 @@ export function useChatStream(options: UseChatStreamOptions) {
     options.setMessages(messages)
   }
 
-  function handleStarted(data: { assistantMessageId?: string }) {
-    streaming.value = true
+  /** 事件只对"创建时的 token == 当前 token"生效（旧流/已停止流的闭包因 token 过期而失效）。 */
+  function isGenerationActive(token: number): boolean {
+    return token === generationToken
+  }
+
+  /** 开始一轮生成：置 connecting、递增 token；返回捕获该 token 的 dispatch 闭包。 */
+  function startGeneration() {
+    generationToken += 1
+    phase.value = 'connecting'
+    streamError.value = null
+    pendingAssistant.value = null
+    const token = generationToken
+    return (eventName: string, data: unknown) =>
+      dispatchSseEvent(eventName, data, makeHandlers(token))
+  }
+
+  /** 停止/放弃当前生成：置 idle、递增 token 使旧 dispatch 全部失效，并从消息列表移除占位。 */
+  function stopGeneration() {
+    generationToken += 1
+    phase.value = 'idle'
+    streamError.value = null
+    if (pendingAssistant.value) {
+      const id = pendingAssistant.value.id
+      options.setMessages(options.getMessages().filter((m) => m.id !== id))
+      pendingAssistant.value = null
+    }
+  }
+
+  function handleStarted(data: { assistantMessageId?: string }, token: number) {
+    if (!isGenerationActive(token)) return
+    phase.value = 'streaming'
     streamError.value = null
     if (data.assistantMessageId) {
       pendingAssistant.value = {
@@ -112,7 +161,8 @@ export function useChatStream(options: UseChatStreamOptions) {
     }
   }
 
-  function handleDelta(data: { delta?: string }) {
+  function handleDelta(data: { delta?: string }, token: number) {
+    if (!isGenerationActive(token)) return
     if (!data.delta) return
     const messages = [...options.getMessages()]
     const target = messages.find((m) => m.id === (pendingAssistant.value?.id ?? ''))
@@ -122,11 +172,11 @@ export function useChatStream(options: UseChatStreamOptions) {
     }
   }
 
-  function handleSourcesAvailable(data: {
-    assistantMessageId?: string
-    ragStatus?: string
-    sources?: RetrievedSource[]
-  }) {
+  function handleSourcesAvailable(
+    data: { assistantMessageId?: string; ragStatus?: string; sources?: RetrievedSource[] },
+    token: number,
+  ) {
+    if (!isGenerationActive(token)) return
     const messages = [...options.getMessages()]
     const id = data.assistantMessageId ?? pendingAssistant.value?.id
     const target = messages.find((m) => m.id === id)
@@ -137,12 +187,11 @@ export function useChatStream(options: UseChatStreamOptions) {
     options.setMessages(messages)
   }
 
-  function handleCompleted(data: {
-    assistantMessageId?: string
-    content?: string
-    active?: boolean
-    usage?: unknown
-  }) {
+  function handleCompleted(
+    data: { assistantMessageId?: string; content?: string; active?: boolean; usage?: unknown },
+    token: number,
+  ) {
+    if (!isGenerationActive(token)) return
     const messages = [...options.getMessages()]
     const id = data.assistantMessageId ?? pendingAssistant.value?.id
     const target = messages.find((m) => m.id === id)
@@ -154,11 +203,13 @@ export function useChatStream(options: UseChatStreamOptions) {
     }
     options.setMessages(messages)
     pendingAssistant.value = null
-    streaming.value = false
+    phase.value = 'completed'
+    // generation.completed 只会在后端 Tx2 提交并释放 active slot 后发送，可安全对账事实源。
     options.reconcile?.()
   }
 
-  function handleFailed(data: { errorCode?: string; detail?: string }) {
+  function handleFailed(data: { errorCode?: string; detail?: string }, token: number) {
+    if (!isGenerationActive(token)) return
     const messages = [...options.getMessages()]
     const target = messages.find((m) => m.id === (pendingAssistant.value?.id ?? ''))
     if (target) {
@@ -167,24 +218,27 @@ export function useChatStream(options: UseChatStreamOptions) {
     }
     options.setMessages(messages)
     pendingAssistant.value = null
-    streaming.value = false
+    phase.value = 'failed'
     streamError.value =
       data.errorCode === '生成已取消' ? '已取消' : (data.detail ?? data.errorCode ?? '生成失败')
     options.reconcile?.()
   }
 
-  const handlers: StreamEventHandlers = {
-    onStarted: handleStarted,
-    onDelta: handleDelta,
-    onSourcesAvailable: handleSourcesAvailable,
-    onCompleted: handleCompleted,
-    onFailed: handleFailed,
+  /** 用"创建时刻"的 token 构造 handlers；旧 dispatch 持有的旧 token 与后续 generation 不匹配。 */
+  function makeHandlers(token: number): StreamEventHandlers {
+    return {
+      onStarted: (d) => handleStarted(d, token),
+      onDelta: (d) => handleDelta(d, token),
+      onSourcesAvailable: (d) => handleSourcesAvailable(d, token),
+      onCompleted: (d) => handleCompleted(d, token),
+      onFailed: (d) => handleFailed(d, token),
+    }
   }
 
   return {
-    streaming,
+    phase,
     streamError,
-    handlers,
-    dispatchSseEvent,
+    startGeneration,
+    stopGeneration,
   }
 }

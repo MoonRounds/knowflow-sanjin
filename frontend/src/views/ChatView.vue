@@ -18,12 +18,21 @@ import { triggerExtraction } from '../api/extraction'
 import type { ExtractionTaskResponse } from '../api/extraction'
 import type { ConversationResponse, MessageResponse } from '../api/types/conversation'
 import type { ModelConfigResponse } from '../api/types/model-config'
-import { dispatchSseEvent, useChatStream } from '../composables/useChatStream'
-import MessageSourcesPanel from '../components/MessageSourcesPanel.vue'
+import { useChatStream } from '../composables/useChatStream'
+import type { RouterDiagnostic } from '../composables/useChatStream'
+import ChatMessageItem from '../components/ChatMessageItem.vue'
+import RouterTracePanel from '../components/RouterTracePanel.vue'
+import ChatMemoryPanel from '../components/ChatMemoryPanel.vue'
+import KnowledgeDomainsPanel from '../components/KnowledgeDomainsPanel.vue'
+import { filterConversations, groupConversationsByDate } from '../utils/chat-workspace'
+import { listKnowledgeBases } from '../api/knowledge-bases'
+import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 
 const conversations = ref<ConversationResponse[]>([])
 const activeId = ref<string | null>(null)
 const messages = ref<MessageResponse[]>([])
+/** 按 assistant 消息 id 缓存 SSE sources.available 携带的 Router 诊断（仅实时可见，历史不回放）。 */
+const routerByMessage = ref<Record<string, RouterDiagnostic>>({})
 const models = ref<ModelConfigResponse[]>([])
 const input = ref('')
 const selectedModelId = ref<string | undefined>()
@@ -31,6 +40,16 @@ const loadingHistory = ref(false)
 const nextBefore = ref<string | null>(null)
 const hasMoreHistory = ref(true)
 let activeController: AbortController | null = null
+
+// ---- 三栏工作台：会话列表搜索/分组 + Inspector 知识域 ----
+const searchKeyword = ref('')
+const knowledgeBases = ref<KnowledgeBaseResponse[]>([])
+const selectedDomainIds = ref<string[]>([])
+
+const visibleConversations = computed(() =>
+  filterConversations(conversations.value, searchKeyword.value),
+)
+const conversationGroups = computed(() => groupConversationsByDate(visibleConversations.value))
 
 const stream = useChatStream({
   getConversation: () => activeConversation.value,
@@ -42,6 +61,10 @@ const stream = useChatStream({
   },
 })
 
+function messageRouter(msg: MessageResponse): RouterDiagnostic | undefined {
+  return msg.id ? routerByMessage.value[msg.id] : undefined
+}
+
 const extracting = ref(false)
 const extractionTask = ref<ExtractionTaskResponse | null>(null)
 let extractionPollTimer: number | undefined
@@ -51,14 +74,29 @@ const hasCompletedMessages = computed(() =>
 )
 
 const canExtract = computed(
-  () => !!activeConversation.value && !stream.streaming.value && hasCompletedMessages.value,
+  () => !!activeConversation.value && canStartSend.value && hasCompletedMessages.value,
 )
 
 const activeConversation = computed(() => {
   return conversations.value.find((c) => c.id === activeId.value) ?? null
 })
 
-const canSend = computed(() => !!activeConversation.value && input.value.trim().length > 0)
+/** Inspector 路由轨迹：取当前消息流最后一条 assistant 的诊断。 */
+const latestAssistant = computed(() => {
+  const assistants = messages.value.filter((m) => m.role === 'ASSISTANT')
+  return assistants[assistants.length - 1] ?? null
+})
+const latestAssistantId = computed(() => latestAssistant.value?.id ?? null)
+const latestAssistantRagStatus = computed(() => latestAssistant.value?.ragStatus ?? null)
+
+/** 可开始新一轮发送：idle / completed / failed 均可，仅连接或生成进行中禁止。 */
+const canStartSend = computed(
+  () => stream.phase.value !== 'connecting' && stream.phase.value !== 'streaming',
+)
+
+const canSend = computed(
+  () => !!activeConversation.value && canStartSend.value && input.value.trim().length > 0,
+)
 
 onMounted(async () => {
   await Promise.all([loadConversations(), loadModels()])
@@ -66,6 +104,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   activeController?.abort()
+  // 离开页面时终止当前生成：token 守卫关闭，旧流事件不再污染后续会话
+  stream.stopGeneration()
   stopExtractionPolling()
 })
 
@@ -85,13 +125,36 @@ async function loadModels() {
   }
 }
 
+async function loadKnowledgeBases() {
+  try {
+    knowledgeBases.value = (await listKnowledgeBases()).filter((kb) => kb.enabled)
+  } catch {
+    knowledgeBases.value = []
+  }
+}
+
+function toggleDomain(id: string) {
+  selectedDomainIds.value = selectedDomainIds.value.includes(id)
+    ? selectedDomainIds.value.filter((x) => x !== id)
+    : [...selectedDomainIds.value, id]
+}
+
 async function selectConversation(id: string) {
+  // 切换会话前终止当前生成，防止旧流对账/占位消息污染新会话
+  if (activeId.value !== id) {
+    activeController?.abort()
+    stream.stopGeneration()
+  }
   activeId.value = id
   const conv = activeConversation.value
   selectedModelId.value = conv?.defaultModelConfigId ?? undefined
   messages.value = []
   nextBefore.value = null
   hasMoreHistory.value = true
+  // Inspector 需要知识域，仅在首次进入会话时加载（避免每次进页拉全量）
+  if (knowledgeBases.value.length === 0) {
+    void loadKnowledgeBases()
+  }
   await loadHistory(null)
 }
 
@@ -219,11 +282,29 @@ async function handleDelete() {
   }
 }
 
+/** 包装 startGeneration 的 dispatch：先缓存 Router 诊断（供 route-badge/Inspector），再交给 token 守卫。 */
+function makeOnEvent(dispatch: (eventName: string, data: unknown) => void) {
+  return (eventName: string, data: unknown) => {
+    if (eventName === 'sources.available') {
+      const d = data as { assistantMessageId?: string; router?: RouterDiagnostic }
+      if (d.assistantMessageId && d.router) {
+        routerByMessage.value = {
+          ...routerByMessage.value,
+          [d.assistantMessageId]: d.router,
+        }
+      }
+    }
+    dispatch(eventName, data)
+  }
+}
+
 function handleSend() {
   const content = input.value.trim()
   const conv = activeConversation.value
-  if (!content || !conv) return
+  // 同步守卫：连接/生成进行中（connecting/streaming）拒绝再次发送，堵住重复点击窗口
+  if (!content || !conv || !canStartSend.value) return
 
+  const dispatch = stream.startGeneration()
   input.value = ''
   const clientMessageId = crypto.randomUUID()
   messages.value = [
@@ -237,38 +318,45 @@ function handleSend() {
     },
   ]
 
-  const modelConfigId = selectedModelId.value ? Number(selectedModelId.value) : undefined
+  const modelConfigId = selectedModelId.value || undefined
 
   activeController = streamSend(
     conv.id!,
     { clientMessageId, content, modelConfigId },
-    (eventName, data) => dispatchSseEvent(eventName, data, stream.handlers),
+    makeOnEvent(dispatch),
     (err) => {
+      // 连接级错误（fetch 失败/断连）：终止状态机，避免消息永久 loading
+      stream.stopGeneration()
       stream.streamError.value = err instanceof Error ? err.message : '发送失败'
-      stream.streaming.value = false
       // 断连/错误后对账最终状态
       void loadHistory(null)
     },
   )
 }
 
-function handleStop() {
+async function handleStop() {
   if (!activeConversation.value) return
-  stopGeneration(activeConversation.value.id!)
-  activeController?.abort()
-  // 停止后对账：服务端会把该 attempt 标记 CANCELLED 并释放 slot
-  void loadHistory(null)
+  try {
+    // 先确认后端已设置取消标志，再断开当前 SSE；否则断连可能先被服务端归类为 FAILED。
+    await stopGeneration(activeConversation.value.id!)
+    stream.stopGeneration()
+    activeController?.abort()
+    await loadHistory(null)
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '停止生成失败')
+  }
 }
 
 function handleRegenerate(message: MessageResponse) {
   if (!activeConversation.value || !message.id) return
+  const dispatch = stream.startGeneration()
   activeController = streamRegenerate(
     activeConversation.value.id!,
-    { modelConfigId: selectedModelId.value ? Number(selectedModelId.value) : undefined },
-    (eventName, data) => dispatchSseEvent(eventName, data, stream.handlers),
+    { modelConfigId: selectedModelId.value || undefined },
+    makeOnEvent(dispatch),
     (err) => {
+      stream.stopGeneration()
       stream.streamError.value = err instanceof Error ? err.message : '重新生成失败'
-      stream.streaming.value = false
       void loadHistory(null)
     },
   )
@@ -277,7 +365,7 @@ function handleRegenerate(message: MessageResponse) {
 watch(selectedModelId, async (newId, oldId) => {
   if (newId && newId !== oldId && activeConversation.value) {
     await updateConversation(activeConversation.value.id!, {
-      defaultModelConfigId: Number(newId),
+      defaultModelConfigId: newId,
     })
   }
 })
@@ -285,32 +373,54 @@ watch(selectedModelId, async (newId, oldId) => {
 
 <template>
   <div class="chat-workspace">
-    <div class="chat-sidebar">
-      <el-button class="new-btn" type="primary" @click="handleCreate">新建会话</el-button>
-      <div class="conv-list">
-        <div
-          v-for="conv in conversations"
-          :key="conv.id"
-          class="conv-item"
-          :class="{ active: conv.id === activeId }"
-          @click="selectConversation(conv.id!)"
-        >
-          <div class="conv-title">{{ conv.title }}</div>
+    <aside class="chat-sessions">
+      <div class="chat-side-top">
+        <div>
+          <div class="eyebrow">AI 对话 / 学习入口</div>
+          <h2>把问题聊透。</h2>
         </div>
-        <div v-if="conversations.length === 0" class="conv-empty">还没有会话</div>
+        <button class="chat-plus" aria-label="新建对话" @click="handleCreate">＋</button>
       </div>
-    </div>
+      <label class="chat-search">
+        <span>⌕</span>
+        <input v-model="searchKeyword" placeholder="找一段旧对话…" />
+      </label>
+      <div class="conv-list">
+        <template v-for="group in conversationGroups" :key="group.label">
+          <div class="session-label">{{ group.label }}</div>
+          <div
+            v-for="conv in group.items"
+            :key="conv.id"
+            class="session-item"
+            :class="{ active: conv.id === activeId }"
+            @click="selectConversation(conv.id!)"
+          >
+            <span class="session-dot" />
+            <b>{{ conv.title }}</b>
+            <small>{{ conv.title }}</small>
+            <em>·</em>
+          </div>
+        </template>
+        <div v-if="visibleConversations.length === 0" class="conv-empty">
+          {{ conversations.length === 0 ? '还没有会话' : '没有匹配的会话' }}
+        </div>
+      </div>
+    </aside>
 
-    <div class="chat-main">
+    <main class="chat-main">
       <template v-if="activeConversation">
-        <div class="chat-header">
-          <div class="header-title">{{ activeConversation.title }}</div>
-          <div class="header-actions">
+        <header class="chat-core-head">
+          <div class="chat-title-row">
+            <span class="live-ring" :class="{ streaming: stream.phase.value !== 'idle' }" />
+            <h2>{{ activeConversation.title }}</h2>
+          </div>
+          <div class="chat-head-actions">
             <el-select
               v-model="selectedModelId"
               placeholder="选择模型"
               size="small"
               style="width: 180px"
+              class="model-select"
             >
               <el-option v-for="m in models" :key="m.id" :label="m.displayName" :value="m.id" />
             </el-select>
@@ -331,7 +441,7 @@ watch(selectedModelId, async (newId, oldId) => {
             提取任务 #{{ extractionTask.id }}：状态 {{ extractionTask.status }}，截止消息
             {{ extractionTask.cutoffMessageId }}，输入 {{ extractionTask.inputCharCount }} 字符
           </div>
-        </div>
+        </header>
 
         <div class="chat-body">
           <div v-if="loadingHistory" class="history-loading">加载中…</div>
@@ -345,39 +455,14 @@ watch(selectedModelId, async (newId, oldId) => {
             加载更早的消息
           </el-button>
 
-          <div
+          <ChatMessageItem
             v-for="msg in messages"
             :key="msg.id"
-            class="message"
-            :class="msg.role?.toLowerCase()"
-          >
-            <div class="msg-role">
-              {{ msg.role === 'USER' ? '你' : 'AI' }}
-              <span v-if="msg.modelName" class="msg-model">{{ msg.modelName }}</span>
-            </div>
-            <div class="msg-content">{{ msg.content }}</div>
-            <MessageSourcesPanel
-              v-if="msg.role === 'ASSISTANT'"
-              :rag-status="msg.ragStatus"
-              :sources="msg.sources"
-            />
-            <div v-if="msg.generationStatus === 'FAILED'" class="msg-error">
-              {{ msg.errorCode ?? '生成失败' }}
-            </div>
-            <div v-if="msg.generationStatus === 'CANCELLED'" class="msg-error">已取消</div>
-            <div v-if="msg.role === 'ASSISTANT'" class="msg-actions">
-              <el-button
-                v-if="msg.generationStatus === 'GENERATING'"
-                size="small"
-                type="warning"
-                plain
-                @click="handleStop"
-              >
-                停止
-              </el-button>
-              <el-button size="small" text @click="handleRegenerate(msg)">重新生成</el-button>
-            </div>
-          </div>
+            :msg="msg"
+            :router="messageRouter(msg) ?? null"
+            @stop="handleStop"
+            @regenerate="handleRegenerate"
+          />
           <div v-if="stream.streamError.value" class="stream-error">
             {{ stream.streamError.value }}
           </div>
@@ -392,7 +477,15 @@ watch(selectedModelId, async (newId, oldId) => {
             @keydown.enter.exact.prevent="handleSend"
           />
           <div class="input-actions">
-            <el-button type="primary" :disabled="!canSend" @click="handleSend">发送</el-button>
+            <el-button type="primary" :disabled="!canSend" @click="handleSend">
+              {{
+                stream.phase.value === 'connecting'
+                  ? '连接中…'
+                  : stream.phase.value === 'streaming'
+                    ? '生成中…'
+                    : '发送'
+              }}
+            </el-button>
           </div>
         </div>
       </template>
@@ -400,115 +493,244 @@ watch(selectedModelId, async (newId, oldId) => {
       <div v-else class="chat-empty">
         <p>选择一个会话或新建会话开始聊天</p>
       </div>
-    </div>
+    </main>
+
+    <aside v-if="activeConversation" class="chat-inspector">
+      <RouterTracePanel
+        :router="routerByMessage[latestAssistantId ?? '']"
+        :rag-status="latestAssistantRagStatus"
+      />
+      <ChatMemoryPanel :messages="messages" />
+      <KnowledgeDomainsPanel
+        :domains="knowledgeBases"
+        :selected-ids="selectedDomainIds"
+        @toggle="toggleDomain"
+      />
+    </aside>
   </div>
 </template>
 
 <style scoped>
 .chat-workspace {
-  display: flex;
-  height: calc(100vh - 60px);
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 318px;
+  height: calc(100vh - var(--kf-mast-h));
+  background: var(--kf-paper);
 }
-.chat-sidebar {
-  width: 240px;
-  border-right: 1px solid #eee;
+
+/* ---- 左栏：会话列表 ---- */
+.chat-sessions {
+  border-right: 1px solid var(--kf-line);
+  padding: 28px 16px 22px;
+  background: var(--kf-paper-3);
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  min-width: 0;
+  overflow-y: auto;
 }
-.new-btn {
-  margin-bottom: 12px;
+.chat-side-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 5px 18px;
+}
+.chat-side-top h2 {
+  font-size: 27px;
+  letter-spacing: -1.6px;
+  line-height: 1.05;
+  margin: 7px 0 0;
+  font-weight: 900;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--kf-hot);
+  font-weight: 900;
+}
+.chat-plus {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--kf-ink);
+  background: var(--kf-yellow);
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--kf-ink);
+  color: var(--kf-ink);
+}
+.chat-search {
+  height: 42px;
+  border: 1px solid var(--kf-line);
+  background: var(--kf-white);
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  margin: 0 1px 20px;
+}
+.chat-search span {
+  font-size: 18px;
+}
+.chat-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--kf-ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+.chat-search input::placeholder {
+  color: #9a9286;
 }
 .conv-list {
   flex: 1;
   overflow-y: auto;
 }
-.conv-item {
-  padding: 10px 12px;
-  border-radius: 6px;
+.session-label {
+  font-size: 9px;
+  color: var(--kf-muted);
+  letter-spacing: 0.1em;
+  font-weight: 900;
+  padding: 8px 7px;
+}
+.session-item {
+  position: relative;
+  border: 1px solid transparent;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  border-radius: 15px;
+  padding: 12px 38px 12px 28px;
+  margin-bottom: 4px;
   cursor: pointer;
+  transition: 0.2s;
 }
-.conv-item:hover {
-  background: #f5f7fa;
+.session-item:hover {
+  background: rgba(255, 253, 248, 0.7);
 }
-.conv-item.active {
-  background: #ecf5ff;
+.session-item.active {
+  background: var(--kf-white);
+  border-color: var(--kf-ink);
+  box-shadow: 3px 3px 0 var(--kf-ink);
 }
-.conv-title {
-  font-size: 0.9rem;
+.session-item b {
+  display: block;
+  font-size: 12px;
+  font-weight: 900;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.session-item small {
+  display: block;
+  font-size: 9px;
+  color: var(--kf-muted);
+  font-weight: 700;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-item em {
+  position: absolute;
+  right: 11px;
+  top: 12px;
+  font-size: 8px;
+  font-style: normal;
+  color: var(--kf-muted);
+  font-weight: 900;
+}
+.session-dot {
+  position: absolute;
+  left: 11px;
+  top: 16px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kf-hot);
+  border: 1px solid var(--kf-ink);
+}
 .conv-empty {
-  color: #999;
+  color: #9a9286;
   text-align: center;
   padding: 20px 0;
+  font-size: 11px;
+  font-weight: 700;
 }
+
+/* ---- 中栏：聊天核心 ---- */
 .chat-main {
-  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  background: var(--kf-white);
 }
-.chat-header {
+.chat-core-head {
+  min-height: 84px;
+  padding: 17px 24px;
+  border-bottom: 1px solid var(--kf-line);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  border-bottom: 1px solid #eee;
+  gap: 20px;
+  background: rgba(255, 253, 248, 0.92);
+  position: sticky;
+  top: var(--kf-mast-h);
+  z-index: 8;
+  backdrop-filter: blur(12px);
+  flex-wrap: wrap;
 }
-.header-title {
-  font-weight: 600;
-}
-.header-actions {
+.chat-title-row {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+.chat-title-row h2 {
+  font-size: 17px;
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+.live-ring {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--kf-hot);
+  box-shadow: 0 0 0 5px var(--kf-hot-soft);
+}
+.live-ring.streaming {
+  animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+.chat-head-actions {
+  display: flex;
   gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.header-extraction-hint {
+  width: 100%;
+  font-size: 9px;
+  color: var(--kf-muted);
+  font-weight: 700;
 }
 .chat-body {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-}
-.message {
-  margin-bottom: 16px;
-  max-width: 78%;
-}
-.message.user {
-  margin-left: auto;
-  text-align: right;
-}
-.message.assistant {
-  margin-right: auto;
-  text-align: left;
-}
-.msg-role {
-  font-size: 0.8rem;
-  color: #666;
-  margin-bottom: 4px;
-}
-.msg-model {
-  color: #999;
-  margin-left: 6px;
-  font-size: 0.75rem;
-}
-.msg-content {
-  background: #f5f7fa;
-  padding: 10px 12px;
-  border-radius: 8px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.message.user .msg-content {
-  background: #ecf5ff;
-}
-.msg-error {
-  color: #f56c6c;
-  font-size: 0.8rem;
-  margin-top: 4px;
-}
-.msg-actions {
-  margin-top: 6px;
 }
 .stream-error {
   color: #f56c6c;
@@ -537,5 +759,13 @@ watch(selectedModelId, async (newId, oldId) => {
   display: flex;
   justify-content: flex-end;
   margin-top: 8px;
+}
+
+/* ---- 右栏：Inspector ---- */
+.chat-inspector {
+  border-left: 1px solid var(--kf-line);
+  background: var(--kf-paper);
+  padding: 24px 18px;
+  overflow-y: auto;
 }
 </style>
