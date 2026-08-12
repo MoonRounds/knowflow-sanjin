@@ -13,6 +13,7 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
 import knowflow.sanjin.modules.document.config.DocumentProperties;
 import knowflow.sanjin.modules.document.entity.FileMetadata;
 import knowflow.sanjin.modules.document.exception.FileTooLargeException;
@@ -62,7 +63,7 @@ class DocumentUploadServiceTest {
     item.setOwnerId(1L);
     item.setTitle("已有");
     item.setStatus("ACTIVE");
-    when(knowledgeService.getByIdAndOwner(9L)).thenReturn(item);
+    when(knowledgeService.getByIdAndOwnerIncludingDeleted(9L)).thenReturn(item);
 
     DocumentUploadService service =
         new DocumentUploadService(
@@ -151,6 +152,69 @@ class DocumentUploadServiceTest {
   }
 
   @Test
+  void deletedDuplicateRestoresItemWithKnowledgeBasesSelectedByCurrentUpload() throws Exception {
+    initTableInfo();
+    FileMetadataMapper fileMapper = mock(FileMetadataMapper.class);
+    KnowledgeService knowledgeService = mock(KnowledgeService.class);
+    TaskSubmissionService taskSubmissionService = mock(TaskSubmissionService.class);
+    MimeDetectionService mime = new MimeDetectionService();
+    FileStorageService storage = new FileStorageService(props());
+    LocalFileStore store = new LocalFileStore(props());
+
+    FileMetadata existing = new FileMetadata();
+    existing.setId(5L);
+    existing.setOwnerId(1L);
+    existing.setKnowledgeItemId(9L);
+    existing.setStorageKey("deleted-key");
+    existing.setStatus("DELETED");
+    when(fileMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
+
+    KnowledgeItem deleted = new KnowledgeItem();
+    deleted.setId(9L);
+    deleted.setOwnerId(1L);
+    deleted.setTitle("已删除");
+    deleted.setStatus("DELETED");
+    KnowledgeItem restored = new KnowledgeItem();
+    restored.setId(9L);
+    restored.setOwnerId(1L);
+    restored.setTitle("已恢复");
+    restored.setStatus("ACTIVE");
+    when(knowledgeService.getByIdAndOwnerIncludingDeleted(9L)).thenReturn(deleted, restored);
+    when(knowledgeService.restoreUploadItem(9L, List.of(1L))).thenReturn(restored);
+
+    DocumentUploadService service =
+        new DocumentUploadService(
+            fileMapper,
+            new CurrentOwnerProvider(),
+            props(),
+            mime,
+            storage,
+            store,
+            knowledgeService,
+            taskSubmissionService);
+
+    FileUploadResponse response =
+        service.upload(
+            "restored.md",
+            "text/markdown",
+            new ByteArrayInputStream("# x\n".getBytes(StandardCharsets.UTF_8)),
+            "[\"1\"]");
+
+    assertThat(response.isDuplicate()).isFalse();
+    assertThat(response.getItem().getId()).isEqualTo("9");
+    verify(knowledgeService).restoreUploadItem(9L, List.of(1L));
+    verify(taskSubmissionService)
+        .submit(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyLong(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyInt(),
+            org.mockito.ArgumentMatchers.anyString());
+  }
+
+  @Test
   void oversizedFileRejectedWithoutLeavingTempOrCommittedFiles() throws Exception {
     initTableInfo();
     FileMetadataMapper fileMapper = mock(FileMetadataMapper.class);
@@ -215,7 +279,7 @@ class DocumentUploadServiceTest {
     item.setOwnerId(1L);
     item.setTitle("已有");
     item.setStatus("ACTIVE");
-    when(knowledgeService.getByIdAndOwner(9L)).thenReturn(item);
+    when(knowledgeService.getByIdAndOwnerIncludingDeleted(9L)).thenReturn(item);
 
     DocumentUploadService service =
         new DocumentUploadService(

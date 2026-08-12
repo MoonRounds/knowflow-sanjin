@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import knowflow.sanjin.common.util.ApiValueParser;
 import knowflow.sanjin.modules.document.exception.InvalidFileContentException;
+import knowflow.sanjin.modules.document.service.DocumentUploadCoordinator;
 import knowflow.sanjin.modules.document.service.DocumentUploadService;
 import knowflow.sanjin.modules.document.vo.FileMetadataResponse;
 import knowflow.sanjin.modules.document.vo.FileUploadResponse;
@@ -26,9 +27,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class DocumentController {
 
   private final DocumentUploadService uploadService;
+  private final DocumentUploadCoordinator uploadCoordinator;
 
-  public DocumentController(DocumentUploadService uploadService) {
+  public DocumentController(
+      DocumentUploadService uploadService, DocumentUploadCoordinator uploadCoordinator) {
     this.uploadService = uploadService;
+    this.uploadCoordinator = uploadCoordinator;
   }
 
   @PostMapping(value = "/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -42,7 +46,7 @@ public class DocumentController {
     String declaredContentType = file.getContentType();
     try (InputStream in = file.getInputStream()) {
       FileUploadResponse response =
-          uploadService.upload(originalFilename, declaredContentType, in, knowledgeBaseIds);
+          uploadCoordinator.upload(originalFilename, declaredContentType, in, knowledgeBaseIds);
       return ResponseEntity.ok(response);
     } catch (IOException e) {
       throw new IllegalStateException("读取上传文件失败", e);

@@ -97,7 +97,17 @@ public class KnowledgeIndexingService implements IndexingService {
         deleteTask);
 
     if (deleteTask) {
-      deleteAllPoints(itemId);
+      int deleteThroughVersion =
+          taskContentVersion(businessKey, KnowledgeConstants.BUSINESS_KEY_DELETE_SUFFIX);
+      KnowledgeItem current = itemMapper.selectById(itemId);
+      if (deleteThroughVersion == 0) {
+        // 兼容修复前已创建的 :0:DELETE 任务：仅当 Item 仍为删除态时执行，恢复后到达的旧任务直接跳过。
+        if (current == null || !KnowledgeConstants.STATUS_ACTIVE.equals(current.getStatus())) {
+          deleteAllPoints(itemId);
+        }
+      } else {
+        deletePointsThroughVersion(itemId, deleteThroughVersion);
+      }
       return;
     }
 
@@ -107,21 +117,47 @@ public class KnowledgeIndexingService implements IndexingService {
           ErrorCode.INDEX_SCHEMA_FAILURE, "KnowledgeItem " + itemId + " no longer active");
     }
 
-    String collection = qdrantProperties.getCollectionName();
-    log.info("Ensuring Qdrant collection {}", collection);
-    qdrantClient.ensureCollection(collection, embeddingProperties.getDimensions());
-
     if (payloadOnly) {
+      String collection = qdrantProperties.getCollectionName();
+      log.info("Ensuring Qdrant collection {}", collection);
+      qdrantClient.ensureCollection(collection, embeddingProperties.getDimensions());
       updatePayloadOnly(item);
       return;
     }
 
-    int version = taskContentVersion(businessKey, item);
+    int version = taskContentVersion(businessKey, null);
+    if (!java.util.Objects.equals(item.getContentVersion(), version)) {
+      log.info(
+          "Skipping superseded index task {} for item {} version {}; current version is {}",
+          task.getId(),
+          itemId,
+          version,
+          item.getContentVersion());
+      return;
+    }
+    String collection = qdrantProperties.getCollectionName();
+    log.info("Ensuring Qdrant collection {}", collection);
+    qdrantClient.ensureCollection(collection, embeddingProperties.getDimensions());
     log.info("Indexing item {} contentVersion {}", itemId, version);
     indexVersion(item, version, collection);
   }
 
-  /** 删除 Item 的全部 Qdrant Point（按 itemId payload filter，幂等）。 */
+  /** 删除 Item 在删除动作发生时已经存在的 Qdrant Point；恢复后更高版本的 Point 不受迟到删除任务影响。 */
+  private void deletePointsThroughVersion(long itemId, int deleteThroughVersion) {
+    java.util.Map<String, Object> filter =
+        java.util.Map.of(
+            "must",
+            List.of(
+                java.util.Map.of(
+                    "key", "knowledge_item_id", "match", java.util.Map.of("value", itemId)),
+                java.util.Map.of(
+                    "key",
+                    "content_version",
+                    "range",
+                    java.util.Map.of("lte", deleteThroughVersion))));
+    qdrantClient.deletePointsByFilter(qdrantProperties.getCollectionName(), filter);
+  }
+
   private void deleteAllPoints(long itemId) {
     java.util.Map<String, Object> filter =
         java.util.Map.of(
@@ -230,14 +266,17 @@ public class KnowledgeIndexingService implements IndexingService {
     qdrantClient.deletePointsByFilter(collection, oldFilter);
   }
 
-  private int taskContentVersion(String businessKey, KnowledgeItem item) {
+  private int taskContentVersion(String businessKey, String suffix) {
     // 格式：KNOWLEDGE_ITEM:{itemId}:{contentVersion} 或
     // KNOWLEDGE_ITEM:{itemId}:{contentVersion}:PAYLOAD
-    String key =
-        businessKey.endsWith(KnowledgeConstants.BUSINESS_KEY_PAYLOAD_SUFFIX)
-            ? businessKey.substring(
-                0, businessKey.length() - KnowledgeConstants.BUSINESS_KEY_PAYLOAD_SUFFIX.length())
-            : businessKey;
+    String key = businessKey;
+    if (suffix != null && businessKey.endsWith(suffix)) {
+      key = businessKey.substring(0, businessKey.length() - suffix.length());
+    } else if (businessKey.endsWith(KnowledgeConstants.BUSINESS_KEY_PAYLOAD_SUFFIX)) {
+      key =
+          businessKey.substring(
+              0, businessKey.length() - KnowledgeConstants.BUSINESS_KEY_PAYLOAD_SUFFIX.length());
+    }
     String[] parts = key.split(KnowledgeConstants.BUSINESS_KEY_DELIMITER);
     int version;
     try {
@@ -245,11 +284,6 @@ public class KnowledgeIndexingService implements IndexingService {
     } catch (RuntimeException e) {
       throw new RetryableIndexException(
           ErrorCode.INDEX_SCHEMA_FAILURE, "Unparseable business key " + businessKey);
-    }
-    if (version > item.getContentVersion()) {
-      throw new RetryableIndexException(
-          ErrorCode.INDEX_SCHEMA_FAILURE,
-          "Task content version " + version + " ahead of item version " + item.getContentVersion());
     }
     return version;
   }

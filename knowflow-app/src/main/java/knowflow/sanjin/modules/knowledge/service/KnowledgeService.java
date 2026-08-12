@@ -128,7 +128,11 @@ public class KnowledgeService {
     return item;
   }
 
-  /** 恢复软删的 Upload Item：重新关联 KB、重置正文占位与索引状态，供解析阶段填充。 */
+  /**
+   * 恢复软删的 Upload Item：重新关联 KB、重置正文占位与索引状态，供解析阶段填充。
+   *
+   * <p>恢复必须进入新的 contentVersion。删除任务只清理删除当时及以前的版本；若恢复复用旧版本号，迟到的删除任务会把恢复后新建的 Qdrant Point 一并删除。
+   */
   @Transactional
   public KnowledgeItem restoreUploadItem(Long itemId, List<Long> kbIds) {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
@@ -143,7 +147,7 @@ public class KnowledgeService {
     List<Long> resolved = resolveLongKnowledgeBaseIds(ownerId, kbIds);
     item.setStatus(KnowledgeConstants.STATUS_ACTIVE);
     item.setContent("");
-    item.setContentVersion(1);
+    item.setContentVersion(item.getContentVersion() == null ? 1 : item.getContentVersion() + 1);
     item.setIndexStatus(KnowledgeConstants.INDEX_PENDING);
     item.setIndexErrorCode(null);
     item.setIndexErrorMessage(null);
@@ -165,6 +169,25 @@ public class KnowledgeService {
   @Transactional(readOnly = true)
   public KnowledgeItem getByIdAndOwner(Long id) {
     return getByIdAndOwnerInternal(id);
+  }
+
+  /**
+   * 按 owner 查询 Item，包含 DELETED 状态；供 Upload 去重恢复路径在恢复前判断软删除状态。
+   *
+   * <p>owner 越权与不存在均抛 {@link KnowledgeItemNotFoundException}。
+   */
+  @Transactional(readOnly = true)
+  public KnowledgeItem getByIdAndOwnerIncludingDeleted(Long id) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    KnowledgeItem item =
+        itemMapper.selectOne(
+            new LambdaQueryWrapper<KnowledgeItem>()
+                .eq(KnowledgeItem::getId, id)
+                .eq(KnowledgeItem::getOwnerId, ownerId));
+    if (item == null) {
+      throw new KnowledgeItemNotFoundException(id);
+    }
+    return item;
   }
 
   /** 返回 Item 当前活跃的 KnowledgeBase id（owner 过滤）。 */
@@ -341,7 +364,7 @@ public class KnowledgeService {
             .eq(KnowledgeBaseItem::getOwnerId, ownerId)
             .eq(KnowledgeBaseItem::getKnowledgeItemId, id)
             .set(KnowledgeBaseItem::getDeleted, true));
-    submitDeleteTask(id, ownerId);
+    submitDeleteTask(id, ownerId, current.getContentVersion());
     notifyLifecycleHandlers(id, ownerId);
     return current;
   }
@@ -357,11 +380,11 @@ public class KnowledgeService {
     }
   }
 
-  private void submitDeleteTask(Long itemId, long ownerId) {
+  private void submitDeleteTask(Long itemId, long ownerId, int deleteThroughVersion) {
     try {
       taskSubmissionService.submit(
           ProcessingConstants.TASK_TYPE_KNOWLEDGE_DELETE,
-          businessKey(itemId, 0) + KnowledgeConstants.BUSINESS_KEY_DELETE_SUFFIX,
+          businessKey(itemId, deleteThroughVersion) + KnowledgeConstants.BUSINESS_KEY_DELETE_SUFFIX,
           itemId,
           ownerId,
           null,

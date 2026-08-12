@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -113,7 +114,7 @@ public class DocumentUploadService {
       FileMetadata existing = findDedup(ownerId, detectedMime, staged.sha256());
       if (existing != null) {
         try {
-          return handleDuplicate(existing, staged);
+          return handleDuplicate(existing, staged, kbIds);
         } catch (IOException e) {
           throw new IllegalStateException("重复文件落盘失败", e);
         }
@@ -131,6 +132,27 @@ public class DocumentUploadService {
         localFileStore.deleteTempQuietly(staged.path());
       }
     }
+  }
+
+  /** 唯一约束竞争失败后的回查入口；使用新事务，避免在已标记 rollback-only 的上传事务中继续查询。 */
+  @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+  public FileUploadResponse findDuplicateAfterConflict(
+      String detectedMime, String sha256, String knowledgeBaseIdsJson) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    FileMetadata winner = findDedup(ownerId, detectedMime, sha256);
+    if (winner == null) {
+      throw new IllegalStateException("并发上传冲突后未找到已提交文件");
+    }
+    KnowledgeItem item =
+        knowledgeService.getByIdAndOwnerIncludingDeleted(winner.getKnowledgeItemId());
+    if (!DocumentConstants.FILE_STATUS_ACTIVE.equals(winner.getStatus())
+        || !KnowledgeConstants.STATUS_ACTIVE.equals(item.getStatus())
+        || localFileStore.missing(winner.getStorageKey())) {
+      throw new IllegalStateException("并发上传赢家尚未形成可复用的活动文件");
+    }
+    // 唯一键冲突的赢家是刚提交的新上传；这里只读返回，不能在 read-only 回查事务中执行恢复/修复。
+    parseKnowledgeBaseIds(knowledgeBaseIdsJson);
+    return FileMetadataAssembler.toUploadResponse(winner, item, true);
   }
 
   /** 创建新文件：正式落盘 → KnowledgeItem → FileMetadata → 提交解析任务。 */
@@ -180,13 +202,16 @@ public class DocumentUploadService {
    * </ul>
    */
   private FileUploadResponse handleDuplicate(
-      FileMetadata existing, FileStorageService.StagedFile staged) throws IOException {
-    KnowledgeItem item = knowledgeService.getByIdAndOwner(existing.getKnowledgeItemId());
+      FileMetadata existing, FileStorageService.StagedFile staged, List<Long> requestedKbIds)
+      throws IOException {
+    // 去重命中可能指向 DELETED Item（软删恢复场景），需含 DELETED 的 owner 查询
+    KnowledgeItem item =
+        knowledgeService.getByIdAndOwnerIncludingDeleted(existing.getKnowledgeItemId());
     boolean fileDeleted = DocumentConstants.FILE_STATUS_DELETED.equals(existing.getStatus());
     boolean itemDeleted = !KnowledgeConstants.STATUS_ACTIVE.equals(item.getStatus());
 
     if (fileDeleted || itemDeleted) {
-      return restore(existing, item, staged);
+      return restore(existing, staged, requestedKbIds);
     }
     if (localFileStore.missing(existing.getStorageKey())) {
       repairStoredFile(existing, staged);
@@ -197,7 +222,7 @@ public class DocumentUploadService {
 
   /** 软删除恢复：重新落盘新字节、复用 FileMetadata 行、恢复 Item 活动并重新解析。 */
   private FileUploadResponse restore(
-      FileMetadata existing, KnowledgeItem item, FileStorageService.StagedFile staged)
+      FileMetadata existing, FileStorageService.StagedFile staged, List<Long> requestedKbIds)
       throws IOException {
     String newKey = storage.newStorageKey();
     storage.commit(staged, newKey);
@@ -209,11 +234,11 @@ public class DocumentUploadService {
       existing.setParseErrorMessage(null);
       fileMapper.updateById(existing);
       // 恢复 Item（重新关联 KB 与重置正文占位，索引由解析成功后触发）
-      List<Long> kbIds =
-          parseKnowledgeBaseIds(currentKnowledgeBaseIds(existing.getKnowledgeItemId()));
-      knowledgeService.restoreUploadItem(existing.getKnowledgeItemId(), kbIds);
+      // Item 删除时原关系已软删，因此必须使用本次上传中由用户明确选择的知识库恢复归属。
+      knowledgeService.restoreUploadItem(existing.getKnowledgeItemId(), requestedKbIds);
       submitParseTask(existing);
-      KnowledgeItem restored = knowledgeService.getByIdAndOwner(existing.getKnowledgeItemId());
+      KnowledgeItem restored =
+          knowledgeService.getByIdAndOwnerIncludingDeleted(existing.getKnowledgeItemId());
       log.info("重复文件恢复 fileId={} itemId={}", existing.getId(), existing.getKnowledgeItemId());
       return FileMetadataAssembler.toUploadResponse(existing, restored, false);
     } catch (RuntimeException e) {
@@ -249,15 +274,6 @@ public class DocumentUploadService {
           DocumentConstants.WORK_QUEUE_BASE);
     } catch (DuplicateKeyException e) {
       // 已有活动解析任务，跳过
-    }
-  }
-
-  private String currentKnowledgeBaseIds(Long itemId) {
-    List<Long> kbIds = knowledgeService.getKnowledgeBaseIds(itemId);
-    try {
-      return objectMapper.writeValueAsString(kbIds);
-    } catch (IOException e) {
-      throw new IllegalStateException("知识库 id 序列化失败", e);
     }
   }
 

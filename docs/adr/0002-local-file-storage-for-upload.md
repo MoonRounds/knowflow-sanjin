@@ -28,4 +28,5 @@ Phase 8 引入 Markdown/TXT 上传。原文件需要持久化保存、支持安�
 ## 影响
 
 - 本地部署零额外依赖；原文件安全性依赖本地目录权限与 `knowflow-data` 被 `.gitignore` 排除。
-- Docker Compose 需为 `knowflow-data` 挂载持久化 Volume（Phase 9 统一落实）。
+- Docker Compose 将应用目录 `/var/lib/knowflow/files` 挂载到持久化 Volume
+  `knowflow-files`；宿主运行时仍可通过 `KNOWFLOW_DOCUMENT_STORAGE_ROOT` 选择持久化磁盘。

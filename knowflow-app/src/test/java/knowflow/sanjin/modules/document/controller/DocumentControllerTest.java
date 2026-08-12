@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import knowflow.sanjin.common.exception.GlobalExceptionHandler;
 import knowflow.sanjin.modules.document.exception.FileMetadataNotFoundException;
 import knowflow.sanjin.modules.document.exception.StoredFileMissingException;
+import knowflow.sanjin.modules.document.service.DocumentUploadCoordinator;
 import knowflow.sanjin.modules.document.service.DocumentUploadService;
 import knowflow.sanjin.modules.document.vo.FileMetadataResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,9 +42,10 @@ class DocumentControllerTest {
   @BeforeEach
   void setUp() {
     service = mock(DocumentUploadService.class);
+    DocumentUploadCoordinator coordinator = mock(DocumentUploadCoordinator.class);
     mvc =
         MockMvcBuilders.standaloneSetup(
-                new DocumentController(service), new MultipartOverflowProbe())
+                new DocumentController(service, coordinator), new MultipartOverflowProbe())
             .addPlaceholderValue("knowflow.api.base-path", "/api/v1")
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
