@@ -15,6 +15,8 @@ public class RabbitProperties {
 
   private String documentWorkQueue = "document.work";
 
+  private String conversationTitleWorkQueue = "conversation-title.work";
+
   private Duration[] retryDelays = {
     Duration.ofSeconds(10), Duration.ofMinutes(1), Duration.ofMinutes(5)
   };
@@ -53,6 +55,11 @@ public class RabbitProperties {
     return workQueueName(documentWorkQueue);
   }
 
+  /** 会话标题工作队列名。 */
+  public String conversationTitleWorkQueueName() {
+    return workQueueName(conversationTitleWorkQueue);
+  }
+
   /** 指定队列基名的工作队列名。 */
   public String workQueueName(String base) {
     return prefix + "." + base;
@@ -73,6 +80,11 @@ public class RabbitProperties {
     return retryQueueName(documentWorkQueue, level);
   }
 
+  /** 会话标题第 level 档重试队列名。 */
+  public String conversationTitleRetryQueueName(int level) {
+    return retryQueueName(conversationTitleWorkQueue, level);
+  }
+
   /** 指定队列基名的第 level 档重试队列名。 */
   public String retryQueueName(String base, int level) {
     return prefix + "." + base + ".retry." + level;
@@ -91,6 +103,11 @@ public class RabbitProperties {
   /** 文档解析最终 DLQ 名。 */
   public String documentDlqName() {
     return dlqName(documentWorkQueue);
+  }
+
+  /** 会话标题最终 DLQ 名。 */
+  public String conversationTitleDlqName() {
+    return dlqName(conversationTitleWorkQueue);
   }
 
   /** 指定队列基名的最终 DLQ 名。 */
@@ -128,6 +145,14 @@ public class RabbitProperties {
 
   public void setDocumentWorkQueue(String documentWorkQueue) {
     this.documentWorkQueue = documentWorkQueue;
+  }
+
+  public String getConversationTitleWorkQueue() {
+    return conversationTitleWorkQueue;
+  }
+
+  public void setConversationTitleWorkQueue(String conversationTitleWorkQueue) {
+    this.conversationTitleWorkQueue = conversationTitleWorkQueue;
   }
 
   public Duration[] getRetryDelays() {

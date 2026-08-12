@@ -8,3 +8,4 @@
 | [0001](./0001-maven-parent-reactor.md) | 已接受 | 根 Maven Reactor 与 `knowflow-app` 子模块 |
 | [0002](./0002-local-file-storage-for-upload.md) | 已接受 | 上传原文件使用本地对象式存储，未来再迁移 MinIO |
 | [0003](./0003-item-delete-two-state.md) | 已接受 | KnowledgeItem 两态软删 + 异步 Qdrant 清理 |
+| [0004](./0004-auto-generated-conversation-title-and-create-state.md) | 已接受 | AI 自动生成会话标题 + 「➕ 空白态 / 已开始才新建」创建语义 |

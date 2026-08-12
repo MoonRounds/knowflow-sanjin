@@ -3,7 +3,8 @@ import {
   API_BASE,
   cleanupAll,
   configureModelViaUI,
-  createConversationViaUI,
+  enterNewConversationViaUI,
+  readActiveConversationId,
   createKnowledgeBaseViaUI,
   getProcessingTask,
   sendMessage,
@@ -74,7 +75,7 @@ test.describe('受控失败与恢复', () => {
         response.request().method() === 'POST' &&
         response.url().endsWith(`/api/v1/processing-tasks/${original.id}/retry`),
     )
-    await row.getByRole('button', { name: 'Retry' }).click()
+    await row.getByRole('button', { name: '重试' }).click()
     const retryResponse = await retryResponsePromise
     const retry = await retryResponse.json()
     expect(retryResponse.ok(), JSON.stringify(retry)).toBeTruthy()
@@ -99,13 +100,12 @@ test.describe('受控失败与恢复', () => {
     const suffix = `r${testInfo.retry}`
     await configureModelViaUI(page, `stub-chat-failure-${suffix}`)
 
-    const disconnectedConversationId = await createConversationViaUI(
-      page,
-      `Kf-验收-SSE断连-${suffix}`,
-    )
+    await enterNewConversationViaUI(page)
     await page.locator('.chat-input textarea').fill(`Kf-慢速-断连-${suffix}`)
     await page.getByRole('button', { name: '发送' }).click()
     await expect(page.getByRole('button', { name: '停止' })).toBeVisible()
+    const disconnectedConversationId = await readActiveConversationId(page)
+    expect(disconnectedConversationId).toBeTruthy()
     let disconnectedAssistantId = ''
     await expect
       .poll(
@@ -141,12 +141,14 @@ test.describe('受控失败与恢复', () => {
       )
       .toEqual({ status: 'FAILED', errorCode: '客户端已断开', activeSlot: null })
 
-    const stoppedConversationId = await createConversationViaUI(page, `Kf-验收-SSE停止-${suffix}`)
+    await enterNewConversationViaUI(page)
     await page.locator('.chat-input textarea').fill(`Kf-慢速-停止-${suffix}`)
     await page.getByRole('button', { name: '发送' }).click()
+    const stoppedConversationId = await readActiveConversationId(page)
+    expect(stoppedConversationId).toBeTruthy()
     const activeAssistant = page.locator('.message.assistant').last()
-    await expect(activeAssistant.getByRole('button', { name: '停止' })).toBeVisible()
-    await activeAssistant.getByRole('button', { name: '停止' }).click()
+    await expect(page.getByRole('button', { name: '停止' })).toBeVisible()
+    await page.getByRole('button', { name: '停止' }).click()
     await expect(activeAssistant.getByText('已取消')).toBeVisible({ timeout: 30_000 })
     await expect
       .poll(

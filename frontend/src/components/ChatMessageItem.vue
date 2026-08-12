@@ -4,7 +4,6 @@ import { computed } from 'vue'
 import type { MessageResponse } from '../api/types/conversation'
 import type { RouterDiagnostic } from '../composables/useChatStream'
 import { escapeHtml, renderMarkdown } from '../utils/markdown'
-import { routerBadgeText } from '../utils/rag'
 import MessageSourcesPanel from './MessageSourcesPanel.vue'
 
 const props = defineProps<{
@@ -20,8 +19,6 @@ const contentHtml = computed(() =>
     ? escapeHtml(props.msg.content ?? '')
     : renderMarkdown(props.msg.content ?? ''),
 )
-
-const routeBadge = computed(() => routerBadgeText(props.router ?? undefined, props.msg.ragStatus))
 </script>
 
 <template>
@@ -29,29 +26,30 @@ const routeBadge = computed(() => routerBadgeText(props.router ?? undefined, pro
     <div class="msg-role">
       {{ msg.role === 'USER' ? '你' : 'AI' }}
       <span v-if="msg.modelName" class="msg-model">{{ msg.modelName }}</span>
+      <span
+        v-if="msg.role === 'ASSISTANT' && msg.generationStatus === 'GENERATING'"
+        class="msg-status"
+      >
+        生成中…
+      </span>
     </div>
-    <div class="msg-content" v-html="contentHtml" />
-    <div v-if="msg.role === 'ASSISTANT' && routeBadge" class="route-badge">{{ routeBadge }}</div>
-    <MessageSourcesPanel
-      v-if="msg.role === 'ASSISTANT'"
-      :rag-status="msg.ragStatus"
-      :sources="msg.sources"
+    <div
+      class="msg-content"
+      :aria-live="msg.generationStatus === 'GENERATING' ? 'polite' : undefined"
+      v-html="contentHtml"
     />
     <div v-if="msg.generationStatus === 'FAILED'" class="msg-error">
       {{ msg.errorCode ?? '生成失败' }}
     </div>
     <div v-if="msg.generationStatus === 'CANCELLED'" class="msg-error">已取消</div>
-    <div v-if="msg.role === 'ASSISTANT'" class="msg-actions">
-      <el-button
-        v-if="msg.generationStatus === 'GENERATING'"
-        size="small"
-        type="warning"
-        plain
-        @click="emit('stop')"
-      >
-        停止
+    <div
+      v-if="msg.role === 'ASSISTANT' && msg.generationStatus !== 'GENERATING'"
+      class="message-footer"
+    >
+      <MessageSourcesPanel :rag-status="msg.ragStatus" :sources="msg.sources" />
+      <el-button class="regenerate-action" size="small" text @click="emit('regenerate', msg)">
+        重新生成
       </el-button>
-      <el-button size="small" text @click="emit('regenerate', msg)">重新生成</el-button>
     </div>
   </div>
 </template>
@@ -62,33 +60,55 @@ const routeBadge = computed(() => routerBadgeText(props.router ?? undefined, pro
   max-width: 78%;
 }
 .message.user {
+  width: fit-content;
+  max-width: 72%;
   margin-left: auto;
   text-align: right;
 }
 .message.assistant {
+  width: fit-content;
+  max-width: 78%;
   margin-right: auto;
   text-align: left;
 }
 .msg-role {
-  font-size: 0.8rem;
-  color: #666;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: var(--kf-muted);
   margin-bottom: 4px;
 }
 .msg-model {
-  color: #999;
+  color: var(--kf-muted);
   margin-left: 6px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid var(--kf-line);
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: var(--kf-paper);
+}
+.msg-status {
+  margin-left: 6px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: var(--kf-hot);
 }
 .msg-content {
-  background: #f5f7fa;
-  padding: 10px 12px;
-  border-radius: 8px;
+  background: var(--kf-paper-3);
+  border: 1px solid var(--kf-line);
+  color: var(--kf-ink);
+  padding: 12px 15px;
+  border-radius: 12px;
   word-break: break-word;
   line-height: 1.7;
   text-align: left;
 }
 .message.user .msg-content {
-  background: #ecf5ff;
+  background: var(--kf-ink);
+  border-color: var(--kf-ink);
+  color: var(--kf-paper);
+  border-radius: 16px;
+  border-top-right-radius: 6px;
   white-space: pre-wrap;
 }
 .msg-content :deep(p) {
@@ -109,7 +129,8 @@ const routeBadge = computed(() => routerBadgeText(props.router ?? undefined, pro
   margin: 0.6em 0;
 }
 .msg-content :deep(code) {
-  background: #e7eaee;
+  background: var(--kf-paper);
+  border: 1px solid var(--kf-line);
   padding: 1px 5px;
   border-radius: 4px;
   font-size: 0.9em;
@@ -124,10 +145,10 @@ const routeBadge = computed(() => routerBadgeText(props.router ?? undefined, pro
   padding-left: 1.4em;
 }
 .msg-content :deep(blockquote) {
-  border-left: 3px solid #e4e7ed;
+  border-left: 3px solid var(--kf-line);
   margin: 0.6em 0;
   padding-left: 12px;
-  color: #888;
+  color: var(--kf-muted);
 }
 .msg-content :deep(table) {
   border-collapse: collapse;
@@ -135,29 +156,32 @@ const routeBadge = computed(() => routerBadgeText(props.router ?? undefined, pro
 }
 .msg-content :deep(th),
 .msg-content :deep(td) {
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--kf-line);
   padding: 5px 9px;
   font-size: 0.9em;
 }
 .msg-content :deep(a) {
-  color: #409eff;
+  color: var(--kf-green);
+  font-weight: 800;
 }
 .msg-error {
   color: #f56c6c;
   font-size: 0.8rem;
   margin-top: 4px;
 }
-.msg-actions {
+.message-footer {
   margin-top: 6px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
-.route-badge {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 0.75rem;
-  color: #67c23a;
-  background: #f0f9eb;
-  border: 1px solid #b3e19d;
-  border-radius: 999px;
-  padding: 2px 8px;
+.message-footer :deep(.el-button) {
+  border-radius: 10px;
+  font-weight: 800;
+}
+.regenerate-action {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 </style>

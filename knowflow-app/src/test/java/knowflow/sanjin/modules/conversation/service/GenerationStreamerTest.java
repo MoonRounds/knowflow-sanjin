@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import knowflow.sanjin.common.error.ErrorCode;
+import knowflow.sanjin.modules.conversation.title.ConversationTitleService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -20,9 +21,12 @@ class GenerationStreamerTest {
   private final ConversationService conversationService = mock(ConversationService.class);
   private final ModelClientFacade modelClientFacade = mock(ModelClientFacade.class);
   private final GenerationExecutor executor = mock(GenerationExecutor.class);
+  private final ConversationTitleService conversationTitleService =
+      mock(ConversationTitleService.class);
 
   private GenerationStreamer streamer() {
-    return new GenerationStreamer(finalizer, conversationService, modelClientFacade, executor);
+    return new GenerationStreamer(
+        finalizer, conversationService, modelClientFacade, executor, conversationTitleService);
   }
 
   private GenerationContext context() {
@@ -81,6 +85,21 @@ class GenerationStreamerTest {
   }
 
   @Test
+  @DisplayName("should prefer CANCELLED when stop races with emitter disconnect")
+  void shouldPreferCancelledOnEmitterDisconnectRace() throws Exception {
+    SseEmitter emitter = mock(SseEmitter.class);
+    when(executor.isCancelled(42L)).thenReturn(true);
+    doThrow(new IOException("broken pipe"))
+        .when(emitter)
+        .send(any(SseEmitter.SseEventBuilder.class));
+
+    streamer().stream(context(), emitter);
+
+    verify(finalizer).cancel(eq(1L), eq(42L), anyString(), any());
+    verify(finalizer, never()).fail(anyLong(), anyLong(), anyString(), anyString(), any());
+  }
+
+  @Test
   @DisplayName("should prefer CANCELLED when stop interrupts an active provider stream")
   void shouldPreferCancelledWhenProviderIsInterrupted() throws Exception {
     when(executor.isCancelled(42L)).thenReturn(false, true);
@@ -114,5 +133,7 @@ class GenerationStreamerTest {
         .verify(finalizer)
         .complete(eq(1L), eq(42L), eq("Hello"), eq(10), any(), any(), eq(true), any());
     order.verify(emitter, times(2)).send(any(SseEmitter.SseEventBuilder.class));
+    // 成功路径触发标题生成（旁路，不影响 SSE 事件）
+    verify(conversationTitleService).ensureTitleTask(1L);
   }
 }

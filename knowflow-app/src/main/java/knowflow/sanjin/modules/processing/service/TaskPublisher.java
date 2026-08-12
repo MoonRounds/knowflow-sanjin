@@ -68,6 +68,11 @@ public class TaskPublisher {
     publish(properties.retryExchange(), properties.documentRetryQueueName(level), taskId);
   }
 
+  /** 发布任务 id 到会话标题第 level 档 TTL 重试队列。 */
+  public void publishToConversationTitleRetryQueue(long taskId, int level) {
+    publish(properties.retryExchange(), properties.conversationTitleRetryQueueName(level), taskId);
+  }
+
   private void publish(String exchange, String routingKey, long taskId) {
     try {
       rabbitTemplate.convertAndSend(exchange, routingKey, String.valueOf(taskId));

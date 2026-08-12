@@ -76,6 +76,14 @@ export function dispatchSseEvent(eventName: string, data: unknown, handlers: Str
 
 export type ChatPhase = 'idle' | 'connecting' | 'streaming' | 'completed' | 'failed'
 
+/** 后端 errorCode 契约里的"取消"值（中文常量，见 ErrorCode.GENERATION_CANCELLED）。 */
+export const CANCELLATION_ERROR_CODES: ReadonlySet<string> = new Set(['生成已取消'])
+
+/** 判断某 errorCode 是否为"用户主动取消"而非真实失败。 */
+export function isCancellationErrorCode(errorCode?: string): boolean {
+  return !!errorCode && CANCELLATION_ERROR_CODES.has(errorCode)
+}
+
 export interface UseChatStreamOptions {
   getConversation: () => ConversationResponse | null
   getMessages: () => MessageResponse[]
@@ -219,8 +227,9 @@ export function useChatStream(options: UseChatStreamOptions) {
     options.setMessages(messages)
     pendingAssistant.value = null
     phase.value = 'failed'
-    streamError.value =
-      data.errorCode === '生成已取消' ? '已取消' : (data.detail ?? data.errorCode ?? '生成失败')
+    streamError.value = isCancellationErrorCode(data.errorCode)
+      ? '已取消'
+      : (data.errorCode ?? data.detail ?? '生成失败')
     options.reconcile?.()
   }
 

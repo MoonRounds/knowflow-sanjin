@@ -7,6 +7,7 @@ public final class ProcessingConstants {
 
   public static final String TASK_TYPE_KNOWLEDGE_INDEX = "KNOWLEDGE_INDEX";
   public static final String TASK_TYPE_KNOWLEDGE_DELETE = "KNOWLEDGE_DELETE";
+  public static final String TASK_TYPE_CONVERSATION_TITLE = "CONVERSATION_TITLE";
 
   public static final String STATUS_PENDING = "PENDING";
   public static final String STATUS_PROCESSING = "PROCESSING";

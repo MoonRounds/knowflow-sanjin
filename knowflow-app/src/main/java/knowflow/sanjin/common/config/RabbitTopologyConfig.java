@@ -68,6 +68,15 @@ public class RabbitTopologyConfig {
         .build();
   }
 
+  /** 会话标题工作队列：独立 routingKey 与重试/DLQ 链。 */
+  @Bean
+  public Queue conversationTitleWorkQueue() {
+    return QueueBuilder.durable(properties.conversationTitleWorkQueueName())
+        .deadLetterExchange(properties.dlxExchange())
+        .deadLetterRoutingKey(properties.conversationTitleDlqName())
+        .build();
+  }
+
   /** 重试队列无 Consumer，TTL 到期后经工作交换机死信回 work 队列重新处理。 */
   @Bean
   public Queue indexRetryQueue0() {
@@ -119,6 +128,31 @@ public class RabbitTopologyConfig {
     return retryQueue(2, properties.documentRetryQueueName(2), properties.documentWorkQueueName());
   }
 
+  /** 会话标题重试队列：TTL 到期死信回会话标题工作队列。 */
+  @Bean
+  public Queue conversationTitleRetryQueue0() {
+    return retryQueue(
+        0,
+        properties.conversationTitleRetryQueueName(0),
+        properties.conversationTitleWorkQueueName());
+  }
+
+  @Bean
+  public Queue conversationTitleRetryQueue1() {
+    return retryQueue(
+        1,
+        properties.conversationTitleRetryQueueName(1),
+        properties.conversationTitleWorkQueueName());
+  }
+
+  @Bean
+  public Queue conversationTitleRetryQueue2() {
+    return retryQueue(
+        2,
+        properties.conversationTitleRetryQueueName(2),
+        properties.conversationTitleWorkQueueName());
+  }
+
   @Bean
   public Queue indexDlq() {
     return QueueBuilder.durable(properties.dlqName()).build();
@@ -132,6 +166,11 @@ public class RabbitTopologyConfig {
   @Bean
   public Queue documentDlq() {
     return QueueBuilder.durable(properties.documentDlqName()).build();
+  }
+
+  @Bean
+  public Queue conversationTitleDlq() {
+    return QueueBuilder.durable(properties.conversationTitleDlqName()).build();
   }
 
   @Bean
@@ -153,6 +192,13 @@ public class RabbitTopologyConfig {
     return BindingBuilder.bind(documentWorkQueue())
         .to(workExchange())
         .with(properties.documentWorkQueueName());
+  }
+
+  @Bean
+  public Binding bindConversationTitleWorkQueue() {
+    return BindingBuilder.bind(conversationTitleWorkQueue())
+        .to(workExchange())
+        .with(properties.conversationTitleWorkQueueName());
   }
 
   @Bean
@@ -201,6 +247,24 @@ public class RabbitTopologyConfig {
   }
 
   @Bean
+  public Binding bindConversationTitleRetryQueue0() {
+    return bindRetryQueue(
+        0, conversationTitleRetryQueue0(), properties.conversationTitleRetryQueueName(0));
+  }
+
+  @Bean
+  public Binding bindConversationTitleRetryQueue1() {
+    return bindRetryQueue(
+        1, conversationTitleRetryQueue1(), properties.conversationTitleRetryQueueName(1));
+  }
+
+  @Bean
+  public Binding bindConversationTitleRetryQueue2() {
+    return bindRetryQueue(
+        2, conversationTitleRetryQueue2(), properties.conversationTitleRetryQueueName(2));
+  }
+
+  @Bean
   public Binding bindIndexDlq() {
     return BindingBuilder.bind(indexDlq()).to(dlxExchange()).with(properties.dlqName());
   }
@@ -215,6 +279,13 @@ public class RabbitTopologyConfig {
   @Bean
   public Binding bindDocumentDlq() {
     return BindingBuilder.bind(documentDlq()).to(dlxExchange()).with(properties.documentDlqName());
+  }
+
+  @Bean
+  public Binding bindConversationTitleDlq() {
+    return BindingBuilder.bind(conversationTitleDlq())
+        .to(dlxExchange())
+        .with(properties.conversationTitleDlqName());
   }
 
   /** 构建 TTL 重试队列：TTL 到期后经 workExchange 死信回 workQueue 名称对应的队列。 */

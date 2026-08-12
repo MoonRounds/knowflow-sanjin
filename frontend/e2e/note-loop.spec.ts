@@ -3,8 +3,9 @@ import {
   API_BASE,
   cleanupAll,
   configureModelViaUI,
-  createConversationViaUI,
   createKnowledgeBaseViaUI,
+  enterNewConversationViaUI,
+  readActiveConversationId,
   sendMessage,
   waitForItemIndexed,
   waitForLatestTask,
@@ -67,11 +68,13 @@ test.describe('个人笔记/上传闭环', () => {
     )
 
     // ---- N-Q1：新会话检索 Manual Note，来源必须指向该 Item ----
-    const conversationId = await createConversationViaUI(page, `Kf-验收-检索个人笔记-${suffix}`)
+    await enterNewConversationViaUI(page)
     await sendMessage(page, 'Kf-番茄工作法-我用多少分钟一个番茄？', '45 分钟')
+    const conversationId = await readActiveConversationId(page)
+    expect(conversationId).toBeTruthy()
 
     const latestAssistant = page.locator('.message.assistant').last()
-    await expect(latestAssistant.getByText('已使用个人知识')).toBeVisible()
+    await expect(latestAssistant.getByRole('button', { name: /个人知识 · 来源/ })).toBeVisible()
     await latestAssistant.getByRole('button', { name: /来源/ }).click()
     const sourceItem = latestAssistant.locator('.source-item').filter({ hasText: 'Kf-番茄工作法' })
     await expect(sourceItem.getByText('已引用')).toBeVisible()
@@ -146,11 +149,13 @@ test.describe('个人笔记/上传闭环', () => {
     await expect(page.getByRole('button', { name: '下载原文件' })).toBeVisible()
 
     // ---- N-Q2：新会话检索上传 Item，来源必须指向它且保留 cited ----
-    const conversationId = await createConversationViaUI(page, `Kf-验收-检索上传笔记-${suffix}`)
+    await enterNewConversationViaUI(page)
     await sendMessage(page, 'Kf-海豚-部署三步是什么？', '备份数据库、导出配置文件、传输原始数据')
+    const conversationId = await readActiveConversationId(page)
+    expect(conversationId).toBeTruthy()
 
     const latestAssistant = page.locator('.message.assistant').last()
-    await expect(latestAssistant.getByText('已使用个人知识')).toBeVisible()
+    await expect(latestAssistant.getByRole('button', { name: /个人知识 · 来源/ })).toBeVisible()
     await latestAssistant.getByRole('button', { name: /来源/ }).click()
     const sourceItem = latestAssistant
       .locator('.source-item')

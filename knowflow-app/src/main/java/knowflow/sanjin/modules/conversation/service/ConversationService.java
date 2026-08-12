@@ -30,6 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ConversationService extends ServiceImpl<ConversationMapper, Conversation> {
 
+  /** 占位标题：尚未生成也未手动改名（AI 生成任务以其为触发与写入前提，见 ADR 0004）。 */
+  public static final String TITLE_PLACEHOLDER = "新对话";
+
   private final CurrentOwnerProvider currentOwnerProvider;
   private final ChatMessageMapper chatMessageMapper;
   private final ConversationMapper conversationMapper;
@@ -48,7 +51,10 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     Conversation c = new Conversation();
     c.setOwnerId(ownerId);
-    c.setTitle(request.getTitle().trim());
+    String requestedTitle = request.getTitle() == null ? null : request.getTitle().trim();
+    // 标题留空时先用「新对话」占位；首条 User Message 落库与首轮回答完成后再截断/AI 生成（见 ADR 0004）
+    c.setTitle(
+        requestedTitle == null || requestedTitle.isEmpty() ? TITLE_PLACEHOLDER : requestedTitle);
     c.setDeleted(false);
     c.setRowVersion(0);
     save(c);
@@ -102,6 +108,25 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
     return c;
   }
 
+  /** 仅当标题仍为「新对话」占位时写入新标题（原子条件更新）。用户手动改名或 AI 已生成后不再覆盖； 返回是否实际写入，供标题生成任务决定是否需要回退。 */
+  @Transactional
+  public boolean setTitleIfPlaceholder(Long conversationId, String title) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    String normalized = title == null ? null : title.trim();
+    if (normalized == null || normalized.isEmpty() || normalized.length() > 200) {
+      return false;
+    }
+    return baseMapper.update(
+            null,
+            new LambdaUpdateWrapper<Conversation>()
+                .eq(Conversation::getId, conversationId)
+                .eq(Conversation::getOwnerId, ownerId)
+                .eq(Conversation::getDeleted, false)
+                .eq(Conversation::getTitle, TITLE_PLACEHOLDER)
+                .set(Conversation::getTitle, normalized))
+        == 1;
+  }
+
   @Transactional
   public void softDelete(Long id) {
     Conversation c = getByIdAndOwnerInternal(id);
@@ -117,7 +142,8 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
   public List<ChatMessage> listMessages(Long conversationId, Long before, int limit) {
     getByIdAndOwnerInternal(conversationId);
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
-    int safeLimit = Math.max(1, Math.min(limit, 100));
+    // Controller 可多取一条判断 hasMore；正式页大小仍上限 100。
+    int safeLimit = Math.max(1, Math.min(limit, 101));
     LambdaQueryWrapper<ChatMessage> wrapper =
         new LambdaQueryWrapper<ChatMessage>()
             .eq(ChatMessage::getConversationId, conversationId)
@@ -290,6 +316,34 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
         new LambdaUpdateWrapper<Conversation>()
             .eq(Conversation::getId, conversationId)
             .eq(Conversation::getOwnerId, currentOwnerProvider.getCurrentOwnerId())
+            .set(Conversation::getActiveGenerationMessageId, null));
+  }
+
+  /**
+   * 收口本进程中已不存在执行任务的孤儿 generation，并仅在 active slot 仍指向该消息时释放占用。
+   *
+   * <p>正常运行中的取消仍由 {@link GenerationFinalizer} 保存 partial content 与 trace；本方法只处理应用重启或执行线程异常退出后的遗留状态。
+   */
+  @Transactional
+  public void cancelOrphanedGeneration(Long conversationId, Long assistantMessageId) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    chatMessageMapper.update(
+        null,
+        new LambdaUpdateWrapper<ChatMessage>()
+            .eq(ChatMessage::getId, assistantMessageId)
+            .eq(ChatMessage::getConversationId, conversationId)
+            .eq(ChatMessage::getOwnerId, ownerId)
+            .eq(ChatMessage::getGenerationStatus, ChatMessage.GENERATING)
+            .set(ChatMessage::getGenerationStatus, ChatMessage.CANCELLED)
+            .set(ChatMessage::getIsActive, false)
+            .set(ChatMessage::getErrorCode, null));
+    baseMapper.update(
+        null,
+        new LambdaUpdateWrapper<Conversation>()
+            .eq(Conversation::getId, conversationId)
+            .eq(Conversation::getOwnerId, ownerId)
+            .eq(Conversation::getDeleted, false)
+            .eq(Conversation::getActiveGenerationMessageId, assistantMessageId)
             .set(Conversation::getActiveGenerationMessageId, null));
   }
 

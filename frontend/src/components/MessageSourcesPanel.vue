@@ -12,11 +12,21 @@ const props = defineProps<{
 const router = useRouter()
 const showDiagnostics = ref(false)
 
-const statusText = computed(() => ragStatusText(props.ragStatus))
+const statusText = computed(() => {
+  if (props.ragStatus === 'NOT_AVAILABLE' || props.ragStatus === 'NOT_NEEDED') return null
+  return ragStatusText(props.ragStatus)
+})
 
 const hasSources = computed(() => (props.sources ?? []).length > 0)
 
 const citedCount = computed(() => (props.sources ?? []).filter((s) => s.cited).length)
+
+const summaryText = computed(() => {
+  if (hasSources.value) {
+    return `个人知识 · 来源 ${citedCount.value}/${(props.sources ?? []).length}`
+  }
+  return statusText.value
+})
 
 function openItem(itemId?: string) {
   if (itemId) {
@@ -26,25 +36,26 @@ function openItem(itemId?: string) {
 </script>
 
 <template>
-  <div v-if="statusText" class="sources-panel">
+  <div v-if="summaryText" class="sources-panel">
     <div class="status-line">
-      <span class="status-badge" :class="(ragStatus ?? '').toLowerCase()">{{ statusText }}</span>
-      <el-button
-        v-if="hasSources"
-        size="small"
-        text
-        class="diag-toggle"
-        @click="showDiagnostics = !showDiagnostics"
+      <button
+        type="button"
+        class="status-badge"
+        :class="[(ragStatus ?? '').toLowerCase(), { interactive: hasSources }]"
+        :disabled="!hasSources"
+        @click="hasSources && (showDiagnostics = !showDiagnostics)"
       >
-        {{ showDiagnostics ? '收起来源' : `来源 ${citedCount}/${(sources ?? []).length}` }}
-      </el-button>
+        {{ showDiagnostics && hasSources ? '收起个人知识' : summaryText }}
+      </button>
     </div>
 
     <div v-if="showDiagnostics && hasSources" class="sources-list">
       <div v-for="(s, i) in sources" :key="s.sourceId" class="source-item">
         <div class="source-head">
           <span class="source-idx">[S{{ i + 1 }}]</span>
-          <a class="source-title" @click.prevent="openItem(s.itemId)">{{ s.itemTitle }}</a>
+          <button type="button" class="source-title" @click="openItem(s.itemId)">
+            {{ s.itemTitle }}
+          </button>
           <el-tag v-if="s.cited" size="small" type="success">已引用</el-tag>
           <el-tag v-else size="small" type="info">检索</el-tag>
         </div>
@@ -56,7 +67,7 @@ function openItem(itemId?: string) {
 
 <style scoped>
 .sources-panel {
-  margin-top: 8px;
+  min-width: 0;
   font-size: 0.85rem;
 }
 .status-line {
@@ -65,11 +76,15 @@ function openItem(itemId?: string) {
   gap: 8px;
 }
 .status-badge {
-  padding: 2px 8px;
-  border-radius: 4px;
+  min-height: 34px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   font-size: 0.75rem;
   color: #606266;
   background: #f0f2f5;
+  font-family: inherit;
+  font-weight: 800;
 }
 .status-badge.used {
   color: #67c23a;
@@ -91,11 +106,15 @@ function openItem(itemId?: string) {
   color: #909399;
   background: #f4f4f5;
 }
-.diag-toggle {
-  padding: 0;
+.status-badge.interactive {
+  cursor: pointer;
+  border-color: var(--kf-green);
+}
+.status-badge:disabled {
+  cursor: default;
 }
 .sources-list {
-  margin-top: 6px;
+  margin-top: 8px;
   border: 1px solid #ebeef5;
   border-radius: 6px;
   padding: 8px;
@@ -117,9 +136,20 @@ function openItem(itemId?: string) {
   color: #409eff;
 }
 .source-title {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
   cursor: pointer;
   color: #409eff;
   text-decoration: underline;
+  font: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+.source-title:focus-visible {
+  outline: var(--kf-focus-ring);
+  outline-offset: 2px;
 }
 .source-snippet {
   color: #909399;

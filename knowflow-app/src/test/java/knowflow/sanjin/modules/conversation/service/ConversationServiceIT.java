@@ -98,6 +98,29 @@ class ConversationServiceIT extends MySQLTestBase {
   }
 
   @Test
+  @DisplayName("should cancel orphaned generation before deleting conversation")
+  void shouldCancelOrphanedGenerationBeforeDelete() {
+    Conversation c = createConversation("orphaned-delete");
+    ChatMessage msg = userMessage(c, 1L, "hello");
+    msg.setRole(ChatMessage.ROLE_ASSISTANT);
+    msg.setGenerationStatus(ChatMessage.GENERATING);
+    msg.setIsActive(false);
+    service.insertMessage(msg);
+    assertThat(
+            service.tryClaimActiveGeneration(
+                c.getId(), msg.getId(), java.time.Duration.ofMinutes(5)))
+        .isTrue();
+
+    service.cancelOrphanedGeneration(c.getId(), msg.getId());
+    ChatMessage cancelled = service.getMessage(c.getId(), msg.getId());
+    assertThat(cancelled.getGenerationStatus()).isEqualTo(ChatMessage.CANCELLED);
+    service.softDelete(c.getId());
+
+    assertThatThrownBy(() -> service.getByIdAndOwner(c.getId()))
+        .isInstanceOf(ConversationNotFoundException.class);
+  }
+
+  @Test
   @DisplayName("should update title with optimistic lock and conflict on stale rowVersion")
   void shouldUpdateTitleWithRowVersion() {
     Conversation c = createConversation("old-title");

@@ -93,17 +93,18 @@ public class GenerationExecutor {
     return at.cancelled;
   }
 
-  /** 请求取消：置位取消标志并中断执行线程。 */
-  public void cancel(long assistantMessageId) {
+  /** 请求取消：置位取消标志并中断执行线程；返回 false 表示本进程已没有对应任务。 */
+  public boolean cancel(long assistantMessageId) {
     ActiveTask at = tasks.get(assistantMessageId);
     if (at == null) {
-      return;
+      return false;
     }
     at.cancelled.set(true);
     Thread t = at.thread;
     if (t != null) {
       t.interrupt();
     }
+    return true;
   }
 
   /** 查询指定 generation 是否已被取消/超时（供 streamer 在每个事件前检查）。 */

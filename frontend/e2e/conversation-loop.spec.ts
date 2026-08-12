@@ -3,8 +3,9 @@ import {
   API_BASE,
   cleanupAll,
   configureModelViaUI,
-  createConversationViaUI,
   createKnowledgeBaseViaUI,
+  enterNewConversationViaUI,
+  readActiveConversationId,
   sendMessage,
   waitForItemIndexed,
   waitForLatestTask,
@@ -56,11 +57,14 @@ test.describe('对话沉淀闭环', () => {
     const kb = await createKnowledgeBaseViaUI(page, `Kf-后端工程规范-${suffix}`)
 
     // ---- 创建会话并完成两轮 SSE；第二轮必须依赖第一轮的海豚上下文 ----
-    const sourceConversationId = await createConversationViaUI(page, `Kf-验收-对话沉淀-${suffix}`)
+    await enterNewConversationViaUI(page)
     const modelSelect = page.locator('.chat-core-head .model-select')
     await modelSelect.click()
     await page.locator('.el-select-dropdown__item').filter({ hasText: model.name }).click()
     await expect(modelSelect).toContainText(model.name)
+    await sendMessage(page, 'Kf-海豚-部署前必须备份哪三样东西？', '数据库、配置文件、原始数据')
+    const sourceConversationId = await readActiveConversationId(page)
+    expect(sourceConversationId).toBeTruthy()
     await expect
       .poll(async () => {
         const response = await request.get(`${API_BASE}/conversations`)
@@ -72,7 +76,6 @@ test.describe('对话沉淀闭环', () => {
           ?.defaultModelConfigId
       })
       .toBe(model.id)
-    await sendMessage(page, 'Kf-海豚-部署前必须备份哪三样东西？', '数据库、配置文件、原始数据')
     await sendMessage(page, '那回滚预案怎么定？', 'Kf-海豚-回滚预案')
 
     const sourceConversationResponse = await request.get(
@@ -171,11 +174,13 @@ test.describe('对话沉淀闭环', () => {
     await waitForItemIndexed(request, itemId)
 
     // ---- 新会话 C-Q1：Router/RAG 使用刚确认的 Item，并留下可追溯 cited 来源 ----
-    const ragConversationId = await createConversationViaUI(page, `Kf-验收-检索个人笔记-${suffix}`)
+    await enterNewConversationViaUI(page)
     await sendMessage(page, 'Kf-海豚-部署前必须备份哪三样东西？', '数据库、配置文件、原始数据')
+    const ragConversationId = await readActiveConversationId(page)
+    expect(ragConversationId).toBeTruthy()
 
     let latestAssistant = page.locator('.message.assistant').last()
-    await expect(latestAssistant.getByText('已使用个人知识')).toBeVisible()
+    await expect(latestAssistant.getByRole('button', { name: /个人知识 · 来源/ })).toBeVisible()
     await latestAssistant.getByRole('button', { name: /来源/ }).click()
     const sourceItem = latestAssistant.locator('.source-item').filter({ hasText: editedTitle })
     await expect(sourceItem).toBeVisible()
@@ -201,8 +206,7 @@ test.describe('对话沉淀闭环', () => {
     // ---- C-Q2：通用问候不触发 RAG，也不携带来源 ----
     await sendMessage(page, '你好', '你好')
     latestAssistant = page.locator('.message.assistant').last()
-    await expect(latestAssistant.getByText('无需检索知识库')).toBeVisible()
-    await expect(latestAssistant.locator('.source-item')).toHaveCount(0)
+    await expect(latestAssistant.locator('.sources-panel')).toHaveCount(0)
 
     ragMessagesResponse = await request.get(
       `${API_BASE}/conversations/${ragConversationId}/messages?limit=20`,

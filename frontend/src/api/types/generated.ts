@@ -603,7 +603,7 @@ export interface components {
             updatedAt?: string;
         };
         CreateConversationRequest: {
-            title: string;
+            title?: string;
         };
         CreateKnowledgeBaseRequest: {
             description?: string;

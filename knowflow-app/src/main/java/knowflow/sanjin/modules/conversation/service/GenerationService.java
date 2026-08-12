@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.conversation.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import knowflow.sanjin.common.filter.CorrelationIdFilter;
 import knowflow.sanjin.common.util.ApiValueParser;
 import knowflow.sanjin.modules.conversation.dto.RegenerateRequest;
 import knowflow.sanjin.modules.conversation.dto.SendMessageRequest;
@@ -14,6 +15,7 @@ import knowflow.sanjin.modules.rag.dto.RagContext;
 import knowflow.sanjin.modules.rag.service.RagContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -102,7 +104,12 @@ public class GenerationService {
   public void stop(Long conversationId) {
     Conversation c = conversationService.lockConversation(conversationId);
     if (c.getActiveGenerationMessageId() != null) {
-      executor.cancel(c.getActiveGenerationMessageId());
+      long assistantMessageId = c.getActiveGenerationMessageId();
+      if (!executor.cancel(assistantMessageId)) {
+        // 应用重启或执行线程异常退出后，数据库可能残留 active slot，但本进程已经没有可取消任务。
+        // 此时直接把孤儿 attempt 收口为 CANCELLED，避免会话永久无法删除或继续对话。
+        conversationService.cancelOrphanedGeneration(conversationId, assistantMessageId);
+      }
     }
   }
 
@@ -117,10 +124,16 @@ public class GenerationService {
             ? prepared.userMessage().getId()
             : prepared.assistantMessage().getReplyToMessageId();
 
+    // 捕获请求线程的 correlationId，在生成线程重建，使 SSE 链路的失败日志与请求关联
+    String correlationId = MDC.get(CorrelationIdFilter.CORRELATION_ID_KEY);
+
     SseEmitter emitter = emitterFactory.create();
     executor.submit(
         assistantMessageId,
         () -> {
+          if (correlationId != null) {
+            MDC.put(CorrelationIdFilter.CORRELATION_ID_KEY, correlationId);
+          }
           try {
             // 模型创建与上下文组装移入任务内：pre-stream 异常由 streamer 失败路径释放 slot
             ChatModel chatModel = modelClientFactory.create(prepared.revision());
@@ -143,6 +156,8 @@ public class GenerationService {
           } catch (java.io.IOException e) {
             // 断连等 IOException 由 streamer 内部统一终结并释放 slot
             log.warn("Streaming aborted for generation {}: {}", assistantMessageId, e.getMessage());
+          } finally {
+            MDC.remove(CorrelationIdFilter.CORRELATION_ID_KEY);
           }
         });
     return emitter;

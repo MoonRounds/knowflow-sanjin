@@ -81,7 +81,14 @@ public class ConversationController {
       @RequestParam(name = "limit", defaultValue = "20") int limit) {
     Long conversationId = ApiValueParser.positiveId(id, "id");
     Long beforeSeq = before == null ? null : ApiValueParser.positiveId(before, "before");
-    List<ChatMessage> page = service.listMessages(conversationId, beforeSeq, limit);
+    int pageSize = Math.max(1, Math.min(limit, 100));
+    // 多取一条只用于判断是否确有更早消息，避免新会话也错误显示“加载更早的消息”。
+    List<ChatMessage> page = service.listMessages(conversationId, beforeSeq, pageSize + 1);
+    boolean hasEarlier = page.size() > pageSize;
+    if (hasEarlier) {
+      // service 返回正序；额外取到的是当前页之前最老的那一条。
+      page = new java.util.ArrayList<>(page.subList(1, page.size()));
+    }
     MessagePageResponse response = new MessagePageResponse();
     // 预载 trace 快照，assistant 消息内嵌当时 sources/cited
     List<Long> assistantIds =
@@ -92,7 +99,7 @@ public class ConversationController {
     Map<Long, GenerationTrace> traces = traceService.loadByAssistantMessageIds(assistantIds);
     List<MessageResponse> messages = MessageAssembler.toResponseList(page, traces, traceService);
     response.setMessages(messages);
-    if (!messages.isEmpty()) {
+    if (hasEarlier && !messages.isEmpty()) {
       // 下一页为比当前页第一条（最小 sequence）更早的消息
       response.setNextBefore(page.get(0).getSequence().toString());
     }

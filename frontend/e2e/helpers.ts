@@ -87,10 +87,10 @@ export async function setOwnerDefaults(
 /** 通过正式 Knowledge 页面创建知识库；API 只用于读取创建后的稳定字符串 ID。 */
 export async function createKnowledgeBaseViaUI(page: Page, name: string): Promise<PreparedKB> {
   await page.goto('/knowledge-bases')
-  await page.getByRole('button', { name: '新建知识库' }).click()
-  const dialog = page.locator('.el-dialog').filter({ hasText: '新建知识库' })
-  await dialog.locator('input[placeholder="知识库名称"]').fill(name)
-  await dialog.locator('textarea[placeholder="知识库用途说明（可选）"]').fill('E2E 固定验收知识库')
+  await page.getByRole('button', { name: '新建知识库', exact: true }).first().click()
+  const dialog = page.getByRole('dialog').filter({ hasText: '新建知识库' })
+  await dialog.getByRole('textbox', { name: /名称/ }).fill(name)
+  await dialog.getByRole('textbox', { name: '描述' }).fill('E2E 固定验收知识库')
   await dialog.getByRole('button', { name: '保存' }).click()
   await expect(dialog).toBeHidden()
   await expect(page.locator('.el-table__row').filter({ hasText: name }).first()).toBeVisible()
@@ -122,13 +122,16 @@ export async function configureModelViaUI(page: Page, displayName: string): Prom
   await dialog.getByRole('button', { name: '保存' }).click()
   await expect(dialog).toBeHidden()
 
-  const row = page.locator('.el-table__row').filter({ hasText: displayName })
-  await expect(row).toBeVisible()
-  await row.getByRole('button', { name: '测试连接' }).click()
+  const card = page
+    .getByRole('region', { name: '模型配置列表' })
+    .getByRole('article')
+    .filter({ has: page.getByRole('heading', { name: displayName, exact: true }) })
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: '测试连接' }).click()
   await expect(page.locator('.el-message').filter({ hasText: '连接测试通过' })).toBeVisible({
     timeout: 30_000,
   })
-  await row.getByRole('button', { name: 'Utility 测试' }).click()
+  await card.getByRole('button', { name: '测试 Utility' }).click()
   await expect(page.locator('.el-message').filter({ hasText: 'Utility 能力测试通过' })).toBeVisible(
     {
       timeout: 30_000,
@@ -136,10 +139,10 @@ export async function configureModelViaUI(page: Page, displayName: string): Prom
   )
   // 先设 Utility：当 Owner settings 为空时，「设为默认」会把同一配置同时回填为
   // Utility，随后 Utility 按钮按产品规则禁用，E2E 再点击会永久等待。
-  await row.getByRole('button', { name: '设为 Utility' }).click()
-  await expect(row.locator('.el-tag').filter({ hasText: /^Utility$/ })).toBeVisible()
-  await row.getByRole('button', { name: '设为默认' }).click()
-  await expect(row.locator('.el-tag').filter({ hasText: /^默认 Chat$/ })).toBeVisible()
+  await card.getByRole('button', { name: '设为 Utility' }).click()
+  await expect(card.getByText('Utility', { exact: true })).toBeVisible()
+  await card.getByRole('button', { name: '设为默认' }).click()
+  await expect(card.getByText('默认 Chat', { exact: true })).toBeVisible()
 
   const result = await page.evaluate(async (expectedName) => {
     const [configsRes, settingsRes] = await Promise.all([
@@ -252,30 +255,18 @@ export async function waitForItemIndexed(
   throw new Error(`item ${itemId} not INDEXED within ${timeoutMs}ms`)
 }
 
-/** 在 Chat 页面新建会话并返回会话 id（从 URL 或列表读取）。 */
-export async function createConversationViaUI(page: Page, title: string): Promise<string> {
+/** 在 Chat 页面进入「新对话」草稿态；首条消息发送后才会真正创建后端会话。 */
+export async function enterNewConversationViaUI(page: Page): Promise<void> {
   await page.goto('/chat')
   await page.getByRole('button', { name: '新建对话' }).click()
-  const dialog = page.locator('.el-message-box')
-  await dialog.locator('input').fill(title)
-  await dialog.getByRole('button', { name: '创建' }).click()
-  // 等待会话被选中（header 显示标题）
-  await expect(page.locator('.chat-core-head h2')).toContainText(title)
-  return readActiveConversationId(page, title)
+  await expect(page.locator('.chat-core-head h2')).toHaveText('新对话')
+  await expect(page.locator('.chat-input textarea')).toBeEnabled()
 }
 
-/** 从浏览器 API 请求中读取当前会话 id（通过 page.evaluate 走 fetch，读响应头 Location）。 */
-export async function readActiveConversationId(page: Page, title?: string): Promise<string> {
-  return page.evaluate(async (expectedTitle) => {
-    const res = await fetch('/api/v1/conversations')
-    const list = await res.json()
-    return (
-      (expectedTitle
-        ? list.find((item: { title?: string }) => item.title === expectedTitle)
-        : list[0]
-      )?.id ?? ''
-    )
-  }, title)
+/** 从 Chat 主区读取当前选中的真实会话 id，避免依赖列表时间排序猜测当前项。 */
+export async function readActiveConversationId(page: Page): Promise<string> {
+  await expect(page.locator('.chat-main')).toHaveAttribute('data-conversation-id', /^\d+$/)
+  return (await page.locator('.chat-main').getAttribute('data-conversation-id')) ?? ''
 }
 
 /** 发送一条聊天消息并等待 assistant 回复完成（期望文本出现且流式结束）。 */

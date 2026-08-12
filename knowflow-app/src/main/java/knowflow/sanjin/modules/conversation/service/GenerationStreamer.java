@@ -4,6 +4,7 @@ import static knowflow.sanjin.common.error.ErrorCode.*;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import knowflow.sanjin.modules.conversation.title.ConversationTitleService;
 import knowflow.sanjin.modules.rag.dto.RagContext;
 import knowflow.sanjin.modules.rag.dto.RetrievedSource;
 import knowflow.sanjin.modules.rag.dto.RouterResult;
@@ -29,16 +30,19 @@ public class GenerationStreamer {
   private final ConversationService conversationService;
   private final ModelClientFacade modelClientFacade;
   private final GenerationExecutor executor;
+  private final ConversationTitleService conversationTitleService;
 
   public GenerationStreamer(
       GenerationFinalizer finalizer,
       ConversationService conversationService,
       ModelClientFacade modelClientFacade,
-      GenerationExecutor executor) {
+      GenerationExecutor executor,
+      ConversationTitleService conversationTitleService) {
     this.finalizer = finalizer;
     this.conversationService = conversationService;
     this.modelClientFacade = modelClientFacade;
     this.executor = executor;
+    this.conversationTitleService = conversationTitleService;
   }
 
   /** 在已认领 active slot 的前提下执行生成并把事件写入 emitter。 */
@@ -77,6 +81,7 @@ public class GenerationStreamer {
           totalTokens.get(),
           active,
           snapshot);
+      triggerTitleGeneration(ctx);
       emitSourcesAvailable(ctx, emitter, cited, snapshot);
       emitCompleted(
           ctx,
@@ -91,18 +96,25 @@ public class GenerationStreamer {
     } catch (CancelledGenerationException e) {
       log.info("Generation {} cancelled by user", msgId);
       finalizer.cancel(ctx.conversationId(), msgId, content.toString(), snapshot);
-      emitFailed(ctx, emitter, GENERATION_CANCELLED, "cancelled", content.toString());
+      emitFailed(ctx, emitter, GENERATION_CANCELLED, "cancelled", "生成已取消");
 
     } catch (java.io.IOException e) {
       // emitter.send 可直接抛 IOException（客户端断开）；不能只由上层记录日志，否则消息与
       // conversation active slot 会永久停留在 GENERATING。
-      log.info("Generation {} client disconnected while emitting, finalizing", msgId);
-      finalizer.fail(
-          ctx.conversationId(),
-          msgId,
-          content.toString(),
-          GENERATION_CLIENT_DISCONNECTED,
-          snapshot);
+      if (executor.isCancelled(msgId)) {
+        // stop 请求返回后客户端会主动关闭 SSE；此时写事件可能与取消终结并发抛 IOException。
+        // 用户取消标志优先，避免同一次操作被错误归类为客户端断连。
+        log.info("Generation {} cancelled while closing SSE", msgId);
+        finalizer.cancel(ctx.conversationId(), msgId, content.toString(), snapshot);
+      } else {
+        log.info("Generation {} client disconnected while emitting, finalizing", msgId);
+        finalizer.fail(
+            ctx.conversationId(),
+            msgId,
+            content.toString(),
+            GENERATION_CLIENT_DISCONNECTED,
+            snapshot);
+      }
 
     } catch (RuntimeException e) {
       if (executor.isCancelled(msgId)) {
@@ -110,22 +122,35 @@ public class GenerationStreamer {
         // Provider 错误分类，确保用户停止稳定落为 CANCELLED。
         log.info("Generation {} cancelled while provider stream was active", msgId);
         finalizer.cancel(ctx.conversationId(), msgId, content.toString(), snapshot);
-        emitFailed(ctx, emitter, GENERATION_CANCELLED, "cancelled", content.toString());
+        emitFailed(ctx, emitter, GENERATION_CANCELLED, "cancelled", "生成已取消");
       } else {
         Throwable cause = rootCause(e);
         String errorCode;
+        String detail;
         if (cause instanceof java.io.IOException || cause instanceof java.net.SocketException) {
           log.info("Generation {} client disconnected, finalizing", msgId);
           errorCode = GENERATION_CLIENT_DISCONNECTED;
+          detail = "客户端已断开";
         } else {
-          log.warn("Generation {} failed: {}", msgId, cause.getClass().getSimpleName());
           errorCode = mapErrorCode(cause);
+          detail = errorCode;
+          // 真实失败（超时/模型/未知）记 error 级并带完整堆栈，供控制台定位问题
+          log.error("生成 {} 失败: errorCode={}", msgId, errorCode, e);
         }
         finalizer.fail(ctx.conversationId(), msgId, content.toString(), errorCode, snapshot);
-        emitFailed(ctx, emitter, errorCode, "failed", content.toString());
+        emitFailed(ctx, emitter, errorCode, "failed", detail);
       }
     } finally {
       emitter.complete();
+    }
+  }
+
+  /** 首轮回答完成后触发会话标题 AI 生成（旁路）：失败仅记日志，不影响生成与 SSE 事件。 */
+  private void triggerTitleGeneration(GenerationContext ctx) {
+    try {
+      conversationTitleService.ensureTitleTask(ctx.conversationId());
+    } catch (RuntimeException e) {
+      log.warn("触发会话标题生成失败 conversation={}", ctx.conversationId(), e);
     }
   }
 

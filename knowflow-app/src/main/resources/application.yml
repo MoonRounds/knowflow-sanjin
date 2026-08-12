@@ -55,6 +55,7 @@ knowflow:
     work-queue: ${KNOWFLOW_RABBIT_WORK_QUEUE:index.work}
     extraction-work-queue: ${KNOWFLOW_RABBIT_EXTRACTION_WORK_QUEUE:extraction.work}
     document-work-queue: ${KNOWFLOW_RABBIT_DOCUMENT_WORK_QUEUE:document.work}
+    conversation-title-work-queue: ${KNOWFLOW_RABBIT_CONVERSATION_TITLE_WORK_QUEUE:conversation-title.work}
     processing-lease-timeout: ${KNOWFLOW_RABBIT_PROCESSING_LEASE_TIMEOUT:10m}
     recovery-scan-interval: ${KNOWFLOW_RABBIT_RECOVERY_SCAN_INTERVAL:1m}
   chunking:
