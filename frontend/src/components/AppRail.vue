@@ -9,7 +9,7 @@ interface RailItem {
   icon: string
 }
 
-const items: RailItem[] = [
+const workItems: RailItem[] = [
   {
     to: '/flow',
     label: '学习流',
@@ -31,27 +31,23 @@ const items: RailItem[] = [
     icon: 'M12 3l2.2 5.3L20 9l-4.3 3.8L17 18l-5-2.8L7 18l1.3-5.2L4 9l5.8-.7z',
   },
   {
-    to: '/knowledge-bases',
-    label: '导入笔记',
-    icon: 'M12 16V4M7.5 8.5 12 4l4.5 4.5M5 14v5h14v-5',
-  },
-  {
     to: '/processing',
     label: '处理任务',
     icon: 'M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4',
   },
-  {
-    to: '/model-settings',
-    label: '系统设置',
-    icon: 'M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A7 7 0 0 0 15 6l-.3-2.6h-4L10.5 6A7 7 0 0 0 9 7.1l-2.4-1-2 3.4L6.5 11a7 7 0 0 0 0 2L4.6 14.5l2 3.4 2.4-1A7 7 0 0 0 10.5 18l.3 2.6h4L15 18a7 7 0 0 0 1.5-1.1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z',
-  },
 ]
+
+const settingsItem: RailItem = {
+  to: '/model-settings',
+  label: '系统设置',
+  icon: 'M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A7 7 0 0 0 15 6l-.3-2.6h-4L10.5 6A7 7 0 0 0 9 7.1l-2.4-1-2 3.4L6.5 11a7 7 0 0 0 0 2L4.6 14.5l2 3.4 2.4-1A7 7 0 0 0 10.5 18l.3 2.6h4L15 18a7 7 0 0 0 1.5-1.1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1z',
+}
 
 const route = useRoute()
 
+/** 激活态：仅当前路由路径以入口前缀开头时高亮。 */
 function isActive(item: RailItem): boolean {
-  // /knowledge-bases 同时承载"知识库"与"导入笔记"两个入口
-  return route.path.startsWith(item.to)
+  return route.path === item.to || route.path.startsWith(`${item.to}/`)
 }
 </script>
 
@@ -60,7 +56,7 @@ function isActive(item: RailItem): boolean {
     <div class="mark">知流</div>
     <nav class="railnav">
       <RouterLink
-        v-for="item in items"
+        v-for="item in workItems"
         :key="item.label"
         :to="item.to"
         class="railbtn"
@@ -75,6 +71,18 @@ function isActive(item: RailItem): boolean {
       </RouterLink>
     </nav>
     <div class="railspacer" />
+    <RouterLink
+      :to="settingsItem.to"
+      class="railbtn settingsbtn"
+      :class="{ active: isActive(settingsItem) }"
+      :aria-label="settingsItem.label"
+      :title="settingsItem.label"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+        <path :d="settingsItem.icon" />
+      </svg>
+      <span class="navtext">{{ settingsItem.label }}</span>
+    </RouterLink>
     <div class="footerlabel">我的空间</div>
     <div class="avatar">三金</div>
   </aside>
@@ -82,9 +90,12 @@ function isActive(item: RailItem): boolean {
 
 <style scoped>
 .rail {
+  box-sizing: border-box;
   position: sticky;
   top: 0;
   height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   border-right: 1px solid var(--kf-ink);
   display: flex;
   flex-direction: column;
@@ -105,22 +116,49 @@ function isActive(item: RailItem): boolean {
   font-size: 21px;
   font-weight: 900;
   letter-spacing: -1px;
-  box-shadow: 5px 5px 0 var(--kf-yellow);
+  box-shadow: 5px 5px 0 var(--kf-red);
   transform: rotate(-1deg);
 }
 .mark::after {
   content: '↗';
   font-size: 14px;
   margin-left: 8px;
-  color: var(--kf-yellow);
+  color: var(--kf-hot-soft);
 }
 .railnav {
-  margin-top: 40px;
+  box-sizing: border-box;
+  width: calc(100% + 19px);
+  margin-top: 37px;
+  margin-left: -4px;
+  padding: 3px 0 6px 4px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  min-height: 0;
+}
+.railnav:hover,
+.railnav:focus-within {
+  scrollbar-color: var(--kf-line) transparent;
+}
+.railnav::-webkit-scrollbar {
+  width: 6px;
+}
+.railnav::-webkit-scrollbar-thumb {
+  border-radius: var(--kf-radius-pill);
+  background: transparent;
+}
+.railnav:hover::-webkit-scrollbar-thumb,
+.railnav:focus-within::-webkit-scrollbar-thumb {
+  background: var(--kf-line);
 }
 .railbtn {
+  box-sizing: border-box;
   width: 100%;
   height: 48px;
   border: 1px solid transparent;
@@ -133,11 +171,15 @@ function isActive(item: RailItem): boolean {
   padding: 0 12px;
   position: relative;
   transition: 0.2s ease;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   text-align: left;
   color: inherit;
   text-decoration: none;
+}
+.railnav .railbtn {
+  flex: 0 0 48px;
+  width: calc(var(--kf-rail-w) - 32px);
 }
 .railbtn svg {
   width: 18px;
@@ -152,8 +194,11 @@ function isActive(item: RailItem): boolean {
 .railbtn.active {
   background: var(--kf-white);
   border-color: var(--kf-ink);
-  transform: translateX(3px);
-  box-shadow: 3px 3px 0 var(--kf-ink);
+  box-shadow: -3px 3px 0 var(--kf-red);
+}
+.railbtn:focus {
+  outline: 2px solid var(--kf-blue);
+  outline-offset: 2px;
 }
 .railbtn.active::after {
   content: '';
@@ -168,6 +213,9 @@ function isActive(item: RailItem): boolean {
 .railspacer {
   flex: 1;
 }
+.settingsbtn {
+  margin-bottom: 14px;
+}
 .footerlabel {
   font-size: 9px;
   letter-spacing: 0.12em;
@@ -178,7 +226,8 @@ function isActive(item: RailItem): boolean {
 .avatar {
   height: 44px;
   border-radius: 14px;
-  background: var(--kf-yellow);
+  background: var(--kf-red);
+  color: var(--kf-white);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -186,5 +235,32 @@ function isActive(item: RailItem): boolean {
   border: 1px solid var(--kf-ink);
   font-size: 12px;
   margin-top: 10px;
+}
+
+/* ---- 响应式收窄：窄屏隐藏文字，只留图标 + tooltip ---- */
+@media (max-width: 900px) {
+  .rail {
+    flex: 0 0 72px;
+    width: 72px;
+    min-width: 0;
+    padding: 22px 10px 18px;
+    overflow: hidden;
+  }
+  .railbtn {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+  }
+  .railnav .railbtn {
+    width: 52px;
+  }
+  .railbtn .navtext,
+  .footerlabel {
+    display: none;
+  }
+  .mark {
+    height: 52px;
+    font-size: 17px;
+  }
 }
 </style>

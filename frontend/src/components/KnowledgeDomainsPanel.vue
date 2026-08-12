@@ -27,6 +27,7 @@ function isOn(id: string): boolean {
         v-for="d in domains"
         :key="d.id"
         :class="{ on: isOn(d.id!) }"
+        :aria-pressed="isOn(d.id!)"
         @click="emit('toggle', d.id!)"
       >
         {{ d.name }}
@@ -68,11 +69,16 @@ function isOn(id: string): boolean {
   border: 1px solid var(--kf-line);
   background: var(--kf-white);
   border-radius: 999px;
-  padding: 7px 9px;
-  font-size: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
   font-weight: 900;
   cursor: pointer;
   color: var(--kf-ink);
+  min-height: var(--kf-touch-min);
+}
+.knowledge-chips button:focus-visible {
+  outline: var(--kf-focus-ring);
+  outline-offset: 2px;
 }
 .knowledge-chips button.on {
   border-color: var(--kf-ink);

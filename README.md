@@ -92,7 +92,7 @@ knowflow-sanjin/
 
 ### 环境要求
 
-- Java 21（推荐 Eclipse Temurin）
+- Java 21
 - Node.js 22+，npm 10+
 - Docker + Docker Compose（用于 MySQL、RabbitMQ、Qdrant；Redis 见下）
 
@@ -105,7 +105,7 @@ cp .env.example .env
 docker compose up -d mysql rabbitmq qdrant
 
 # 主 Compose 未包含 Redis（Chat Memory 用），单独补起一个：
-docker run -d --name knowflow-redis -p 6379:6379 redis:7-alpine
+docker run -d --name knowflow-redis -p 6379:6379 redis:8
 ```
 
 > **关于 Redis**：它是多轮对话记忆的投影层，缺失时后端自动降级、从 MySQL 重建，不会启动失败。不装也可正常体验，只是多轮记忆失效。

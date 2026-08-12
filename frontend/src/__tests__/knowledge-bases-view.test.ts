@@ -34,7 +34,14 @@ describe('KnowledgeBasesView', () => {
     vi.spyOn(itemsApi, 'listKnowledgeItems').mockResolvedValue([])
     const wrapper = mountView()
     await flushPromises()
-    expect(wrapper.text()).toContain('还没有知识库')
+    expect(wrapper.classes()).toContain('kf-list-page')
+    expect(wrapper.find('.kf-list-page-header').exists()).toBe(true)
+    expect(wrapper.find('.kf-list-page-actions').exists()).toBe(true)
+    expect(wrapper.find('.kf-empty--wide').exists()).toBe(true)
+    expect(wrapper.text()).toContain('给知识找一个长期生长的地方')
+    expect(wrapper.findAll('button').some((button) => button.text().includes('新建知识库'))).toBe(
+      true,
+    )
   })
 
   it('renders the list from the API', async () => {

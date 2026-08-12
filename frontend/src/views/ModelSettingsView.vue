@@ -4,7 +4,6 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ApiError,
   createModelConfig,
   deleteModelConfig,
   disableModelConfig,
@@ -22,6 +21,8 @@ import type {
   OwnerAiSettingsResponse,
   UpdateModelConfigRequest,
 } from '../api/types/model-config'
+import { errorText } from '../utils/errorText'
+import KfEmptyState from '../components/KfEmptyState.vue'
 
 const loading = ref(false)
 const items = ref<ModelConfigResponse[]>([])
@@ -40,6 +41,8 @@ const form = reactive({
 })
 
 const testing = ref<Record<string, string>>({}) // configId -> 'connection' | 'utility'
+/** 行级操作守卫：避免切换状态/删除/设置角色重复提交。 */
+const busyRowId = ref<string | null>(null)
 
 async function load() {
   loading.value = true
@@ -63,6 +66,10 @@ function openCreate() {
   form.maxOutputTokens = 2048
   form.apiKey = ''
   dialogVisible.value = true
+}
+
+function goCreate() {
+  openCreate()
 }
 
 function openEdit(row: ModelConfigResponse) {
@@ -120,6 +127,8 @@ async function submit() {
 }
 
 async function toggleEnabled(row: ModelConfigResponse) {
+  if (busyRowId.value) return
+  busyRowId.value = row.id
   try {
     if (row.enabled) {
       await disableModelConfig(row.id)
@@ -131,10 +140,14 @@ async function toggleEnabled(row: ModelConfigResponse) {
     await load()
   } catch (e) {
     ElMessage.error(errorText(e, '切换状态失败'))
+  } finally {
+    busyRowId.value = null
   }
 }
 
 async function confirmDelete(row: ModelConfigResponse) {
+  if (busyRowId.value) return
+  busyRowId.value = row.id
   try {
     await ElMessageBox.confirm(
       `确定删除模型配置「${row.displayName}」吗？历史 Revision 将保留但不再可用。`,
@@ -148,6 +161,8 @@ async function confirmDelete(row: ModelConfigResponse) {
     if (e !== 'cancel') {
       ElMessage.error(errorText(e, '删除失败'))
     }
+  } finally {
+    busyRowId.value = null
   }
 }
 
@@ -181,7 +196,8 @@ async function runTest(row: ModelConfigResponse, kind: 'connection' | 'utility')
 
 /** 把该配置设为默认 Chat Model。Utility 为空时回退为同一配置，保证后端必填约束满足。 */
 async function setDefaultChat(row: ModelConfigResponse) {
-  if (!settings.value) return
+  if (!settings.value || busyRowId.value) return
+  busyRowId.value = row.id
   try {
     await updateOwnerAiSettings({
       defaultChatModelConfigId: row.id,
@@ -191,12 +207,15 @@ async function setDefaultChat(row: ModelConfigResponse) {
     await load()
   } catch (e) {
     ElMessage.error(errorText(e, '设置默认 Chat Model 失败'))
+  } finally {
+    busyRowId.value = null
   }
 }
 
 /** 把该配置设为 Utility Model。保留现有默认 Chat，避免覆盖用户选择。 */
 async function setUtility(row: ModelConfigResponse) {
-  if (!settings.value) return
+  if (!settings.value || busyRowId.value) return
+  busyRowId.value = row.id
   try {
     await updateOwnerAiSettings({
       defaultChatModelConfigId: settings.value.defaultChatModelConfigId ?? undefined,
@@ -206,14 +225,9 @@ async function setUtility(row: ModelConfigResponse) {
     await load()
   } catch (e) {
     ElMessage.error(errorText(e, '设置 Utility Model 失败'))
+  } finally {
+    busyRowId.value = null
   }
-}
-
-function errorText(e: unknown, fallback: string): string {
-  if (e instanceof ApiError) {
-    return e.message || e.errorCode || fallback
-  }
-  return e instanceof Error ? e.message : fallback
 }
 
 function isDefaultChat(id: string): boolean {
@@ -234,139 +248,183 @@ onMounted(load)
       <el-button type="primary" @click="openCreate"> 新建模型配置 </el-button>
     </div>
 
-    <el-empty
+    <KfEmptyState
       v-if="!loading && items.length === 0"
-      description="还没有模型配置，点击右上角创建第一个"
+      title="先接入一个可以对话的模型"
+      description="模型配置完成并通过连接测试后，知流才能陪你对话、提炼并再次调用知识。"
+      action-label="新建模型配置"
+      @action="goCreate"
     />
 
-    <el-table v-else v-loading="loading" :data="items" style="width: 100%">
-      <el-table-column prop="displayName" label="名称" min-width="140" />
-      <el-table-column prop="providerName" label="Provider" width="120" />
-      <el-table-column label="Model" min-width="150">
-        <template #default="{ row }">
-          {{ row.currentRevision?.modelName || '—' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Base URL" min-width="200">
-        <template #default="{ row }">
-          <span class="url">{{ row.currentRevision?.baseUrl || '—' }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="API Key" width="140">
-        <template #default="{ row }">
-          <span class="masked">{{ row.currentRevision?.apiKeyMasked || '—' }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="角色" width="140">
-        <template #default="{ row }">
-          <el-tag v-if="isDefaultChat(row.id)" type="success" size="small">默认 Chat</el-tag>
-          <el-tag v-if="isUtility(row.id)" type="warning" size="small">Utility</el-tag>
-          <span v-if="!isDefaultChat(row.id) && !isUtility(row.id)">—</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="enabled" label="状态" width="90">
-        <template #default="{ row }">
-          <el-tag :type="row.enabled ? 'success' : 'info'" size="small">
-            {{ row.enabled ? '已启用' : '已禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="360">
-        <template #default="{ row }">
-          <el-button
-            size="small"
-            :loading="testing[row.id] === 'connection'"
-            @click="runTest(row, 'connection')"
-          >
-            测试连接
-          </el-button>
-          <el-button
-            size="small"
-            :loading="testing[row.id] === 'utility'"
-            @click="runTest(row, 'utility')"
-          >
-            Utility 测试
-          </el-button>
-          <el-button size="small" @click="openEdit(row)"> 编辑 </el-button>
-          <el-button
-            size="small"
-            :type="row.enabled ? 'warning' : 'success'"
-            @click="toggleEnabled(row)"
-          >
-            {{ row.enabled ? '禁用' : '启用' }}
-          </el-button>
-          <el-button size="small" type="danger" @click="confirmDelete(row)"> 删除 </el-button>
-        </template>
-      </el-table-column>
-      <el-table-column label="设置" width="200">
-        <template #default="{ row }">
-          <el-button
-            size="small"
-            :disabled="!row.enabled || isDefaultChat(row.id)"
-            @click="setDefaultChat(row)"
-          >
-            设为默认
-          </el-button>
-          <el-button
-            size="small"
-            :disabled="!row.enabled || isUtility(row.id)"
-            @click="setUtility(row)"
-          >
-            设为 Utility
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <section v-else v-loading="loading" class="config-list" aria-label="模型配置列表">
+      <article v-for="row in items" :key="row.id" class="config-card">
+        <header class="config-card-head">
+          <div class="config-identity">
+            <span class="config-kicker">{{ row.providerName }}</span>
+            <h3>{{ row.displayName }}</h3>
+          </div>
+          <div class="config-badges">
+            <el-tag :type="row.enabled ? 'success' : 'info'" round>
+              {{ row.enabled ? '已启用' : '已禁用' }}
+            </el-tag>
+            <el-tag v-if="isDefaultChat(row.id)" type="success" effect="dark" round>
+              默认 Chat
+            </el-tag>
+            <el-tag v-if="isUtility(row.id)" type="warning" effect="dark" round> Utility </el-tag>
+          </div>
+        </header>
+
+        <dl class="config-details">
+          <div>
+            <dt>Model</dt>
+            <dd>{{ row.currentRevision?.modelName || '—' }}</dd>
+          </div>
+          <div class="config-url">
+            <dt>Base URL</dt>
+            <dd :title="row.currentRevision?.baseUrl">
+              {{ row.currentRevision?.baseUrl || '—' }}
+            </dd>
+          </div>
+          <div>
+            <dt>API Key</dt>
+            <dd class="masked">{{ row.currentRevision?.apiKeyMasked || '—' }}</dd>
+          </div>
+          <div>
+            <dt>参数</dt>
+            <dd>
+              T {{ row.currentRevision?.temperature ?? '—' }} · Max
+              {{ row.currentRevision?.maxOutputTokens ?? '—' }}
+            </dd>
+          </div>
+        </dl>
+
+        <footer class="config-actions">
+          <div class="config-actions-main">
+            <el-button
+              :loading="testing[row.id] === 'connection'"
+              @click="runTest(row, 'connection')"
+            >
+              测试连接
+            </el-button>
+            <el-button :loading="testing[row.id] === 'utility'" @click="runTest(row, 'utility')">
+              测试 Utility
+            </el-button>
+            <el-button @click="openEdit(row)">编辑</el-button>
+            <el-button
+              :type="row.enabled ? 'warning' : 'success'"
+              :loading="busyRowId === row.id"
+              :disabled="busyRowId !== null && busyRowId !== row.id"
+              @click="toggleEnabled(row)"
+            >
+              {{ row.enabled ? '禁用' : '启用' }}
+            </el-button>
+            <el-button
+              class="config-delete"
+              text
+              type="danger"
+              :loading="busyRowId === row.id"
+              :disabled="busyRowId !== null && busyRowId !== row.id"
+              @click="confirmDelete(row)"
+            >
+              删除配置
+            </el-button>
+          </div>
+          <div class="config-role-actions" aria-label="模型角色设置">
+            <el-button
+              :disabled="!row.enabled || isDefaultChat(row.id)"
+              :loading="busyRowId === row.id"
+              @click="setDefaultChat(row)"
+            >
+              {{ isDefaultChat(row.id) ? '已是默认' : '设为默认' }}
+            </el-button>
+            <el-button
+              type="primary"
+              :disabled="!row.enabled || isUtility(row.id)"
+              :loading="busyRowId === row.id"
+              @click="setUtility(row)"
+            >
+              {{ isUtility(row.id) ? '已是 Utility' : '设为 Utility' }}
+            </el-button>
+          </div>
+        </footer>
+      </article>
+    </section>
 
     <el-dialog
       v-model="dialogVisible"
-      :title="editingId === null ? '新建模型配置' : '编辑模型配置'"
-      width="520px"
+      width="min(520px, 94vw)"
+      align-center
+      :show-close="false"
+      class="kf-dialog"
     >
-      <el-form label-width="120px">
-        <el-form-item label="显示名称" required>
-          <el-input v-model="form.displayName" maxlength="200" placeholder="例如 DeepSeek Chat" />
-        </el-form-item>
-        <el-form-item label="Provider" required>
-          <el-input v-model="form.providerName" maxlength="100" placeholder="例如 DeepSeek" />
-        </el-form-item>
-        <el-form-item label="Base URL" required>
-          <el-input v-model="form.baseUrl" maxlength="500" placeholder="https://api.deepseek.com" />
-          <div class="hint">仅允许安全 HTTPS 云端地址（阻止 localhost/私网/内嵌凭据）</div>
-        </el-form-item>
-        <el-form-item label="Model Name" required>
-          <el-input v-model="form.modelName" maxlength="200" placeholder="deepseek-chat" />
-        </el-form-item>
-        <el-form-item label="Temperature">
-          <el-input-number v-model="form.temperature" :min="0" :max="2" :step="0.1" />
-        </el-form-item>
-        <el-form-item label="Max Tokens">
-          <el-input-number v-model="form.maxOutputTokens" :min="1" :max="1000000" :step="128" />
-        </el-form-item>
-        <el-form-item :label="editingId === null ? 'API Key' : '新 API Key'">
-          <el-input
-            v-model="form.apiKey"
-            type="password"
-            show-password
-            :placeholder="editingId === null ? 'sk-...' : '留空保持不变（掩码不回显为 Key）'"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false"> 取消 </el-button>
-        <el-button type="primary" :disabled="!form.displayName?.trim()" @click="submit">
-          保存
-        </el-button>
-      </template>
+      <div class="kf-dialog-inner">
+        <div class="kf-dialog-head">
+          <div class="kf-dialog-tag">{{ editingId === null ? '新建' : '编辑' }}</div>
+          <h3 class="kf-dialog-title">
+            {{ editingId === null ? '新建模型配置' : '编辑模型配置' }}
+          </h3>
+          <p class="kf-dialog-sub">告诉知流用哪个模型来思考，以及怎么调它的参数。</p>
+          <button class="kf-dialog-close" aria-label="关闭" @click="dialogVisible = false">
+            ✕
+          </button>
+        </div>
+        <el-form class="kf-dialog-form" label-position="top">
+          <div class="kf-form-grid">
+            <el-form-item label="显示名称" required>
+              <el-input
+                v-model="form.displayName"
+                maxlength="200"
+                placeholder="例如 DeepSeek Chat"
+              />
+            </el-form-item>
+            <el-form-item label="Provider" required>
+              <el-input v-model="form.providerName" maxlength="100" placeholder="例如 DeepSeek" />
+            </el-form-item>
+          </div>
+          <el-form-item label="Base URL" required>
+            <el-input
+              v-model="form.baseUrl"
+              maxlength="500"
+              placeholder="https://api.deepseek.com"
+            />
+            <div class="hint">仅允许安全 HTTPS 云端地址（阻止 localhost/私网/内嵌凭据）</div>
+          </el-form-item>
+          <el-form-item label="Model Name" required>
+            <el-input v-model="form.modelName" maxlength="200" placeholder="deepseek-chat" />
+          </el-form-item>
+          <div class="kf-form-grid">
+            <el-form-item label="Temperature">
+              <el-input-number v-model="form.temperature" :min="0" :max="2" :step="0.1" />
+            </el-form-item>
+            <el-form-item label="Max Tokens">
+              <el-input-number v-model="form.maxOutputTokens" :min="1" :max="1000000" :step="128" />
+            </el-form-item>
+          </div>
+          <el-form-item :label="editingId === null ? 'API Key' : '新 API Key'">
+            <el-input
+              v-model="form.apiKey"
+              type="password"
+              show-password
+              :placeholder="editingId === null ? 'sk-...' : '留空保持不变（掩码不回显为 Key）'"
+            />
+          </el-form-item>
+        </el-form>
+        <div class="kf-dialog-actions">
+          <button class="kf-btn kf-btn-ghost" @click="dialogVisible = false">取消</button>
+          <button class="kf-btn kf-btn-ink" :disabled="!form.displayName?.trim()" @click="submit">
+            保存
+          </button>
+        </div>
+      </div>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
 .model-settings-page {
-  max-width: 1200px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 30px clamp(18px, 4vw, 48px) 72px;
 }
 .page-header {
   display: flex;
@@ -376,19 +434,282 @@ onMounted(load)
 }
 .page-header h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
 }
-.url {
-  color: #666;
-  word-break: break-all;
+.config-list {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+}
+.config-card {
+  border: 1px solid var(--kf-ink);
+  border-radius: 20px;
+  background: var(--kf-white);
+  box-shadow: 5px 5px 0 rgba(25, 24, 21, 0.12);
+  overflow: hidden;
+}
+.config-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--kf-line);
+  background: var(--kf-paper-2);
+}
+.config-kicker {
+  color: var(--kf-hot);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.config-identity h3 {
+  margin: 5px 0 0;
+  font-size: 21px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+.config-badges {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.config-details {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(230px, 2fr) minmax(140px, 1fr) minmax(
+      160px,
+      1fr
+    );
+  margin: 0;
+  padding: 22px 24px;
+}
+.config-details > div {
+  min-width: 0;
+  padding: 0 18px;
+  border-left: 1px dashed var(--kf-line-dashed);
+}
+.config-details > div:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.config-details dt {
+  margin-bottom: 7px;
+  color: var(--kf-muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.config-details dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--kf-ink);
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .masked {
-  font-family: monospace;
-  color: #999;
+  font-family: var(--kf-font-mono);
+  color: var(--kf-muted) !important;
+}
+.config-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 24px 20px;
+  border-top: 1px dashed var(--kf-line-dashed);
+}
+.config-actions-main,
+.config-role-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.config-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+.config-role-actions {
+  justify-content: flex-end;
+  padding-left: 18px;
+  border-left: 1px solid var(--kf-line);
+}
+.config-delete {
+  padding-inline: 10px;
 }
 .hint {
   font-size: 12px;
   color: #999;
   margin-top: 4px;
+}
+@media (max-width: 920px) {
+  .config-details {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 20px;
+  }
+  .config-details > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .config-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .config-role-actions {
+    justify-content: flex-start;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--kf-line);
+    border-left: 0;
+  }
+}
+@media (max-width: 560px) {
+  .model-settings-page {
+    padding-inline: 14px;
+  }
+  .config-card-head {
+    flex-direction: column;
+  }
+  .config-badges {
+    justify-content: flex-start;
+  }
+  .config-details {
+    grid-template-columns: 1fr;
+  }
+  .config-details > div {
+    padding: 14px 0 0;
+    border-top: 1px dashed var(--kf-line-dashed);
+    border-left: 0;
+  }
+  .config-details > div:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+  .kf-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* ---- 特色弹窗：纸感 + 硬阴影 ---- */
+.kf-dialog-inner {
+  padding: 22px 26px 24px;
+}
+.kf-dialog-head {
+  position: relative;
+  margin-bottom: 18px;
+}
+.kf-dialog-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--kf-hot);
+  border: 1px solid var(--kf-hot);
+  border-radius: 999px;
+  padding: 2px 9px;
+  transform: rotate(-2deg);
+}
+.kf-dialog-title {
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: -0.4px;
+  margin: 9px 0 4px;
+}
+.kf-dialog-sub {
+  font-size: 11px;
+  color: var(--kf-muted);
+  font-weight: 600;
+  margin: 0;
+}
+.kf-dialog-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--kf-line);
+  border-radius: 10px;
+  background: var(--kf-paper);
+  color: var(--kf-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.kf-dialog-close:hover {
+  background: var(--kf-ink);
+  color: var(--kf-paper);
+}
+.kf-dialog-form :deep(.el-input__wrapper),
+.kf-dialog-form :deep(.el-textarea__inner) {
+  border-radius: 10px;
+}
+.kf-dialog-form :deep(.el-form-item__label) {
+  font-weight: 900;
+  color: var(--kf-ink);
+}
+.kf-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.kf-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.kf-btn {
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  border: 1px solid var(--kf-ink);
+  transition: 0.15s;
+}
+.kf-btn-ghost {
+  background: transparent;
+  color: var(--kf-ink);
+}
+.kf-btn-ghost:hover {
+  background: var(--kf-paper-2);
+}
+.kf-btn-ink {
+  background: var(--kf-ink);
+  color: var(--kf-paper);
+  box-shadow: 3px 3px 0 var(--kf-red);
+}
+.kf-btn-ink:hover:not(:disabled) {
+  background: var(--kf-green);
+  transform: translateY(-1px);
+}
+.kf-btn-ink:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.kf-btn:focus-visible {
+  outline: var(--kf-focus-ring);
+  outline-offset: 2px;
+}
+</style>
+
+<style>
+/* el-dialog 经 teleport 渲染到 body，scoped 样式不生效，故用全局块定制外壳。 */
+.kf-dialog.el-dialog {
+  border: 1px solid var(--kf-ink);
+  border-radius: 18px;
+  background: var(--kf-white);
+  box-shadow: 8px 8px 0 var(--kf-red);
+  padding: 0;
+  overflow: hidden;
+}
+.kf-dialog .el-dialog__header,
+.kf-dialog .el-dialog__footer {
+  display: none;
 }
 </style>

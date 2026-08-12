@@ -50,7 +50,10 @@ describe('ModelSettingsView', () => {
     } as OwnerAiSettingsResponse)
     const wrapper = mountView()
     await flushPromises()
-    expect(wrapper.text()).toContain('还没有模型配置')
+    expect(wrapper.text()).toContain('先接入一个可以对话的模型')
+    expect(wrapper.findAll('button').some((button) => button.text().includes('新建模型配置'))).toBe(
+      true,
+    )
   })
 
   it('renders config list with masked key and roles', async () => {

@@ -45,12 +45,13 @@ onUnmounted(() => {
 
 <style scoped>
 .mast {
+  box-sizing: border-box;
   height: var(--kf-mast-h);
   border-bottom: 1px solid var(--kf-line);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px 0 38px;
+  padding: 0 28px 0 32px;
   position: sticky;
   top: 0;
   background: rgba(245, 241, 232, 0.91);
@@ -64,7 +65,7 @@ onUnmounted(() => {
 }
 .brand h1 {
   font-weight: 900;
-  font-size: 30px;
+  font-size: 26px;
   margin: 0;
   letter-spacing: -1.5px;
 }
@@ -101,7 +102,7 @@ onUnmounted(() => {
   border: 1px solid var(--kf-ink);
   background: var(--kf-ink);
   color: var(--kf-paper);
-  height: 40px;
+  height: 36px;
   padding: 0 17px;
   border-radius: 14px;
   cursor: pointer;
@@ -111,6 +112,6 @@ onUnmounted(() => {
 }
 .newchat:hover {
   transform: translateY(-2px) rotate(-1deg);
-  box-shadow: 0 7px 0 var(--kf-yellow);
+  box-shadow: 0 7px 0 var(--kf-red);
 }
 </style>

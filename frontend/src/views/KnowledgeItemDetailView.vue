@@ -3,18 +3,15 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  ApiError,
-  deleteKnowledgeItem,
-  getKnowledgeItem,
-  updateKnowledgeItem,
-} from '../api/knowledge-items'
+import { deleteKnowledgeItem, getKnowledgeItem, updateKnowledgeItem } from '../api/knowledge-items'
 import { listKnowledgeBases } from '../api/knowledge-bases'
 import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 import type { KnowledgeItemResponse } from '../api/types/knowledge-item'
 import { getFileMetadataByItem, downloadFileUrl } from '../api/files'
 import type { FileMetadataResponse } from '../api/files'
 import { renderMarkdown } from '../utils/markdown'
+import { errorText } from '../utils/errorText'
+import KfEmptyState from '../components/KfEmptyState.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -84,7 +81,9 @@ function startPolling() {
         stopPolling()
       }
     } catch {
+      // 轮询失败：先提示一次并停止，避免静默无限重试；用户可手动刷新页面
       stopPolling()
+      ElMessage.error('索引状态刷新失败，请刷新页面重试')
     }
   }, 3000)
 }
@@ -153,16 +152,19 @@ async function confirmDelete() {
   }
 }
 
-function errorText(e: unknown, fallback: string): string {
-  if (e instanceof ApiError) return e.message || e.errorCode || fallback
-  return e instanceof Error ? e.message : fallback
-}
-
 function statusTagType(status: string): 'success' | 'warning' | 'danger' | 'info' {
   if (status === 'INDEXED') return 'success'
   if (status === 'FAILED') return 'danger'
   if (status === 'PROCESSING') return 'warning'
   return 'info'
+}
+
+function indexStatusText(status: string): string {
+  if (status === 'INDEXED') return '已索引'
+  if (status === 'FAILED') return '索引失败'
+  if (status === 'PROCESSING') return '索引中'
+  if (status === 'PENDING') return '待索引'
+  return status
 }
 
 function parseStatusType(status: string | undefined): 'success' | 'warning' | 'danger' | 'info' {
@@ -209,10 +211,10 @@ onBeforeUnmount(stopPolling)
 
       <div v-if="!editMode" class="view-mode">
         <h2>{{ item.title }}</h2>
-        <div class="meta">
-          <el-tag size="small" :type="statusTagType(item.indexStatus)">{{
-            item.indexStatus
-          }}</el-tag>
+        <div class="meta" aria-live="polite">
+          <el-tag size="small" :type="statusTagType(item.indexStatus)">
+            {{ indexStatusText(item.indexStatus) }}
+          </el-tag>
           <span class="meta-item">内容版本 v{{ item.contentVersion }}</span>
           <span v-if="item.indexedVersion != null" class="meta-item">
             已索引 v{{ item.indexedVersion }}
@@ -229,9 +231,9 @@ onBeforeUnmount(stopPolling)
           </div>
           <div class="file-row">
             <span class="label">解析状态：</span>
-            <el-tag size="small" :type="parseStatusType(fileMeta.parseStatus)">{{
-              fileMeta.parseStatus
-            }}</el-tag>
+            <el-tag size="small" :type="parseStatusType(fileMeta.parseStatus)">
+              {{ fileMeta.parseStatus }}
+            </el-tag>
             <el-button size="small" link @click="downloadFile"> 下载原文件 </el-button>
           </div>
           <div v-if="fileMeta.parseStatus === 'FAILED'" class="error-box">
@@ -315,7 +317,13 @@ onBeforeUnmount(stopPolling)
       </div>
     </template>
 
-    <el-empty v-else-if="!loading" description="笔记不存在或已被删除" />
+    <KfEmptyState
+      v-else-if="!loading"
+      title="这条知识已经不在这里了"
+      description="它可能已被删除，或当前链接已经失效。返回知识库继续查看仍在生长的内容。"
+      action-label="返回知识库"
+      @action="router.push('/knowledge-bases')"
+    />
   </div>
 </template>
 

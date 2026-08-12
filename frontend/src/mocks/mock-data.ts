@@ -1,14 +1,10 @@
 /**
- * /flow 学习流首页的集中 mock 数据。
+ * /flow 学习流首页的展示类型定义。
  *
- * ⚠️ MOCK：仅用于视觉迁移，未来应被真实 API 替换，且替换点集中在模块导出处。
- * 对应后端能力的映射：
- *   - focus            → 无对应 API（学习焦点聚合，BACKEND_MISSING）
- *   - flow.steps       → 无对应 API（知识处理状态机展示，可来自 ProcessingTask/ExtractionTask 推导）
- *   - candidate        → GET /candidates（知识候选审核）
- *   - domains          → GET /knowledge-bases（+ itemCount，BACKEND_MISSING）
- *   - memory           → 无对应 API（Chat Memory，BACKEND_MISSING）
+ * 数据源已从 mock 切换为真实 API（见 useFlowData）。本文件仅保留组件所需的展示类型，
+ * 供 FlowSection / KnowledgeFlowCard / FlowView 共享，避免视图层直接依赖 generated schema 字段名。
  */
+
 export interface FlowMetric {
   label: string
   value: number
@@ -33,10 +29,12 @@ export interface FlowDomain {
   color: string
 }
 
-export interface FlowMemory {
+export interface FlowRecentItem {
+  id: string
   title: string
-  text: string
-  hint: string
+  type: 'conversation' | 'knowledge'
+  /** ISO 时间串；由展示层格式化 */
+  updatedAt: string
 }
 
 export interface FlowData {
@@ -48,55 +46,17 @@ export interface FlowData {
   }
   flow: {
     label: string
+    statusText: string
     countText: string
+    active: boolean
     steps: FlowStep[]
   }
-  candidate: FlowCandidate
+  candidate: FlowCandidate | null
   domains: FlowDomain[]
-  memory: FlowMemory
-}
-
-/** 集中 mock：全部 /flow 首页展示数据（标注 MOCK，非真实 API）。 */
-export const mockFlowData: FlowData = {
-  focus: {
-    eyebrow: '当前学习焦点 / 线程安全',
-    title: '先聊懂，\n再把真正有用的留下。',
-    description:
-      '你正在学习 ConcurrentHashMap。知流不替你囤积答案，而是把对话里真正值得保留的理解，变成以后还能再次调用的个人知识。',
-    metrics: [
-      { label: '次追问', value: 12 },
-      { label: '条候选', value: 3 },
-      { label: '条已沉淀', value: 1, accent: true },
-    ],
-  },
-  flow: {
-    label: '这条知识正在流动',
-    countText: '03 / 06',
-    steps: [
-      { label: '对话', state: 'done' },
-      { label: '识别价值', state: 'done' },
-      { label: '知识提炼', state: 'current' },
-      { label: '你的确认', state: 'todo' },
-      { label: '沉淀', state: 'todo' },
-      { label: '再次调用', state: 'todo' },
-    ],
-  },
-  candidate: {
-    title: 'ConcurrentHashMap 从分段锁到桶级并发',
-    summary:
-      'JDK 7 通过 Segment + ReentrantLock 提升并发度；JDK 8 取消 Segment，以 CAS、桶头 synchronized 与更直接的数据结构降低额外层级。',
-    tags: ['Java 并发', 'ConcurrentHashMap', 'JDK 7 / 8'],
-    actions: ['确认沉淀', '先修改'],
-  },
-  domains: [
-    { name: 'Java 与 JVM', count: 128, color: 'var(--kf-hot)' },
-    { name: 'Redis', count: 64, color: 'var(--kf-yellow)' },
-    { name: 'Spring 生态', count: 91, color: 'var(--kf-green-soft)' },
-    { name: 'RAG 实践', count: 37, color: 'var(--kf-blue)' },
-  ],
-  memory: {
-    title: '正在记住什么？',
-    text: '当前主题围绕 ConcurrentHashMap 的线程安全机制，用户已从 JDK 8 追问到 JDK 7，下一步可能继续比较实现细节或版本演进原因。',
-    hint: '仅用于本次对话连续性 · 不等于长期知识',
-  },
+  /** 最近活跃：最近更新的对话/知识条目（各取前几条，混合按 updatedAt 倒序） */
+  recent: FlowRecentItem[]
+  /** 索引进度：知识条目里已索引 / 处理中 / 失败 的数量 */
+  indexed: number
+  processing: number
+  failed: number
 }

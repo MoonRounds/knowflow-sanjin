@@ -4,7 +4,6 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ApiError,
   confirmCandidate,
   listCandidates,
   rejectCandidate,
@@ -14,6 +13,8 @@ import {
 import type { CandidateResponse } from '../api/extraction'
 import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 import { listKnowledgeBases } from '../api/knowledge-bases'
+import { errorText } from '../utils/errorText'
+import KfEmptyState from '../components/KfEmptyState.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -36,6 +37,8 @@ const draftTags = ref<string[]>([])
 const tagsInput = ref('')
 const savingDraft = ref(false)
 const confirmingId = ref<string | null>(null)
+/** 行级操作守卫：避免拒绝/恢复重复提交。 */
+const busyActionId = ref<string | null>(null)
 
 async function load() {
   loading.value = true
@@ -122,7 +125,8 @@ async function confirmCandidateRow(candidate: CandidateResponse) {
 }
 
 async function rejectRow(candidate: CandidateResponse) {
-  if (!candidate.id) return
+  if (!candidate.id || busyActionId.value) return
+  busyActionId.value = candidate.id
   try {
     await ElMessageBox.confirm('拒绝该候选？将不创建知识条目。', '拒绝候选', { type: 'warning' })
     const updated = await rejectCandidate(candidate.id, `"${candidate.rowVersion ?? 0}"`)
@@ -134,17 +138,22 @@ async function rejectRow(candidate: CandidateResponse) {
   } catch (e) {
     if (e === 'cancel' || e === 'close') return
     ElMessage.error(errorText(e, '拒绝失败'))
+  } finally {
+    busyActionId.value = null
   }
 }
 
 async function restoreRow(candidate: CandidateResponse) {
-  if (!candidate.id) return
+  if (!candidate.id || busyActionId.value) return
+  busyActionId.value = candidate.id
   try {
     await restoreCandidate(candidate.id, `"${candidate.rowVersion ?? 0}"`)
     ElMessage.success('已恢复为待审核')
     await load()
   } catch (e) {
     ElMessage.error(errorText(e, '恢复失败'))
+  } finally {
+    busyActionId.value = null
   }
 }
 
@@ -153,15 +162,20 @@ function goItem(id?: string) {
   void router.push(`/knowledge-items/${id}`)
 }
 
-function errorText(e: unknown, fallback: string): string {
-  if (e instanceof ApiError) return e.message || e.errorCode || fallback
-  return e instanceof Error ? e.message : fallback
+function goChat() {
+  void router.push('/chat')
 }
 
 function statusType(status?: string): 'warning' | 'success' | 'danger' {
   if (status === 'CONFIRMED') return 'success'
   if (status === 'REJECTED') return 'danger'
   return 'warning'
+}
+
+function statusText(status?: string): string {
+  if (status === 'CONFIRMED') return '已确认'
+  if (status === 'REJECTED') return '已拒绝'
+  return '待审核'
 }
 
 onMounted(async () => {
@@ -175,10 +189,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="candidates-page">
-    <div class="page-header">
+  <div class="candidates-page kf-list-page">
+    <div class="page-header kf-list-page-header">
       <h2>待审核候选</h2>
-      <div class="header-controls">
+      <div class="header-controls kf-list-page-actions">
         <el-radio-group v-model="filter" @change="onFilterChange">
           <el-radio-button value="PENDING">待审核</el-radio-button>
           <el-radio-button value="CONFIRMED">已确认</el-radio-button>
@@ -189,24 +203,31 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-if="!loading && items.length === 0" class="empty-hint">
-      <el-empty description="没有候选。可在对话页点击「提取知识」，系统会异步生成候选。" />
-    </div>
+    <KfEmptyState
+      v-if="!loading && items.length === 0"
+      title="还没有等待沉淀的知识"
+      description="在 AI 对话中把问题聊透，再点击「提取知识」，值得保留的理解会来到这里。"
+      action-label="去 AI 对话"
+      wide
+      @action="goChat"
+    />
 
-    <div v-loading="loading" class="candidate-list">
+    <div v-if="loading || items.length > 0" v-loading="loading" class="candidate-list">
       <div v-for="c in items" :key="c.id" class="candidate-card">
         <div class="candidate-head">
           <span class="candidate-title">{{ c.draftTitle || c.aiTitle || '(无标题)' }}</span>
-          <el-tag :type="statusType(c.status)" size="small">{{ c.status }}</el-tag>
+          <el-tag :type="statusType(c.status)" size="small">{{ statusText(c.status) }}</el-tag>
         </div>
         <div class="candidate-meta">
           任务 #{{ c.extractionTaskId }} · 候选 #{{ c.id }}
-          <a
+          <button
             v-if="c.status === 'CONFIRMED' && c.confirmedItemId"
+            type="button"
+            class="item-link"
             @click="goItem(c.confirmedItemId)"
           >
             → 知识条目 #{{ c.confirmedItemId }}
-          </a>
+          </button>
         </div>
         <div class="candidate-actions">
           <el-button size="small" @click="openDrawer(c)"> 查看/编辑 </el-button>
@@ -224,18 +245,26 @@ onMounted(async () => {
             size="small"
             type="danger"
             plain
+            :loading="busyActionId === c.id"
+            :disabled="busyActionId !== null && busyActionId !== c.id"
             @click="rejectRow(c)"
           >
             拒绝
           </el-button>
-          <el-button v-if="c.status === 'REJECTED'" size="small" @click="restoreRow(c)">
+          <el-button
+            v-if="c.status === 'REJECTED'"
+            size="small"
+            :loading="busyActionId === c.id"
+            :disabled="busyActionId !== null && busyActionId !== c.id"
+            @click="restoreRow(c)"
+          >
             恢复
           </el-button>
         </div>
       </div>
     </div>
 
-    <div class="pagination">
+    <div v-if="items.length > 0" class="pagination">
       <el-pagination
         v-model:current-page="page"
         :page-size="pageSize"
@@ -245,7 +274,7 @@ onMounted(async () => {
       />
     </div>
 
-    <el-drawer v-model="drawerOpen" size="60%" :title="`候选 #${current?.id}`">
+    <el-drawer v-model="drawerOpen" size="min(60%, 720px)" :title="`候选 #${current?.id}`">
       <template v-if="current">
         <el-divider content-position="left">AI 原始结果（不可修改）</el-divider>
         <div class="ai-panel">
@@ -254,9 +283,9 @@ onMounted(async () => {
           <div class="ai-row ai-content">{{ current.aiContent }}</div>
           <div class="ai-row">
             <b>知识库：</b>
-            <el-tag v-for="kb in current.aiKnowledgeBaseIds" :key="kb" size="small">{{
-              kb
-            }}</el-tag>
+            <el-tag v-for="kb in current.aiKnowledgeBaseIds" :key="kb" size="small">
+              {{ kb }}
+            </el-tag>
             <el-tag v-for="t in current.aiTags" :key="t" size="small" type="info">{{ t }}</el-tag>
           </div>
           <div v-if="current.aiReason" class="ai-row"><b>理由：</b>{{ current.aiReason }}</div>
@@ -328,15 +357,7 @@ onMounted(async () => {
 
 <style scoped>
 .candidates-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 16px;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  width: 100%;
 }
 .page-header h2 {
   margin: 0;
@@ -344,17 +365,15 @@ onMounted(async () => {
 }
 .header-controls {
   display: flex;
-  gap: 8px;
+  gap: 16px;
   align-items: center;
 }
-.empty-hint {
-  margin-top: 24px;
-}
 .candidate-card {
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
+  border: 1px solid var(--kf-ink);
+  border-radius: var(--kf-radius-lg);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  background: var(--kf-white);
 }
 .candidate-head {
   display: flex;
@@ -375,6 +394,21 @@ onMounted(async () => {
   color: #409eff;
   cursor: pointer;
   margin-left: 8px;
+}
+.item-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  margin-left: 8px;
+  color: #409eff;
+  cursor: pointer;
+  font: inherit;
+  font-size: inherit;
+}
+.item-link:focus-visible {
+  outline: var(--kf-focus-ring);
+  outline-offset: 2px;
 }
 .candidate-actions {
   display: flex;

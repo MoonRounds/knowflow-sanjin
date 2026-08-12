@@ -34,4 +34,9 @@ function handleCreateTopic() {
 .page {
   min-width: 0;
 }
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+}
 </style>

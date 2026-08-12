@@ -94,7 +94,7 @@ const contextMeterWidth = computed(
   color: var(--kf-paper);
   padding: 15px;
   border-radius: 17px;
-  box-shadow: 4px 4px 0 var(--kf-yellow);
+  box-shadow: 4px 4px 0 var(--kf-red);
 }
 .memory-panel .inspector-head h3 {
   color: #fff;

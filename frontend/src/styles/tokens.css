@@ -23,6 +23,7 @@
   /* ---- color: accent ---- */
   --kf-hot: #ff5a36;
   --kf-hot-soft: #ffe0d7;
+  --kf-red: #c9362b;
   --kf-yellow: #f2cf4a;
   --kf-green: #264f3d;
   --kf-green-soft: #dbe8d7;
@@ -59,10 +60,23 @@
   /* ---- shadow ---- */
   --kf-shadow-card: 0 20px 60px rgba(45, 36, 23, 0.09);
   --kf-shadow-hard: 4px 4px 0 var(--kf-ink);
+  --kf-shadow-accent: 4px 4px 0 var(--kf-red);
 
   /* ---- layout ---- */
-  --kf-rail-w: 176px;
-  --kf-mast-h: 86px;
+  --kf-rail-w: 152px;
+  --kf-mast-h: 64px;
+
+  /* ---- interaction: touch / motion ---- */
+  --kf-touch-min: 44px;
+  --kf-duration-fast: 150ms;
+  --kf-duration-base: 200ms;
+  --kf-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --kf-focus-ring: 2px solid var(--kf-hot);
+
+  /* ---- breakpoints ---- */
+  --kf-bp-wide: 1280px;
+  --kf-bp-desktop: 1024px;
+  --kf-bp-narrow: 768px;
 
   /* ---- Element Plus 主色融入纸感（覆盖 --el-color-primary 及其浅深档） ---- */
   --el-color-primary: var(--kf-ink);
@@ -75,4 +89,168 @@
   --el-color-success: var(--kf-green);
   --el-color-warning: #b8822a;
   --el-color-danger: var(--kf-hot);
+}
+
+/* ---- 全局交互覆盖：触控目标、焦点可见、减少动效 ---- */
+:root {
+  /* 桌面主 + 基础收窄：默认按钮 40px 高，触控 <44px 但观感更协调；窄屏强制 44px */
+  --el-component-size: 40px;
+  --el-component-size-small: 36px;
+}
+
+button,
+[role='button'],
+a.el-button,
+.el-pagination button,
+.el-pagination .btn-prev,
+.el-pagination .btn-next {
+  min-height: var(--kf-touch-min);
+}
+
+:where(button, [role='button'], a.el-button, .el-pagination button):focus-visible {
+  outline: var(--kf-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---- Element Plus 表格纸感化：纸色底、墨线、圆角、去斑马纹 ---- */
+:root {
+  --el-table-border-color: var(--kf-line);
+  --el-table-header-text-color: var(--kf-ink);
+  --el-table-header-bg-color: var(--kf-paper-2);
+  --el-table-tr-bg-color: var(--kf-white);
+  --el-table-row-hover-bg-color: var(--kf-paper-2);
+  --el-table-text-color: var(--kf-ink);
+}
+
+.el-table {
+  border: 1px solid var(--kf-ink);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 3px 3px 0 rgba(25, 24, 21, 0.08);
+  font-weight: 600;
+}
+.el-table th.el-table__cell {
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  background: var(--kf-paper-2);
+}
+.el-table .el-table__inner-wrapper::before {
+  display: none; /* 去掉默认底边线，用外层描边代替 */
+}
+.el-table .el-table__header th.el-table__cell {
+  background: var(--kf-paper-2);
+  color: var(--kf-ink);
+}
+
+/* ---- Element Plus 分页纸感化：墨线圆角胶囊 ---- */
+.el-pagination {
+  gap: 4px;
+}
+.el-pagination button,
+.el-pagination .el-pager li {
+  min-width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--kf-line);
+  background: var(--kf-white);
+  color: var(--kf-ink);
+  font-weight: 800;
+}
+.el-pagination .el-pager li.is-active {
+  background: var(--kf-ink);
+  border-color: var(--kf-ink);
+  color: var(--kf-paper);
+  box-shadow: 2px 2px 0 var(--kf-red);
+}
+.el-pagination button:disabled {
+  background: var(--kf-paper);
+  color: var(--kf-muted);
+}
+
+/* ---- 圆润控件：按钮、分段筛选、选择框保持同一套纸感语言 ---- */
+.el-button {
+  min-height: var(--kf-touch-min);
+  border-radius: var(--kf-radius-md);
+  padding-inline: 18px;
+  font-weight: 800;
+}
+.el-radio-group {
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.el-radio-button__inner {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: 20px;
+  border: 1px solid var(--kf-line) !important;
+  border-radius: var(--kf-radius-md) !important;
+  background: var(--kf-white);
+  box-shadow: none !important;
+  font-weight: 800;
+}
+.el-radio-button.is-active .el-radio-button__inner {
+  background: var(--kf-ink);
+  border-color: var(--kf-ink) !important;
+  box-shadow: 0 3px 0 var(--kf-red) !important;
+  color: var(--kf-paper);
+}
+.el-select__wrapper,
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: var(--kf-radius-md);
+}
+
+/* ---- 一级列表页模板：知识库与待沉淀共享宽度、页头和窄屏行为 ---- */
+.kf-list-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.kf-list-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.kf-list-page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .kf-list-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .kf-list-page-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .kf-list-page-actions .el-radio-group {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

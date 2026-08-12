@@ -10,7 +10,7 @@ defineProps<{ focus: FlowData['focus'] }>()
     <div class="eyebrow">{{ focus.eyebrow }}</div>
     <h2>{{ focus.title }}</h2>
     <p>{{ focus.description }}</p>
-    <div class="focus-meta">
+    <div v-if="focus.metrics.length" class="focus-meta">
       <span v-for="m in focus.metrics" :key="m.label">
         <b>{{ m.value }}</b> {{ m.label }}
       </span>
@@ -24,7 +24,7 @@ defineProps<{ focus: FlowData['focus'] }>()
   border-top: 5px solid var(--kf-ink);
   padding-top: 17px;
   position: relative;
-  min-height: 210px;
+  min-height: 260px;
 }
 .focus::after {
   content: '01';
