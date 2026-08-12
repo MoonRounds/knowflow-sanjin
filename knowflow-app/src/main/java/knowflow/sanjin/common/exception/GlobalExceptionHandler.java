@@ -41,6 +41,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -373,6 +374,16 @@ public class GlobalExceptionHandler {
             .reduce((left, right) -> left + "; " + right)
             .orElse("Validation failed");
     return problem(HttpStatus.BAD_REQUEST, "Validation error", detail, ErrorCode.VALIDATION_ERROR);
+  }
+
+  @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+  public ResponseEntity<ProblemDetail> handleUnsupportedMediaType(
+      HttpMediaTypeNotSupportedException ex) {
+    return problem(
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+        "Unsupported media type",
+        "Request Content-Type is not supported.",
+        ErrorCode.UNSUPPORTED_MEDIA_TYPE);
   }
 
   @ExceptionHandler(Exception.class)

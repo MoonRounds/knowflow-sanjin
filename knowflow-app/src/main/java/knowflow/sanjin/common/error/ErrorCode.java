@@ -10,6 +10,7 @@ public final class ErrorCode {
   public static final String VALIDATION_ERROR = "校验失败";
   public static final String INTERNAL_ERROR = "内部错误";
   public static final String IF_MATCH_REQUIRED = "缺少乐观锁版本";
+  public static final String UNSUPPORTED_MEDIA_TYPE = "不支持的媒体类型";
 
   // ---- KnowledgeBase ----
   public static final String KNOWLEDGE_BASE_NOT_FOUND = "知识库不存在";
