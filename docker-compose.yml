@@ -6,28 +6,12 @@ services:
     ports:
       - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-knowflow}
-      MYSQL_USER: ${MYSQL_USER:-knowflow}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
     volumes:
-      - mysql-data:/var/lib/mysql
+      - /Users/sanjin/docker/mysql/data:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: knowflow-redis
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,7 +27,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+      - /Users/sanjin/docker/rabbitmq/data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -58,15 +42,62 @@ services:
       - "127.0.0.1:${QDRANT_PORT:-6333}:6333"
       - "127.0.0.1:${QDRANT_GRPC_PORT:-6334}:6334"
     volumes:
-      - qdrant-data:/qdrant/storage
+      - /Users/sanjin/docker/qdrant/storage:/qdrant/storage
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:6333/ || exit 1"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-volumes:
-  mysql-data:
-  redis-data:
-  rabbitmq-data:
-  qdrant-data:
+  app:
+    build:
+      context: .
+      dockerfile: knowflow-app/Dockerfile
+    container_name: knowflow-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    environment:
+      SERVER_PORT: 8080
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-knowflow}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-root}
+      REDIS_HOST: host.docker.internal
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-knowflow_dense_v1}
+      KNOWFLOW_EMBEDDING_BASE_URL: ${KNOWFLOW_EMBEDDING_BASE_URL:-}
+      KNOWFLOW_EMBEDDING_API_KEY: ${KNOWFLOW_EMBEDDING_API_KEY:-}
+      KNOWFLOW_EMBEDDING_MODEL: ${KNOWFLOW_EMBEDDING_MODEL:-text-embedding-v4}
+      KNOWFLOW_EMBEDDING_DIMENSIONS: ${KNOWFLOW_EMBEDDING_DIMENSIONS:-1024}
+      KNOWFLOW_SECURITY_MASTER_KEY: ${KNOWFLOW_SECURITY_MASTER_KEY:-}
+      KNOWFLOW_SECURITY_ENCRYPTION_VERSION: ${KNOWFLOW_SECURITY_ENCRYPTION_VERSION:-1}
+      KNOWFLOW_DOCUMENT_STORAGE_ROOT: /var/lib/knowflow/files
+    volumes:
+      - /Users/sanjin/docker/knowflow/files:/var/lib/knowflow/files
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: knowflow-frontend
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:80"

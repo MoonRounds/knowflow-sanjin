@@ -62,11 +62,18 @@ Desktop.ini
 # Test output
 hs_err_pid*
 replay_pid*
+test-results/
+frontend/test-results/
+frontend/playwright-report/
+**/__pycache__/
+*.pyc
 
 # Local data directories
 data/
 knowflow-data/
 local-storage/
+.e2e/
+.docker-data/
 
 # Docker volumes
 volumes/

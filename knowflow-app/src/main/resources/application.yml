@@ -9,8 +9,8 @@ spring:
     name: knowflow-app
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:knowflow}?useUnicode=true&serverTimezone=UTC
-    username: ${MYSQL_USER:knowflow}
-    password: ${MYSQL_PASSWORD:change-me}
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
@@ -64,7 +64,7 @@ knowflow:
   embedding:
     base-url: ${KNOWFLOW_EMBEDDING_BASE_URL:}
     api-key: ${KNOWFLOW_EMBEDDING_API_KEY:}
-    model: ${KNOWFLOW_EMBEDDING_MODEL:qwen3.7-text-embedding}
+    model: ${KNOWFLOW_EMBEDDING_MODEL:text-embedding-v4}
     dimensions: ${KNOWFLOW_EMBEDDING_DIMENSIONS:1024}
     connect-timeout-millis: ${KNOWFLOW_EMBEDDING_CONNECT_TIMEOUT:10000}
     read-timeout-millis: ${KNOWFLOW_EMBEDDING_READ_TIMEOUT:60000}

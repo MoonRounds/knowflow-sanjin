@@ -1,0 +1,13 @@
+spring:
+  config:
+    activate:
+      on-profile: e2e
+
+management:
+  info:
+    env:
+      enabled: true
+
+info:
+  knowflow:
+    e2e: true
