@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="KnowFlow — 个人 AI 学习与知识沉淀系统">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#191815"/>
+      <stop offset="0.55" stop-color="#231e1a"/>
+      <stop offset="1" stop-color="#2b2220"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5a36"/>
+      <stop offset="1" stop-color="#c9362b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.85" cy="0.15" r="0.65">
+      <stop offset="0" stop-color="#ff5a36" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#ff5a36" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="stream" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5a36" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#ff5a36" stop-opacity="0.85"/>
+      <stop offset="0.7" stop-color="#f2cf4a" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#8ca7e8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="320" fill="url(#bg)"/>
+  <rect width="1200" height="320" fill="url(#glow)"/>
+
+  <!-- knowledge stream -->
+  <path d="M 60 262 C 300 224, 500 300, 760 252 S 1060 200, 1200 248"
+        fill="none" stroke="url(#stream)" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+  <circle cx="250" cy="252" r="4.5" fill="#ff5a36"/>
+  <circle cx="520" cy="276" r="4.5" fill="#f2cf4a"/>
+  <circle cx="880" cy="240" r="4.5" fill="#8ca7e8"/>
+
+  <!-- eyebrow -->
+  <text x="72" y="112" font-family="'PingFang SC','Noto Sans SC','Segoe UI',sans-serif"
+        font-size="15" font-weight="600" letter-spacing="5" fill="#a89f90">个人 AI 学习 · 知识沉淀 · RAG 检索</text>
+
+  <!-- title -->
+  <text x="72" y="202" font-family="'PingFang SC','Noto Sans SC','Segoe UI',sans-serif"
+        font-size="86" font-weight="800" fill="#fffdf8">Know<tspan fill="#ff5a36">Flow</tspan></text>
+
+  <!-- slogan -->
+  <text x="72" y="252" font-family="'PingFang SC','Noto Sans SC','Segoe UI',sans-serif"
+        font-size="24" font-weight="500" fill="#d8cfc0">把 AI 对话，沉淀成你的长期知识库</text>
+</svg>
