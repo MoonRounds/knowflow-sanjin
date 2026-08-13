@@ -65,7 +65,7 @@ knowflow-sanjin/
 
 - `/chat`
 - `/knowledge-bases`
-- `/knowledge-items/:id`
+- `/documents/:id`
 - `/candidates`
 - `/processing`
 - `/model-settings`
@@ -147,19 +147,20 @@ SSE 最小事件：
 - 同一 Owner 下 KnowledgeBase 规范化名称唯一。
 - KnowledgeBase 可禁用；禁用不删除 Item 或向量，但不进入 Router。
 - 删除 KnowledgeBase 不级联删除 Item；KnowledgeBase 下仍有活动 Item 时阻止删除（见 ADR 0007）。
-- KnowledgeItem 必须归属于且仅归属于一个 KnowledgeBase（kb_id 必填）才能进入索引生命周期。
-- KnowledgeItem 与 KnowledgeBase 一对多（单归属）；跨主题语义由 Tag 表达（见 ADR 0007）。
+- KnowledgeDocument 是知识内容的统一正式概念；三层结构为 KnowledgeBase → KnowledgeDocument → KnowledgeDocumentChunk（见 ADR 0009）。
+- KnowledgeDocument 必须归属于且仅归属于一个 KnowledgeBase（kb_id 必填）才能进入索引生命周期。
+- KnowledgeDocument 与 KnowledgeBase 一对多（单归属）；跨主题语义由 Tag 表达（见 ADR 0007）。
 - Tag 是 Owner 级轻量实体，与 Item 多对多；Tag 可选并规范化去重。
 - SourceType：`AI_CONVERSATION / MANUAL_NOTE / UPLOAD_FILE`。
 - 规范正文统一保存 UTF-8 Markdown。
 - Manual/Candidate Item 正文可编辑；Upload Item 正文只读。
 - Manual Note 无 Draft；保存即创建 ACTIVE Item 和 Index Task。
 - 已索引 Item 可修改，并区分 `contentVersion` 与 `indexedVersion`。
-- Item lifecycle：`ACTIVE / DELETED`（两态软删，见 ADR 0003）。删除在事务内置 `DELETED` 并创建异步清理任务；Qdrant 清理为最终一致，检索侧已不可见。
-- Item index status：`PENDING / PROCESSING / INDEXED / FAILED`。
+- Document lifecycle：`ACTIVE / DELETED`（两态软删，见 ADR 0003）。删除在事务内置 `DELETED` 并创建异步清理任务；Qdrant 清理为最终一致，检索侧已不可见。
+- Document index status：`PENDING / PROCESSING / INDEXED / FAILED`。
 - 旧索引在新版本成功前继续服务；新版本失败时旧索引仍可用。
-- 支持单 Item 强制 Reindex。
-- 删除 Item 异步清理 Qdrant；检索后必须校验 MySQL 状态。
+- 支持单 Document 强制 Reindex。
+- 删除 Document 异步清理 Qdrant；检索后必须校验 MySQL 状态。
 - 用户可编辑核心记录使用 rowVersion 乐观锁。
 
 ## 11. Candidate 与 Extraction
@@ -212,7 +213,11 @@ SSE 最小事件：
 - `retrievedSources` 与 `citedSources` 分离。
 - 模型使用 `[S1]` 等编号；后端只接受本次检索集合内的 Citation。
 - Generation Trace 保存 Router 结果、retrievalQuery、Chunk rank/score、cited 标识和 Prompt/Profile 版本，不默认保存完整 Prompt。
-- V1 不提供手动知识库覆盖或独立语义搜索页面。
+- Conversation 可绑定 0～50 个 KnowledgeBase；空集合走自动 Router，非空集合为手动范围（见 ADR 0009）。
+- 手动范围仍由 Router 判断是否需要 RAG，且最多选择 3 个库；不得检索绑定范围外的库。
+- 发送与重新生成在 Generation 准备事务中冻结绑定，之后的修改只影响下一轮。
+- 手动绑定全部失效或不可检索时标记 `RAG_NOT_AVAILABLE`，不得静默回退自动 Router。
+- V1.5 不提供独立语义搜索页面。
 
 ## 14. Document 与文件
 

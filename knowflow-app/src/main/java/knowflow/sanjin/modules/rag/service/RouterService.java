@@ -43,6 +43,8 @@ public class RouterService {
   private static final Logger log = LoggerFactory.getLogger(RouterService.class);
 
   private static final int MAX_KNOWLEDGE_BASES = 3;
+  public static final String MODE_AUTO = "AUTO";
+  public static final String MODE_MANUAL = "MANUAL";
 
   private final RagProperties properties;
   private final CurrentOwnerProvider currentOwnerProvider;
@@ -74,9 +76,20 @@ public class RouterService {
    * result} 为 null，由调用方标记 {@code NOT_AVAILABLE} 或 {@code DEGRADED} 并跳过检索。
    */
   public RouterOutcome route(Long conversationId, String userQuestion) {
-    List<RoutableKnowledgeBase> catalog = buildCatalog();
+    return route(conversationId, userQuestion, List.of());
+  }
+
+  /** 手动绑定非空时只向 Router 暴露该范围；空集合保持原 AUTO 行为。 */
+  public RouterOutcome route(
+      Long conversationId, String userQuestion, List<Long> boundKnowledgeBaseIds) {
+    boolean manual = boundKnowledgeBaseIds != null && !boundKnowledgeBaseIds.isEmpty();
+    String mode = manual ? MODE_MANUAL : MODE_AUTO;
+    List<RoutableKnowledgeBase> catalog =
+        manual ? buildManualCatalog(boundKnowledgeBaseIds) : buildAutoCatalog();
     if (catalog.isEmpty()) {
-      return new RouterOutcome(null, RouterTrace.catalogOnly(catalog));
+      RouterTrace trace = RouterTrace.catalogOnly(catalog);
+      trace.setMode(mode);
+      return new RouterOutcome(null, trace);
     }
 
     ModelConfigRevision utilityRevision;
@@ -84,10 +97,13 @@ public class RouterService {
       utilityRevision = resolveUtilityRevision();
     } catch (RuntimeException e) {
       // Utility 未设置/被禁用/未通过能力测试：跳过调用，普通回答 + NOT_AVAILABLE
-      return new RouterOutcome(null, RouterTrace.failed(catalog, "utility-unavailable"));
+      RouterTrace trace = RouterTrace.failed(catalog, "utility-unavailable");
+      trace.setMode(mode);
+      return new RouterOutcome(null, trace);
     }
 
     RouterTrace trace = new RouterTrace();
+    trace.setMode(mode);
     trace.setCatalog(catalog);
     trace.setRouterCalled(true);
 
@@ -130,14 +146,29 @@ public class RouterService {
   }
 
   /** 构建「当前 owner 下 enabled 且至少有一个可检索 Document」的 KnowledgeBase 目录，按名称排序后截断到上限。 */
-  private List<RoutableKnowledgeBase> buildCatalog() {
+  private List<RoutableKnowledgeBase> buildAutoCatalog() {
+    return buildCatalog(null, true);
+  }
+
+  private List<RoutableKnowledgeBase> buildManualCatalog(List<Long> boundKnowledgeBaseIds) {
+    return buildCatalog(new LinkedHashSet<>(boundKnowledgeBaseIds), false);
+  }
+
+  private List<RoutableKnowledgeBase> buildCatalog(Set<Long> allowedIds, boolean applyLimit) {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     List<KnowledgeBase> enabled =
         knowledgeBaseMapper.selectList(
             new LambdaQueryWrapper<KnowledgeBase>()
                 .eq(KnowledgeBase::getOwnerId, ownerId)
                 .eq(KnowledgeBase::getDeleted, false)
-                .eq(KnowledgeBase::getEnabled, true));
+                .eq(KnowledgeBase::getEnabled, true)
+                .in(allowedIds != null && !allowedIds.isEmpty(), KnowledgeBase::getId, allowedIds));
+    if (enabled.isEmpty()) {
+      return List.of();
+    }
+    if (allowedIds != null) {
+      enabled = enabled.stream().filter(kb -> allowedIds.contains(kb.getId())).toList();
+    }
     if (enabled.isEmpty()) {
       return List.of();
     }
@@ -170,6 +201,9 @@ public class RouterService {
           }
         });
     catalog.sort(Comparator.comparing(RoutableKnowledgeBase::getName));
+    if (!applyLimit) {
+      return catalog;
+    }
     int limit = Math.max(1, properties.getCatalogLimit());
     return catalog.size() > limit ? new ArrayList<>(catalog.subList(0, limit)) : catalog;
   }

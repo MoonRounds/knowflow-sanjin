@@ -134,6 +134,12 @@
                     "id": {
                         "type": "string"
                     },
+                    "knowledgeBaseIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
                     "rowVersion": {
                         "format": "int32",
                         "type": "integer"
@@ -150,6 +156,12 @@
             },
             "CreateConversationRequest": {
                 "properties": {
+                    "knowledgeBaseIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
                     "title": {
                         "maxLength": 200,
                         "minLength": 0,
@@ -1090,6 +1102,12 @@
                 "properties": {
                     "defaultModelConfigId": {
                         "type": "string"
+                    },
+                    "knowledgeBaseIds": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
                     },
                     "rowVersion": {
                         "format": "int64",

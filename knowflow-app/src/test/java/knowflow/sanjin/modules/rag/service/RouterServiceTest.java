@@ -149,6 +149,7 @@ class RouterServiceTest {
     assertThat(outcome.available()).isFalse();
     assertThat(outcome.trace().isRouterCalled()).isFalse();
     assertThat(outcome.trace().getCatalog()).isEmpty();
+    assertThat(outcome.trace().getMode()).isEqualTo(RouterService.MODE_AUTO);
   }
 
   @Test
@@ -265,6 +266,35 @@ class RouterServiceTest {
 
     assertThat(outcome.trace().getCatalog()).hasSize(2);
     assertThat(outcome.available()).isTrue();
+  }
+
+  @Test
+  @DisplayName("manual mode keeps all bound routable KBs and rejects out-of-scope output")
+  void shouldConstrainManualCatalogWithoutAutoLimit() {
+    properties.setCatalogLimit(1);
+    stubCatalog(1L, 2L, 3L);
+    stubRouterJson(routerJson(true, "3"), routerJson(true, "2"));
+
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of(1L, 2L));
+
+    assertThat(outcome.trace().getMode()).isEqualTo(RouterService.MODE_MANUAL);
+    assertThat(outcome.trace().getCatalog())
+        .extracting(RoutableKnowledgeBase::getId)
+        .containsExactly(1L, 2L);
+    assertThat(outcome.trace().isFixed()).isTrue();
+    assertThat(outcome.result().getKnowledgeBaseIds()).containsExactly("2");
+  }
+
+  @Test
+  @DisplayName("manual mode with no currently routable binding stays manual and unavailable")
+  void shouldStayManualWhenAllBindingsUnavailable() {
+    when(kbMapper.selectList(any())).thenReturn(List.of());
+
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of(99L));
+
+    assertThat(outcome.available()).isFalse();
+    assertThat(outcome.trace().getMode()).isEqualTo(RouterService.MODE_MANUAL);
+    assertThat(outcome.trace().getCatalog()).isEmpty();
   }
 
   @Test

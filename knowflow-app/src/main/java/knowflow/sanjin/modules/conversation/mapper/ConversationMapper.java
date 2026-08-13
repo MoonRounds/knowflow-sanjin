@@ -12,7 +12,10 @@ public interface ConversationMapper extends BaseMapper<Conversation> {
 
   /** 带行锁读取 conversation，用于生成事务串行化 active slot 与 sequence 分配。 */
   @Select(
-      "SELECT * FROM conversation WHERE id = #{conversationId} AND owner_id = #{ownerId} AND deleted = 0 FOR UPDATE")
+      "SELECT id, owner_id, title, default_model_config_id, "
+          + "knowledge_base_ids AS knowledge_base_ids_json, active_generation_message_id, "
+          + "deleted, row_version, created_at, updated_at FROM conversation "
+          + "WHERE id = #{conversationId} AND owner_id = #{ownerId} AND deleted = 0 FOR UPDATE")
   Conversation selectConversationForUpdate(
       @Param("conversationId") Long conversationId, @Param("ownerId") Long ownerId);
 }

@@ -644,6 +644,7 @@ export interface components {
             createdAt?: string;
             defaultModelConfigId?: string;
             id?: string;
+            knowledgeBaseIds?: string[];
             /** Format: int32 */
             rowVersion?: number;
             title?: string;
@@ -651,6 +652,7 @@ export interface components {
             updatedAt?: string;
         };
         CreateConversationRequest: {
+            knowledgeBaseIds?: string[];
             title?: string;
         };
         CreateDocumentRequest: {
@@ -951,6 +953,7 @@ export interface components {
         };
         UpdateConversationRequest: {
             defaultModelConfigId?: string;
+            knowledgeBaseIds?: string[];
             /** Format: int64 */
             rowVersion?: number;
             title?: string;

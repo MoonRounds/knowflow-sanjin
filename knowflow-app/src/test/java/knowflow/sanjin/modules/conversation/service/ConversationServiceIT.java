@@ -11,7 +11,9 @@ import knowflow.sanjin.modules.conversation.entity.Conversation;
 import knowflow.sanjin.modules.conversation.entity.GenerationTrace;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
 import knowflow.sanjin.modules.conversation.exception.ConversationExtractionInProgressException;
+import knowflow.sanjin.modules.conversation.exception.ConversationKnowledgeBaseDisabledException;
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
+import knowflow.sanjin.modules.conversation.exception.ConversationVersionConflictException;
 import knowflow.sanjin.modules.conversation.mapper.ChatMessageMapper;
 import knowflow.sanjin.modules.conversation.mapper.ConversationMapper;
 import knowflow.sanjin.modules.conversation.mapper.GenerationTraceMapper;
@@ -22,6 +24,7 @@ import knowflow.sanjin.modules.extraction.mapper.KnowledgeCandidateMapper;
 import knowflow.sanjin.modules.extraction.mapper.KnowledgeExtractionTaskMapper;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
 import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
+import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.modelconfig.dto.CreateModelConfigRequest;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfig;
 import knowflow.sanjin.modules.modelconfig.service.ModelConfigService;
@@ -323,7 +326,7 @@ class ConversationServiceIT extends MySQLTestBase {
     stale.setTitle("stale-title");
     stale.setRowVersion(0L); // 过期版本
     assertThatThrownBy(() -> service.update(c.getId(), stale))
-        .isInstanceOf(org.springframework.dao.OptimisticLockingFailureException.class);
+        .isInstanceOf(ConversationVersionConflictException.class);
   }
 
   @Test
@@ -341,6 +344,48 @@ class ConversationServiceIT extends MySQLTestBase {
     clear.setDefaultModelConfigId(""); // 空串 = 清空会话级覆盖，回到 Owner 默认
     service.update(c.getId(), clear);
     assertThat(service.getByIdAndOwner(c.getId()).getDefaultModelConfigId()).isNull();
+  }
+
+  @Test
+  @DisplayName("should normalize, persist and clear conversation knowledge base bindings")
+  void shouldManageKnowledgeBaseBindings() {
+    CreateKnowledgeBaseRequest firstRequest = new CreateKnowledgeBaseRequest();
+    firstRequest.setName("Binding KB A " + System.nanoTime());
+    var first = knowledgeBaseService.create(firstRequest);
+    CreateKnowledgeBaseRequest secondRequest = new CreateKnowledgeBaseRequest();
+    secondRequest.setName("Binding KB B " + System.nanoTime());
+    var second = knowledgeBaseService.create(secondRequest);
+
+    CreateConversationRequest create = new CreateConversationRequest();
+    create.setKnowledgeBaseIds(
+        List.of(second.getId().toString(), first.getId().toString(), second.getId().toString()));
+    Conversation conversation = service.create(create);
+    assertThat(ConversationKnowledgeBaseIds.decode(conversation.getKnowledgeBaseIdsJson()))
+        .containsExactly(first.getId(), second.getId());
+
+    UpdateConversationRequest clear = new UpdateConversationRequest();
+    clear.setKnowledgeBaseIds(List.of());
+    clear.setRowVersion(conversation.getRowVersion().longValue());
+    Conversation cleared = service.update(conversation.getId(), clear);
+    assertThat(cleared.getKnowledgeBaseIdsJson()).isNull();
+    assertThat(cleared.getRowVersion()).isEqualTo(conversation.getRowVersion() + 1);
+
+    assertThatThrownBy(() -> service.update(conversation.getId(), clear))
+        .isInstanceOf(ConversationVersionConflictException.class);
+  }
+
+  @Test
+  @DisplayName("should reject a disabled knowledge base binding")
+  void shouldRejectDisabledBinding() {
+    CreateKnowledgeBaseRequest kbRequest = new CreateKnowledgeBaseRequest();
+    kbRequest.setName("Disabled Binding " + System.nanoTime());
+    var kb = knowledgeBaseService.create(kbRequest);
+    knowledgeBaseService.disable(kb.getId(), kb.getRowVersion());
+
+    CreateConversationRequest request = new CreateConversationRequest();
+    request.setKnowledgeBaseIds(List.of(kb.getId().toString()));
+    assertThatThrownBy(() -> service.create(request))
+        .isInstanceOf(ConversationKnowledgeBaseDisabledException.class);
   }
 
   private CreateModelConfigRequest modelConfigRequest(String name) {

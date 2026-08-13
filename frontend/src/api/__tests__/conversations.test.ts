@@ -57,6 +57,22 @@ describe('conversations api client', () => {
     expect(created.id).toBe('2')
   })
 
+  it('sends manual knowledge base bindings on create and versioned update', async () => {
+    stubFetchJson(201, { id: '2', title: 'new', knowledgeBaseIds: ['10'] })
+    await createConversation({ knowledgeBaseIds: ['10'] })
+    expect(fetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/conversations'),
+      expect.objectContaining({ body: JSON.stringify({ knowledgeBaseIds: ['10'] }) }),
+    )
+
+    stubFetchJson(200, { id: '2', knowledgeBaseIds: [], rowVersion: 2 })
+    await updateConversation('2', { knowledgeBaseIds: [], rowVersion: 1 })
+    expect(fetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/conversations/2'),
+      expect.objectContaining({ body: JSON.stringify({ knowledgeBaseIds: [], rowVersion: 1 }) }),
+    )
+  })
+
   it('gets and updates a conversation', async () => {
     stubFetchJson(200, { id: '3', title: 'x' })
     await getConversation('3')

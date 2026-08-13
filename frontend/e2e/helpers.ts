@@ -105,44 +105,48 @@ export async function createKnowledgeBaseViaUI(page: Page, name: string): Promis
 }
 
 /**
- * 通过正式 Settings 页面创建并验证模型，然后设置为默认 Chat 与 Utility。
+ * 通过正式 Settings 页面创建并验证独立的 Chat/Utility 模型，再分别绑定角色。
  * API 只读取最终 ID 和 Owner settings，用于稳定断言。
  */
 export async function configureModelViaUI(page: Page, displayName: string): Promise<PreparedModel> {
   await page.goto('/model-settings')
-  await page.getByRole('button', { name: '新建模型配置' }).click()
-  const dialog = page.locator('.el-dialog').filter({ hasText: '新建模型配置' })
-  await dialog.locator('input[placeholder="例如 DeepSeek Chat"]').fill(displayName)
-  await dialog.locator('input[placeholder="例如 DeepSeek"]').fill('stub')
-  await dialog
-    .locator('input[placeholder="https://api.deepseek.com"]')
-    .fill('http://127.0.0.1:18082/v1')
-  await dialog.locator('input[placeholder="deepseek-chat"]').fill('stub-model')
-  await dialog.locator('input[type="password"]').fill('test-key')
-  await dialog.getByRole('button', { name: '保存' }).click()
-  await expect(dialog).toBeHidden()
+  const utilityDisplayName = `${displayName}-utility`
+  const createConfig = async (name: string) => {
+    await page.getByRole('button', { name: '新建模型配置' }).click()
+    const dialog = page.locator('.el-dialog').filter({ hasText: '新建模型配置' })
+    await dialog.locator('input[placeholder="例如 DeepSeek Chat"]').fill(name)
+    await dialog.locator('input[placeholder="例如 DeepSeek"]').fill('stub')
+    await dialog
+      .locator('input[placeholder="https://api.deepseek.com"]')
+      .fill('http://127.0.0.1:18082/v1')
+    await dialog.locator('input[placeholder="deepseek-chat"]').fill('stub-model')
+    await dialog.locator('input[type="password"]').fill('test-key')
+    await dialog.getByRole('button', { name: '保存' }).click()
+    await expect(dialog).toBeHidden()
+    const card = page
+      .getByRole('region', { name: '模型配置列表' })
+      .getByRole('article')
+      .filter({ has: page.getByRole('heading', { name, exact: true }) })
+    await expect(card).toBeVisible()
+    return card
+  }
 
-  const card = page
-    .getByRole('region', { name: '模型配置列表' })
-    .getByRole('article')
-    .filter({ has: page.getByRole('heading', { name: displayName, exact: true }) })
-  await expect(card).toBeVisible()
-  await card.getByRole('button', { name: '测试连接' }).click()
+  const chatCard = await createConfig(displayName)
+  await chatCard.getByRole('button', { name: '测试连接' }).click()
   await expect(page.locator('.el-message').filter({ hasText: '连接测试通过' })).toBeVisible({
     timeout: 30_000,
   })
-  await card.getByRole('button', { name: '测试 Utility' }).click()
+  const utilityCard = await createConfig(utilityDisplayName)
+  await utilityCard.getByRole('button', { name: '测试 Utility' }).click()
   await expect(page.locator('.el-message').filter({ hasText: 'Utility 能力测试通过' })).toBeVisible(
     {
       timeout: 30_000,
     },
   )
-  // 先设 Utility：当 Owner settings 为空时，「设为默认」会把同一配置同时回填为
-  // Utility，随后 Utility 按钮按产品规则禁用，E2E 再点击会永久等待。
-  await card.getByRole('button', { name: '设为 Utility' }).click()
-  await expect(card.getByText('Utility', { exact: true })).toBeVisible()
-  await card.getByRole('button', { name: '设为默认' }).click()
-  await expect(card.getByText('默认 Chat', { exact: true })).toBeVisible()
+  await utilityCard.getByRole('button', { name: '设为 Utility' }).click()
+  await expect(utilityCard.getByText('Utility', { exact: true })).toBeVisible()
+  await chatCard.getByRole('button', { name: '设为默认' }).click()
+  await expect(chatCard.getByText('默认 Chat', { exact: true })).toBeVisible()
 
   const result = await page.evaluate(async (expectedName) => {
     const [configsRes, settingsRes] = await Promise.all([
@@ -151,15 +155,19 @@ export async function configureModelViaUI(page: Page, displayName: string): Prom
     ])
     const configs = await configsRes.json()
     const settings = await settingsRes.json()
-    const config = configs.find(
+    const chatConfig = configs.find(
       (item: { displayName?: string }) => item.displayName === expectedName,
     )
-    return { id: config?.id ?? '', settings }
+    const utilityConfig = configs.find(
+      (item: { displayName?: string }) => item.displayName === `${expectedName}-utility`,
+    )
+    return { chatId: chatConfig?.id ?? '', utilityId: utilityConfig?.id ?? '', settings }
   }, displayName)
-  expect(result.id, `created model id for ${displayName}`).toBeTruthy()
-  expect(result.settings.defaultChatModelConfigId).toBe(result.id)
-  expect(result.settings.utilityModelConfigId).toBe(result.id)
-  return { id: result.id, name: displayName }
+  expect(result.chatId, `created Chat model id for ${displayName}`).toBeTruthy()
+  expect(result.utilityId, `created Utility model id for ${displayName}`).toBeTruthy()
+  expect(result.settings.defaultChatModelConfigId).toBe(result.chatId)
+  expect(result.settings.utilityModelConfigId).toBe(result.utilityId)
+  return { id: result.chatId, name: displayName }
 }
 
 /** 等待一个 ProcessingTask 进入终态 SUCCEEDED/FAILED，最多 timeoutMs。 */

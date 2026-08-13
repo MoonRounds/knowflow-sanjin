@@ -16,6 +16,9 @@ public class Conversation {
 
   private Long defaultModelConfigId;
 
+  @TableField("knowledge_base_ids")
+  private String knowledgeBaseIdsJson;
+
   private Long activeGenerationMessageId;
 
   private Boolean deleted;
@@ -58,6 +61,14 @@ public class Conversation {
 
   public void setDefaultModelConfigId(Long defaultModelConfigId) {
     this.defaultModelConfigId = defaultModelConfigId;
+  }
+
+  public String getKnowledgeBaseIdsJson() {
+    return knowledgeBaseIdsJson;
+  }
+
+  public void setKnowledgeBaseIdsJson(String knowledgeBaseIdsJson) {
+    this.knowledgeBaseIdsJson = knowledgeBaseIdsJson;
   }
 
   public Long getActiveGenerationMessageId() {

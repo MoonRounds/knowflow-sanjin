@@ -148,7 +148,9 @@ public class GenerationService {
             ChatMessage current =
                 conversationService.getMessage(conversationId, currentUserMessageId);
             // RAG 上下文在流式前同步构造；失败只降级（普通生成），不终止 Generation
-            RagContext ragContext = ragContextBuilder.build(conversationId, current.getContent());
+            RagContext ragContext =
+                ragContextBuilder.build(
+                    conversationId, current.getContent(), prepared.knowledgeBaseIds());
             List<Message> promptMessages =
                 buildPrompt(conversationId, current.getContent(), ragContext);
             GenerationContext ctx =

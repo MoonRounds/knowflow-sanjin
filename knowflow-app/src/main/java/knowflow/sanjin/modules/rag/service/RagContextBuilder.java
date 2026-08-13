@@ -36,13 +36,36 @@ public class RagContextBuilder {
 
   /** 构造 RAG 上下文（流式前同步调用）。失败不抛异常，只降级标记。 */
   public RagContext build(Long conversationId, String userQuestion) {
+    return buildInternal(conversationId, userQuestion, List.of(), false);
+  }
+
+  /** 使用 Generation Tx1 冻结的绑定构造本轮 RAG 上下文。 */
+  public RagContext build(
+      Long conversationId, String userQuestion, List<Long> boundKnowledgeBaseIds) {
+    return buildInternal(conversationId, userQuestion, boundKnowledgeBaseIds, true);
+  }
+
+  private RagContext buildInternal(
+      Long conversationId,
+      String userQuestion,
+      List<Long> boundKnowledgeBaseIds,
+      boolean explicitSnapshot) {
+    String mode =
+        boundKnowledgeBaseIds != null && !boundKnowledgeBaseIds.isEmpty()
+            ? RouterService.MODE_MANUAL
+            : RouterService.MODE_AUTO;
     RouterService.RouterOutcome outcome;
     try {
-      outcome = routerService.route(conversationId, userQuestion);
+      outcome =
+          explicitSnapshot
+              ? routerService.route(conversationId, userQuestion, boundKnowledgeBaseIds)
+              : routerService.route(conversationId, userQuestion);
     } catch (RuntimeException e) {
       // Router 异常（Utility 超时/建客户端失败等）必须降级为普通生成，不能逃逸导致 slot 泄漏
       log.warn("Router failed for conversation {}, degrading: {}", conversationId, e.getMessage());
-      return degradedWithTrace(RouterTrace.failed(null, "router-exception"), null);
+      RouterTrace failed = RouterTrace.failed(null, "router-exception");
+      failed.setMode(mode);
+      return degradedWithTrace(failed, null);
     }
     if (!outcome.available()) {
       if (outcome.trace().isRouterCalled()) {
@@ -76,6 +99,7 @@ public class RagContextBuilder {
           "Retrieval failed for conversation {}, degrading: {}", conversationId, e.getMessage());
       RetrievalTrace failed = new RetrievalTrace();
       failed.setRetrievalQuery(result.getRetrievalQuery());
+      failed.setMode(mode);
       failed.setSelectedKnowledgeBaseIds(selectedKbIds);
       failed.setFailure(safeFailure(e));
       return degradedWithTrace(outcome.trace(), failed);
@@ -83,6 +107,7 @@ public class RagContextBuilder {
 
     RagContext ctx = new RagContext();
     ctx.setRouterTrace(outcome.trace());
+    retrieval.trace().setMode(mode);
     ctx.setRetrievalTrace(retrieval.trace());
     if (!retrieval.hasContext()) {
       ctx.setRagStatus(RagStatus.NO_RELEVANT_CONTEXT);

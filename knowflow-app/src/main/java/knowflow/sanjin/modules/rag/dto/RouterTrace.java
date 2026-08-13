@@ -5,6 +5,8 @@ import java.util.List;
 /** 一次 RAG 路由阶段的完整输入与结果（供 GenerationTrace 持久化，仅诊断用途）。 */
 public class RouterTrace {
 
+  private String mode;
+
   /** 提供给 Router 的可路由 KnowledgeBase 目录（仅 id/name/description）。 */
   private List<RoutableKnowledgeBase> catalog;
 
@@ -37,6 +39,14 @@ public class RouterTrace {
 
   public List<RoutableKnowledgeBase> getCatalog() {
     return catalog;
+  }
+
+  public String getMode() {
+    return mode;
+  }
+
+  public void setMode(String mode) {
+    this.mode = mode;
   }
 
   public void setCatalog(List<RoutableKnowledgeBase> catalog) {

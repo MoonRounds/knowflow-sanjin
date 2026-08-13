@@ -1,6 +1,7 @@
 package knowflow.sanjin.modules.conversation.vo;
 
 import java.time.Instant;
+import java.util.List;
 
 /** 会话 API 响应：id 为字符串；activeGenerationMessageId 非空表示有进行中的生成。 */
 public class ConversationResponse {
@@ -8,6 +9,7 @@ public class ConversationResponse {
   private String id;
   private String title;
   private String defaultModelConfigId;
+  private List<String> knowledgeBaseIds;
   private String activeGenerationMessageId;
   private Integer rowVersion;
   private Instant createdAt;
@@ -35,6 +37,14 @@ public class ConversationResponse {
 
   public void setDefaultModelConfigId(String defaultModelConfigId) {
     this.defaultModelConfigId = defaultModelConfigId;
+  }
+
+  public List<String> getKnowledgeBaseIds() {
+    return knowledgeBaseIds;
+  }
+
+  public void setKnowledgeBaseIds(List<String> knowledgeBaseIds) {
+    this.knowledgeBaseIds = knowledgeBaseIds;
   }
 
   public String getActiveGenerationMessageId() {

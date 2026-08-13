@@ -13,14 +13,18 @@ import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.entity.Conversation;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
 import knowflow.sanjin.modules.conversation.exception.ConversationExtractionInProgressException;
+import knowflow.sanjin.modules.conversation.exception.ConversationKnowledgeBaseDisabledException;
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
+import knowflow.sanjin.modules.conversation.exception.ConversationVersionConflictException;
 import knowflow.sanjin.modules.conversation.exception.MessageNotFoundException;
 import knowflow.sanjin.modules.conversation.mapper.ChatMessageMapper;
 import knowflow.sanjin.modules.conversation.mapper.ConversationCascadeMapper;
 import knowflow.sanjin.modules.conversation.mapper.ConversationMapper;
+import knowflow.sanjin.modules.knowledge.exception.KnowledgeBaseRefNotFoundException;
+import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
+import knowflow.sanjin.modules.knowledgebase.mapper.KnowledgeBaseMapper;
 import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,16 +44,19 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
   private final ChatMessageMapper chatMessageMapper;
   private final ConversationMapper conversationMapper;
   private final ConversationCascadeMapper cascadeMapper;
+  private final KnowledgeBaseMapper knowledgeBaseMapper;
 
   public ConversationService(
       CurrentOwnerProvider currentOwnerProvider,
       ChatMessageMapper chatMessageMapper,
       ConversationMapper conversationMapper,
-      ConversationCascadeMapper cascadeMapper) {
+      ConversationCascadeMapper cascadeMapper,
+      KnowledgeBaseMapper knowledgeBaseMapper) {
     this.currentOwnerProvider = currentOwnerProvider;
     this.chatMessageMapper = chatMessageMapper;
     this.conversationMapper = conversationMapper;
     this.cascadeMapper = cascadeMapper;
+    this.knowledgeBaseMapper = knowledgeBaseMapper;
   }
 
   @Transactional
@@ -63,6 +70,11 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
         requestedTitle == null || requestedTitle.isEmpty() ? TITLE_PLACEHOLDER : requestedTitle);
     c.setDeleted(false);
     c.setRowVersion(0);
+    if (request.getKnowledgeBaseIds() != null) {
+      List<Long> ids = ConversationKnowledgeBaseIds.normalizeApiIds(request.getKnowledgeBaseIds());
+      validateKnowledgeBaseIds(ownerId, ids);
+      c.setKnowledgeBaseIdsJson(ConversationKnowledgeBaseIds.encode(ids));
+    }
     save(c);
     return c;
   }
@@ -98,10 +110,45 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
   @Transactional
   public Conversation update(Long id, UpdateConversationRequest request) {
     Conversation c = getByIdAndOwnerInternal(id);
+    if (request.knowledgeBaseIdsWasSet()) {
+      if (request.getRowVersion() == null) {
+        throw new knowflow.sanjin.common.exception.PreconditionRequiredException(
+            "修改会话知识库绑定必须提供 rowVersion。");
+      }
+      if (c.getRowVersion() == null
+          || request.getRowVersion().longValue() != c.getRowVersion().longValue()) {
+        throw new ConversationVersionConflictException();
+      }
+      List<Long> ids = ConversationKnowledgeBaseIds.normalizeApiIds(request.getKnowledgeBaseIds());
+      validateKnowledgeBaseIds(c.getOwnerId(), ids);
+      LambdaUpdateWrapper<Conversation> update =
+          new LambdaUpdateWrapper<Conversation>()
+              .eq(Conversation::getId, id)
+              .eq(Conversation::getOwnerId, c.getOwnerId())
+              .eq(Conversation::getDeleted, false)
+              .eq(Conversation::getRowVersion, c.getRowVersion())
+              .set(Conversation::getKnowledgeBaseIdsJson, ConversationKnowledgeBaseIds.encode(ids))
+              .setSql("row_version = row_version + 1");
+      if (request.getTitle() != null && !request.getTitle().trim().isEmpty()) {
+        update.set(Conversation::getTitle, request.getTitle().trim());
+      }
+      if (request.getDefaultModelConfigId() != null) {
+        Long modelConfigId =
+            request.getDefaultModelConfigId().isEmpty()
+                ? null
+                : ApiValueParser.positiveId(
+                    request.getDefaultModelConfigId(), "defaultModelConfigId");
+        update.set(Conversation::getDefaultModelConfigId, modelConfigId);
+      }
+      if (conversationMapper.update(null, update) != 1) {
+        throw new ConversationVersionConflictException();
+      }
+      return getByIdAndOwnerInternal(id);
+    }
     if (request.getRowVersion() != null
         && c.getRowVersion() != null
         && request.getRowVersion().longValue() != c.getRowVersion().longValue()) {
-      throw new OptimisticLockingFailureException("Conversation version conflict: id=" + id);
+      throw new ConversationVersionConflictException();
     }
     if (request.getTitle() != null && !request.getTitle().trim().isEmpty()) {
       c.setTitle(request.getTitle().trim());
@@ -124,6 +171,29 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
     }
     updateById(c);
     return c;
+  }
+
+  private void validateKnowledgeBaseIds(long ownerId, List<Long> ids) {
+    if (ids.isEmpty()) {
+      return;
+    }
+    List<KnowledgeBase> found =
+        knowledgeBaseMapper.selectList(
+            new LambdaQueryWrapper<KnowledgeBase>()
+                .eq(KnowledgeBase::getOwnerId, ownerId)
+                .eq(KnowledgeBase::getDeleted, false)
+                .in(KnowledgeBase::getId, ids));
+    java.util.Map<Long, KnowledgeBase> byId =
+        found.stream().collect(java.util.stream.Collectors.toMap(KnowledgeBase::getId, kb -> kb));
+    for (Long id : ids) {
+      KnowledgeBase kb = byId.get(id);
+      if (kb == null) {
+        throw new KnowledgeBaseRefNotFoundException(id);
+      }
+      if (!Boolean.TRUE.equals(kb.getEnabled())) {
+        throw new ConversationKnowledgeBaseDisabledException(id);
+      }
+    }
   }
 
   /** 仅当标题仍为「新对话」占位时写入新标题（原子条件更新）。用户手动改名或 AI 已生成后不再覆盖； 返回是否实际写入，供标题生成任务决定是否需要回退。 */

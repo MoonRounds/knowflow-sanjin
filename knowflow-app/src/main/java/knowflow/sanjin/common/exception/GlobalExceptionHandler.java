@@ -5,7 +5,9 @@ import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.common.filter.CorrelationIdFilter;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
 import knowflow.sanjin.modules.conversation.exception.ConversationExtractionInProgressException;
+import knowflow.sanjin.modules.conversation.exception.ConversationKnowledgeBaseDisabledException;
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
+import knowflow.sanjin.modules.conversation.exception.ConversationVersionConflictException;
 import knowflow.sanjin.modules.conversation.exception.MessageNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.NoDefaultModelConfigException;
 import knowflow.sanjin.modules.embeddingconfig.exception.EmbeddingConfigDimensionChangeException;
@@ -228,6 +230,23 @@ public class GlobalExceptionHandler {
         "会话不存在",
         "会话 id=" + ex.getId() + " 不存在或不可访问。",
         ErrorCode.CONVERSATION_NOT_FOUND);
+  }
+
+  @ExceptionHandler(ConversationVersionConflictException.class)
+  public ResponseEntity<ProblemDetail> handleConversationVersionConflict(
+      ConversationVersionConflictException ex) {
+    return problem(
+        HttpStatus.CONFLICT, "会话版本冲突", ex.getMessage(), ErrorCode.CONVERSATION_VERSION_CONFLICT);
+  }
+
+  @ExceptionHandler(ConversationKnowledgeBaseDisabledException.class)
+  public ResponseEntity<ProblemDetail> handleConversationKnowledgeBaseDisabled(
+      ConversationKnowledgeBaseDisabledException ex) {
+    return problem(
+        HttpStatus.CONFLICT,
+        "知识库已禁用",
+        ex.getMessage(),
+        ErrorCode.CONVERSATION_KNOWLEDGE_BASE_DISABLED);
   }
 
   @ExceptionHandler(MessageNotFoundException.class)

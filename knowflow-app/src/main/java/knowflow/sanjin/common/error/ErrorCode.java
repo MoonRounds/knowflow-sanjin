@@ -35,6 +35,8 @@ public final class ErrorCode {
   public static final String CONVERSATION_EXTRACTION_IN_PROGRESS = "会话正在提取知识中";
   public static final String NO_DEFAULT_MODEL_CONFIG = "未配置默认模型";
   public static final String GENERATION_CANCELLED = "生成已取消";
+  public static final String CONVERSATION_VERSION_CONFLICT = "会话版本冲突";
+  public static final String CONVERSATION_KNOWLEDGE_BASE_DISABLED = "会话知识库已禁用";
 
   // ---- Generation ----
   public static final String MODEL_CALL_FAILED = "模型调用失败";

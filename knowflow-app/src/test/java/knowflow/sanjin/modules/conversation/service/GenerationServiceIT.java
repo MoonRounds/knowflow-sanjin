@@ -10,6 +10,8 @@ import knowflow.sanjin.modules.conversation.dto.SendMessageRequest;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.entity.Conversation;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
+import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
+import knowflow.sanjin.modules.knowledgebase.service.KnowledgeBaseService;
 import knowflow.sanjin.modules.modelconfig.dto.CreateModelConfigRequest;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfig;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfigRevision;
@@ -42,6 +44,7 @@ class GenerationServiceIT extends MySQLTestBase {
   @Autowired private ConversationService conversationService;
   @Autowired private ModelConfigService modelConfigService;
   @Autowired private GenerationService generationService;
+  @Autowired private KnowledgeBaseService knowledgeBaseService;
   @MockitoBean private ModelClientFactory modelClientFactory;
   @MockitoBean private RagContextBuilder ragContextBuilder;
 
@@ -52,6 +55,8 @@ class GenerationServiceIT extends MySQLTestBase {
   void setUp() {
     // 默认无 RAG：每个 generation 都是 NOT_AVAILABLE（普通生成）
     when(ragContextBuilder.build(any(), any()))
+        .thenReturn(RagContext.simple(RagStatus.NOT_AVAILABLE));
+    when(ragContextBuilder.build(any(), any(), anyList()))
         .thenReturn(RagContext.simple(RagStatus.NOT_AVAILABLE));
 
     CreateConversationRequest req = new CreateConversationRequest();
@@ -156,6 +161,34 @@ class GenerationServiceIT extends MySQLTestBase {
 
     Conversation c = conversationService.getByIdAndOwner(conversation.getId());
     assertThat(c.getDefaultModelConfigId()).isEqualTo(modelConfig.getId());
+  }
+
+  @Test
+  @DisplayName("send freezes manual knowledge base bindings before async RAG execution")
+  void shouldFreezeKnowledgeBaseBindingsForGeneration() throws Exception {
+    CreateKnowledgeBaseRequest firstRequest = new CreateKnowledgeBaseRequest();
+    firstRequest.setName("generation-snapshot-a-" + System.nanoTime());
+    var first = knowledgeBaseService.create(firstRequest);
+    CreateKnowledgeBaseRequest secondRequest = new CreateKnowledgeBaseRequest();
+    secondRequest.setName("generation-snapshot-b-" + System.nanoTime());
+    var second = knowledgeBaseService.create(secondRequest);
+
+    var bindFirst = new knowflow.sanjin.modules.conversation.dto.UpdateConversationRequest();
+    bindFirst.setKnowledgeBaseIds(List.of(first.getId().toString()));
+    bindFirst.setRowVersion(conversation.getRowVersion().longValue());
+    conversation = conversationService.update(conversation.getId(), bindFirst);
+
+    stubChatModel("pong");
+    generationService.send(conversation.getId(), send("client-snapshot", "snapshot-question"));
+
+    var bindSecond = new knowflow.sanjin.modules.conversation.dto.UpdateConversationRequest();
+    bindSecond.setKnowledgeBaseIds(List.of(second.getId().toString()));
+    bindSecond.setRowVersion(conversation.getRowVersion().longValue());
+    conversationService.update(conversation.getId(), bindSecond);
+
+    verify(ragContextBuilder, timeout(3000))
+        .build(conversation.getId(), "snapshot-question", List.of(first.getId()));
+    awaitSlotReleased();
   }
 
   @Test

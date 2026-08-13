@@ -52,7 +52,7 @@ public class GenerationPrepare {
   @Transactional
   public PreparedSend prepareSend(
       Long conversationId, SendMessageRequest request, Long requestedModelConfigId) {
-    conversationService.lockConversation(conversationId); // 串行化
+    Conversation convo = conversationService.lockConversation(conversationId); // 串行化并冻结本轮会话配置
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     ChatMessage dup = findByClientMessageId(conversationId, ownerId, request.getClientMessageId());
     if (dup != null) {
@@ -60,7 +60,6 @@ public class GenerationPrepare {
     }
 
     ModelConfigRevision revision = resolveRevision(conversationId, requestedModelConfigId);
-    Conversation convo = conversationService.getByIdAndOwner(conversationId);
     long lastSeq = conversationService.lastSequence(conversationId, ownerId);
     long userSeq = lastSeq + 1;
     long assistantSeq = userSeq + 1;
@@ -104,12 +103,16 @@ public class GenerationPrepare {
       conversationService.updateDefaultModelConfig(conversationId, requestedModelConfigId);
     }
 
-    return new PreparedSend(userMsg, assistantMsg, revision);
+    return new PreparedSend(
+        userMsg,
+        assistantMsg,
+        revision,
+        ConversationKnowledgeBaseIds.decode(convo.getKnowledgeBaseIdsJson()));
   }
 
   @Transactional
   public PreparedSend prepareRegenerate(Long conversationId, Long requestedModelConfigId) {
-    conversationService.lockConversation(conversationId);
+    Conversation convo = conversationService.lockConversation(conversationId);
     ChatMessage latest = conversationService.lockLatestAssistantMessage(conversationId);
 
     if (ChatMessage.GENERATING.equals(latest.getGenerationStatus())) {
@@ -148,7 +151,11 @@ public class GenerationPrepare {
       conversationService.updateDefaultModelConfig(conversationId, requestedModelConfigId);
     }
 
-    return new PreparedSend(null, latest, revision);
+    return new PreparedSend(
+        null,
+        latest,
+        revision,
+        ConversationKnowledgeBaseIds.decode(convo.getKnowledgeBaseIdsJson()));
   }
 
   // ---- helpers ----
@@ -182,5 +189,8 @@ public class GenerationPrepare {
 
   /** Tx1 的结果：已持久化的消息与锁定 Revision。 */
   public record PreparedSend(
-      ChatMessage userMessage, ChatMessage assistantMessage, ModelConfigRevision revision) {}
+      ChatMessage userMessage,
+      ChatMessage assistantMessage,
+      ModelConfigRevision revision,
+      java.util.List<Long> knowledgeBaseIds) {}
 }

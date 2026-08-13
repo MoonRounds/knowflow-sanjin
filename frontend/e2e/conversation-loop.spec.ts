@@ -21,8 +21,8 @@ interface MessageView {
   revisionNo?: number
   ragStatus?: string
   sources?: Array<{
-    itemId?: string
-    itemTitle?: string
+    documentId?: string
+    documentTitle?: string
     sourceType?: string
     cited?: boolean
   }>
@@ -32,7 +32,6 @@ interface CandidateView {
   id?: string
   extractionTaskId?: string
   confirmedItemId?: string
-  draftKnowledgeBaseIds?: string[]
 }
 
 /**
@@ -60,7 +59,7 @@ test.describe('对话沉淀闭环', () => {
     await enterNewConversationViaUI(page)
     const modelSelect = page.locator('.chat-core-head .model-select')
     await modelSelect.click()
-    await page.locator('.el-select-dropdown__item').filter({ hasText: model.name }).click()
+    await page.getByRole('option', { name: `${model.name}（默认）`, exact: true }).click()
     await expect(modelSelect).toContainText(model.name)
     await sendMessage(page, 'Kf-海豚-部署前必须备份哪三样东西？', '数据库、配置文件、原始数据')
     const sourceConversationId = await readActiveConversationId(page)
@@ -122,7 +121,6 @@ test.describe('对话沉淀闭环', () => {
     expect(matchingCandidates).toHaveLength(1)
     const candidate = matchingCandidates[0]
     expect(candidate.id).toBeTruthy()
-    expect(candidate.draftKnowledgeBaseIds).toContain(kb.id)
 
     // ---- 正式 Candidates 页查看、编辑、保存并确认 ----
     const editedTitle = `Kf-海豚-部署备份与回滚-${suffix}`
@@ -138,6 +136,12 @@ test.describe('对话沉淀闭环', () => {
     await drawer.getByRole('button', { name: '编辑草稿' }).click()
     await drawer.getByTestId('draft-title').fill(editedTitle)
     await drawer.getByTestId('draft-content').fill(editedContent)
+    await drawer
+      .locator('.el-form-item')
+      .filter({ has: page.getByText('知识库', { exact: true }) })
+      .locator('.el-select')
+      .click()
+    await page.getByRole('option', { name: kb.name, exact: true }).click()
     const saveDraftResponsePromise = page.waitForResponse(
       (response) =>
         response.request().method() === 'PUT' &&
@@ -195,8 +199,8 @@ test.describe('对话沉淀闭环', () => {
     expect(ragAssistant.sources).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          itemId,
-          itemTitle: editedTitle,
+          documentId: itemId,
+          documentTitle: editedTitle,
           sourceType: 'AI_CONVERSATION',
           cited: true,
         }),

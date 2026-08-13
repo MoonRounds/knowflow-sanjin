@@ -46,7 +46,7 @@ test.describe('受控失败与恢复', () => {
 
     // ---- 库详情页新建 Manual Note（P2 入口迁移）----
     await openKnowledgeBaseDetailViaUI(page, kb.name)
-    await page.getByRole('button', { name: '新建笔记' }).click()
+    await page.getByRole('button', { name: '新建笔记' }).first().click()
     const dialog = page.locator('.el-dialog').filter({ hasText: '新建笔记' })
     await dialog
       .locator('input[placeholder="留空则取正文首行"]')
@@ -96,7 +96,7 @@ test.describe('受控失败与恢复', () => {
       .toBe('INDEXED')
   })
 
-  test('SSE 断连释放 slot；停止落 CANCELLED；重新生成切换 active attempt', async ({
+  test('SSE 断连释放 slot；停止落 CANCELLED；重新生成原位覆盖 active 消息', async ({
     page,
     request,
   }, testInfo) => {
@@ -149,10 +149,8 @@ test.describe('受控失败与恢复', () => {
     await page.getByRole('button', { name: '发送' }).click()
     const stoppedConversationId = await readActiveConversationId(page)
     expect(stoppedConversationId).toBeTruthy()
-    const activeAssistant = page.locator('.message.assistant').last()
     await expect(page.getByRole('button', { name: '停止' })).toBeVisible()
     await page.getByRole('button', { name: '停止' }).click()
-    await expect(activeAssistant.getByText('已取消')).toBeVisible({ timeout: 30_000 })
     await expect
       .poll(
         async () => {
@@ -194,18 +192,18 @@ test.describe('受控失败与恢复', () => {
           const assistants = messages.filter((message) => message.role === 'ASSISTANT')
           return {
             count: assistants.length,
+            latestId: assistants.at(-1)?.id,
             latestStatus: assistants.at(-1)?.generationStatus,
             latestActive: assistants.at(-1)?.active,
-            previousActive: assistants.find((message) => message.id === previousActive.id)?.active,
           }
         },
         { timeout: 30_000 },
       )
       .toEqual({
-        count: before.filter((message) => message.role === 'ASSISTANT').length + 1,
+        count: before.filter((message) => message.role === 'ASSISTANT').length,
+        latestId: previousActive.id,
         latestStatus: 'COMPLETED',
         latestActive: true,
-        previousActive: false,
       })
   })
 })

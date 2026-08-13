@@ -14,11 +14,13 @@ import {
   updateConversation,
 } from '../api/conversations'
 import { listModelConfigs, getOwnerAiSettings } from '../api/model-configs'
+import { listKnowledgeBases } from '../api/knowledge-bases'
 import { listProcessingTasks } from '../api/processing-tasks'
 import { triggerExtraction } from '../api/extraction'
 import type { ExtractionTaskResponse } from '../api/extraction'
 import type { ConversationResponse, MessageResponse } from '../api/types/conversation'
 import type { ModelConfigResponse, OwnerAiSettingsResponse } from '../api/types/model-config'
+import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 import { useChatStream } from '../composables/useChatStream'
 import type { RouterDiagnostic } from '../composables/useChatStream'
 import { errorText, networkErrorMessage } from '../utils/errorText'
@@ -32,6 +34,12 @@ const messages = ref<MessageResponse[]>([])
 const routerByMessage = ref<Record<string, RouterDiagnostic>>({})
 const models = ref<ModelConfigResponse[]>([])
 const ownerSettings = ref<OwnerAiSettingsResponse | null>(null)
+const knowledgeBases = ref<KnowledgeBaseResponse[]>([])
+const knowledgeBasesLoaded = ref(false)
+const knowledgeBasesLoading = ref(false)
+const draftKnowledgeBaseIds = ref<string[]>([])
+const bindingPopoverOpen = ref(false)
+const bindingSaving = ref(false)
 const input = ref('')
 const selectedModelId = ref<string | undefined>()
 const loadingHistory = ref(false)
@@ -94,10 +102,33 @@ const activeConversation = computed(() => {
     return {
       id: NEW_CHAT_ID,
       title: TITLE_PLACEHOLDER,
+      knowledgeBaseIds: draftKnowledgeBaseIds.value,
     } as ConversationResponse
   }
   return conversations.value.find((c) => c.id === activeId.value) ?? null
 })
+
+const activeKnowledgeBaseIds = computed(() =>
+  isNewChat.value
+    ? draftKnowledgeBaseIds.value
+    : (activeConversation.value?.knowledgeBaseIds ?? []),
+)
+
+const bindingLabel = computed(() =>
+  activeKnowledgeBaseIds.value.length === 0
+    ? '自动选择'
+    : `已绑定 ${activeKnowledgeBaseIds.value.length} 个库`,
+)
+
+const knowledgeBaseById = computed(() => new Map(knowledgeBases.value.map((kb) => [kb.id!, kb])))
+
+const selectableKnowledgeBases = computed(() =>
+  knowledgeBases.value.filter((kb) => kb.enabled && kb.id),
+)
+
+const unavailableBindingIds = computed(() =>
+  activeKnowledgeBaseIds.value.filter((id) => !knowledgeBaseById.value.get(id)?.enabled),
+)
 
 /** Owner 设置的默认聊天模型 id（无则 undefined）。 */
 const defaultChatModelId = computed(() => ownerSettings.value?.defaultChatModelConfigId)
@@ -165,7 +196,7 @@ onMounted(async () => {
   window.addEventListener('keydown', handleHistoryEscape)
   // 首屏即进入「新对话」草稿态：主区直接展示输入框，发送首条消息时才真正创建会话（ADR 0004 懒创建）。
   enterNewChat()
-  await Promise.all([loadConversations(), loadModels(), loadOwnerSettings()])
+  await Promise.all([loadConversations(), loadModels(), loadOwnerSettings(), loadKnowledgeBases()])
 })
 
 onUnmounted(() => {
@@ -239,6 +270,18 @@ async function loadOwnerSettings() {
   }
 }
 
+async function loadKnowledgeBases() {
+  knowledgeBasesLoading.value = true
+  try {
+    knowledgeBases.value = await listKnowledgeBases()
+    knowledgeBasesLoaded.value = true
+  } catch {
+    knowledgeBasesLoaded.value = false
+  } finally {
+    knowledgeBasesLoading.value = false
+  }
+}
+
 async function selectConversation(id: string) {
   // 切换会话前终止当前生成，防止旧流对账/占位消息污染新会话
   if (activeId.value !== id) {
@@ -249,6 +292,7 @@ async function selectConversation(id: string) {
   activeId.value = id
   const conv = activeConversation.value
   selectedModelId.value = conv?.defaultModelConfigId ?? undefined
+  draftKnowledgeBaseIds.value = [...(conv?.knowledgeBaseIds ?? [])]
   messages.value = []
   nextBefore.value = null
   hasMoreHistory.value = false
@@ -314,6 +358,7 @@ function enterNewChat() {
   hasMoreHistory.value = false
   input.value = ''
   selectedModelId.value = undefined
+  draftKnowledgeBaseIds.value = []
   isNewChat.value = true
 }
 
@@ -328,7 +373,7 @@ async function createConversationFromNewChat(content: string) {
   const requestedModelId = selectedModelId.value
   let created: ConversationResponse
   try {
-    created = await createConversation({})
+    created = await createConversation({ knowledgeBaseIds: draftKnowledgeBaseIds.value })
   } catch (e) {
     // 创建失败：留在空白态并提示，输入内容保留，避免状态卡死
     ElMessage.error(e instanceof Error ? e.message : '创建会话失败')
@@ -344,6 +389,58 @@ async function createConversationFromNewChat(content: string) {
   }
   // 用真实会话内容重发刚输入的这条消息（保留 clientMessageId 幂等）
   await resendAsActive(content)
+}
+
+function openBindingEditor() {
+  if (!canStartSend.value) {
+    ElMessage.info('回答完成后可修改知识库，修改从下一轮生效')
+    return
+  }
+  if (bindingPopoverOpen.value) {
+    bindingPopoverOpen.value = false
+    return
+  }
+  draftKnowledgeBaseIds.value = [...activeKnowledgeBaseIds.value]
+  bindingPopoverOpen.value = true
+  if (!knowledgeBasesLoaded.value && !knowledgeBasesLoading.value) {
+    void loadKnowledgeBases()
+  }
+}
+
+function clearBindingDraft() {
+  draftKnowledgeBaseIds.value = []
+}
+
+async function saveKnowledgeBaseBinding() {
+  if (!knowledgeBasesLoaded.value) return
+  // 保存时移除已禁用或已删除 ID；后端再次执行 Owner/启用校验。
+  const validIds = draftKnowledgeBaseIds.value.filter(
+    (id) => knowledgeBaseById.value.get(id)?.enabled,
+  )
+  if (isNewChat.value) {
+    draftKnowledgeBaseIds.value = [...validIds]
+    bindingPopoverOpen.value = false
+    return
+  }
+  const conv = activeConversation.value
+  if (!conv?.id || conv.rowVersion === undefined) return
+  bindingSaving.value = true
+  try {
+    replaceConversation(
+      await updateConversation(conv.id, {
+        knowledgeBaseIds: validIds,
+        rowVersion: conv.rowVersion,
+      }),
+    )
+    draftKnowledgeBaseIds.value = [...validIds]
+    bindingPopoverOpen.value = false
+    ElMessage.success('知识库范围已保存，将从下一轮问答生效')
+  } catch (e) {
+    draftKnowledgeBaseIds.value = [...(conv.knowledgeBaseIds ?? [])]
+    ElMessage.error(errorText(e, '知识库范围保存失败'))
+  } finally {
+    bindingSaving.value = false
+  }
 }
 
 /** 用当前真实会话重发 content（用于空白态创建会话后的首次发送）。 */
@@ -738,6 +835,86 @@ function replaceConversation(updated: ConversationResponse) {
             </div>
           </div>
           <div class="chat-head-actions">
+            <el-popover
+              v-model:visible="bindingPopoverOpen"
+              placement="bottom-end"
+              :width="340"
+              trigger="manual"
+              :disabled="!canStartSend"
+            >
+              <template #reference>
+                <el-button
+                  size="small"
+                  class="binding-trigger"
+                  :class="{ 'has-unavailable': unavailableBindingIds.length > 0 }"
+                  :disabled="!canStartSend"
+                  :aria-label="
+                    unavailableBindingIds.length > 0
+                      ? `${bindingLabel}，包含不可用知识库`
+                      : bindingLabel
+                  "
+                  @click="openBindingEditor"
+                >
+                  {{ bindingLabel }}
+                </el-button>
+              </template>
+              <div class="binding-editor">
+                <div class="binding-editor-head">
+                  <strong>本会话知识库</strong>
+                  <el-button size="small" text @click="clearBindingDraft">切回自动选择</el-button>
+                </div>
+                <p>绑定后仅在这些知识库中判断是否需要检索；问题无关时不会强制引用。</p>
+                <el-alert
+                  v-if="!knowledgeBasesLoaded"
+                  type="warning"
+                  :closable="false"
+                  title="知识库列表加载失败，请重试"
+                />
+                <el-scrollbar v-else class="binding-options" max-height="220px">
+                  <el-checkbox-group v-model="draftKnowledgeBaseIds">
+                    <el-checkbox
+                      v-for="kb in selectableKnowledgeBases"
+                      :key="kb.id"
+                      :value="kb.id!"
+                    >
+                      {{ kb.name }}
+                    </el-checkbox>
+                  </el-checkbox-group>
+                  <el-empty
+                    v-if="selectableKnowledgeBases.length === 0"
+                    description="暂无可选知识库"
+                    :image-size="48"
+                  />
+                </el-scrollbar>
+                <div v-if="unavailableBindingIds.length > 0" class="binding-unavailable">
+                  <span v-for="id in unavailableBindingIds" :key="id">
+                    {{
+                      knowledgeBaseById.get(id)
+                        ? `${knowledgeBaseById.get(id)?.name}（已停用）`
+                        : `不可用知识库 #${id}`
+                    }}
+                  </span>
+                </div>
+                <div class="binding-editor-actions">
+                  <el-button
+                    size="small"
+                    :loading="knowledgeBasesLoading"
+                    @click="loadKnowledgeBases"
+                  >
+                    重试加载
+                  </el-button>
+                  <el-button
+                    size="small"
+                    type="primary"
+                    :disabled="!knowledgeBasesLoaded"
+                    :loading="bindingSaving"
+                    @click="saveKnowledgeBaseBinding"
+                  >
+                    保存
+                  </el-button>
+                </div>
+              </div>
+            </el-popover>
             <el-select
               v-model="pickerModel"
               :placeholder="modelSelectPlaceholder"
@@ -1228,6 +1405,58 @@ function replaceConversation(updated: ConversationResponse) {
   min-height: 40px;
   border-radius: 12px;
   background: var(--kf-paper);
+}
+.binding-trigger.has-unavailable {
+  color: #9a4a00;
+  border-color: #d9974a;
+}
+.binding-trigger.has-unavailable::after {
+  content: '⚠';
+}
+.binding-editor {
+  display: grid;
+  gap: 12px;
+}
+.binding-editor-head,
+.binding-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.binding-editor p {
+  margin: 0;
+  color: var(--kf-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.binding-options {
+  padding: 8px 10px;
+  border: 1px solid var(--kf-line);
+  border-radius: 10px;
+}
+.binding-options .el-checkbox-group {
+  display: grid;
+  gap: 6px;
+}
+.binding-options .el-checkbox {
+  margin-right: 0;
+}
+.binding-unavailable {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.binding-unavailable span {
+  border: 1px solid #d9974a;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #8a4300;
+  background: #fff6e8;
+  font-size: 11px;
+}
+.binding-editor-actions {
+  justify-content: flex-end;
 }
 .chat-head-actions :deep(.model-select) {
   min-width: 0;

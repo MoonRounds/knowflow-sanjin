@@ -13,3 +13,4 @@
 | [0006](./0006-conversation-hard-delete-cascade.md) | 已接受 | Conversation 硬删除级联清理消息/提取产物，已确认沉淀的 KnowledgeItem 保留 |
 | [0007](./0007-knowledge-item-single-ownership.md) | 已接受 | KnowledgeItem 单归属：多对多改为一对多，跨主题由 Tag 表达，软删统一 `deleted` |
 | [0008](./0008-embedding-config-and-test.md) | 已接受 | Embedding 配置进系统设置：单一当前配置、保存前必测、维度变化阻止保存 |
+| [0009](./0009-document-and-manual-rag-scope.md) | 已接受 | Document 统一概念 + Conversation 手动知识库范围与每轮快照 |

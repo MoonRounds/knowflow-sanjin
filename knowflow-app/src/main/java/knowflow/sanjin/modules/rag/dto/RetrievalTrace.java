@@ -5,6 +5,8 @@ import java.util.List;
 /** 检索阶段诊断信息（供 GenerationTrace 持久化，不含完整正文）。 */
 public class RetrievalTrace {
 
+  private String mode;
+
   private String retrievalQuery;
 
   private List<Long> selectedKnowledgeBaseIds;
@@ -19,6 +21,14 @@ public class RetrievalTrace {
 
   public String getRetrievalQuery() {
     return retrievalQuery;
+  }
+
+  public String getMode() {
+    return mode;
+  }
+
+  public void setMode(String mode) {
+    this.mode = mode;
   }
 
   public void setRetrievalQuery(String retrievalQuery) {

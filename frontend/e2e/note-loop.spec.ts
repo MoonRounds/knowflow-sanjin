@@ -3,6 +3,7 @@ import {
   API_BASE,
   cleanupAll,
   configureModelViaUI,
+  createKnowledgeBase,
   createKnowledgeBaseViaUI,
   enterNewConversationViaUI,
   openKnowledgeBaseDetailViaUI,
@@ -42,7 +43,7 @@ test.describe('个人笔记/上传闭环', () => {
 
     // ---- 库详情页新建 Manual Note ----
     await openKnowledgeBaseDetailViaUI(page, kb.name)
-    await page.getByRole('button', { name: '新建笔记' }).click()
+    await page.getByRole('button', { name: '新建笔记' }).first().click()
     const noteDialog = page.locator('.el-dialog').filter({ hasText: '新建笔记' })
     await noteDialog
       .locator('input[placeholder="留空则取正文首行"]')
@@ -69,11 +70,26 @@ test.describe('个人笔记/上传闭环', () => {
       }),
     )
 
-    // ---- N-Q1：新会话检索 Manual Note，来源必须指向该 Item ----
+    // 额外准备一个启用但暂无文档的库，验证会话可持久化多库范围，而 Router 只看到其中可检索的库。
+    const emptyKb = await createKnowledgeBase(request, `Kf-空知识库-${suffix}`)
+
+    // ---- N-Q1：新会话手动绑定两个库，再检索 Manual Note ----
     await enterNewConversationViaUI(page)
+    await page.locator('.binding-trigger').click()
+    const bindingEditor = page.locator('.binding-editor')
+    await expect(bindingEditor).toBeVisible()
+    await bindingEditor.getByText(kb.name, { exact: true }).click()
+    await bindingEditor.getByText(emptyKb.name, { exact: true }).click()
+    await bindingEditor.getByRole('button', { name: '保存' }).click()
+    await expect(page.locator('.binding-trigger')).toContainText('已绑定 2 个库')
     await sendMessage(page, 'Kf-番茄工作法-我用多少分钟一个番茄？', '45 分钟')
     const conversationId = await readActiveConversationId(page)
     expect(conversationId).toBeTruthy()
+
+    const conversationResponse = await request.get(`${API_BASE}/conversations/${conversationId}`)
+    expect(await conversationResponse.json()).toEqual(
+      expect.objectContaining({ knowledgeBaseIds: [kb.id, emptyKb.id].sort() }),
+    )
 
     const latestAssistant = page.locator('.message.assistant').last()
     await expect(latestAssistant.getByRole('button', { name: /个人知识 · 来源/ })).toBeVisible()
@@ -92,6 +108,14 @@ test.describe('个人笔记/上传闭环', () => {
         expect.objectContaining({ documentId: itemId, sourceType: 'MANUAL_NOTE', cited: true }),
       ]),
     )
+
+    // 显式清空绑定恢复 AUTO；不发送新的消息也能从 API 验证持久化语义。
+    await page.locator('.binding-trigger').click()
+    await page.locator('.binding-editor').getByRole('button', { name: '切回自动选择' }).click()
+    await page.locator('.binding-editor').getByRole('button', { name: '保存' }).click()
+    await expect(page.locator('.binding-trigger')).toContainText('自动选择')
+    const autoConversation = await request.get(`${API_BASE}/conversations/${conversationId}`)
+    expect(await autoConversation.json()).toEqual(expect.objectContaining({ knowledgeBaseIds: [] }))
   })
 
   test('上传 Markdown 文件并被新会话检索到', async ({ page, request }, testInfo) => {
