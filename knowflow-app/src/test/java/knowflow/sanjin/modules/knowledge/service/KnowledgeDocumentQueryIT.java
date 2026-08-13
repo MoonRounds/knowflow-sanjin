@@ -112,6 +112,35 @@ class KnowledgeDocumentQueryIT extends MySQLTestBase {
   }
 
   @Test
+  @DisplayName("should filter by tag matching either display name or normalized name")
+  void shouldFilterByTagNameOrNormalizedName() {
+    // 防御未来展示名与规范化名分化：GET /tags 返回 name，过滤按 name 或 normalized_name 任一匹配
+    KnowledgeDocument tagged = insertDoc(kb.getId(), "MANUAL_NOTE", "PENDING", "tagged", false);
+    insertDoc(kb.getId(), "MANUAL_NOTE", "PENDING", "plain", false);
+    Tag tag = new Tag();
+    tag.setOwnerId(currentOwnerProvider.getCurrentOwnerId());
+    tag.setName("Java Notes");
+    tag.setNormalizedName("java-notes");
+    tag.setDeleted(false);
+    tagMapper.insert(tag);
+    linkTag(tagged.getId(), tag.getId());
+
+    Page<KnowledgeDocument> byName =
+        service.pageForOwner(kb.getId(), null, "Java Notes", null, 1, 20);
+    Page<KnowledgeDocument> byNormalized =
+        service.pageForOwner(kb.getId(), null, "java-notes", null, 1, 20);
+
+    assertThat(byName.getTotal()).isEqualTo(1);
+    assertThat(byName.getRecords())
+        .extracting(KnowledgeDocument::getTitle)
+        .containsExactly("tagged");
+    assertThat(byNormalized.getTotal()).isEqualTo(1);
+    assertThat(byNormalized.getRecords())
+        .extracting(KnowledgeDocument::getTitle)
+        .containsExactly("tagged");
+  }
+
+  @Test
   @DisplayName("should paginate and exclude soft-deleted documents")
   void shouldPaginateAndExcludeDeleted() {
     for (int i = 0; i < 5; i++) {

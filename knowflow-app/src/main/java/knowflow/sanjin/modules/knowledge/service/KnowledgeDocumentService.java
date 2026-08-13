@@ -161,8 +161,9 @@ public class KnowledgeDocumentService {
   }
 
   /**
-   * 按库 + 过滤条件分页查询文档（G22）：owner 过滤；kbId/sourceType/indexStatus 精确匹配，tag 按规范化名称匹配关联。沿用 candidate
-   * 分页先例（手写 LIMIT/OFFSET + selectCount，不依赖分页插件）。Tag 不存在时返回空页（无该标签文档）。
+   * 按库 + 过滤条件分页查询文档（G22）：owner 过滤；kbId/sourceType/indexStatus 精确匹配，tag 按显示名或规范化名匹配关联
+   * （两者当前一致，双匹配防御未来展示名与规范化名分化的耦合）。沿用 candidate 分页先例（手写 LIMIT/OFFSET + selectCount，不依赖分页插件）。 Tag
+   * 不存在时返回空页（无该标签文档）。
    */
   @Transactional(readOnly = true)
   public Page<KnowledgeDocument> pageForOwner(
@@ -222,14 +223,14 @@ public class KnowledgeDocumentService {
     return wrapper;
   }
 
-  /** 按规范化标签名解析活跃关联的 documentId 集合：标签不存在或未关联任何文档时返回空集。 */
+  /** 按标签名解析活跃关联的 documentId 集合：显示名与规范化名任一匹配（两者当前一致，防御未来分化）；标签不存在或未关联任何文档时返回空集。 */
   private List<Long> documentIdsByTag(long ownerId, String tag) {
     Tag tagEntity =
         tagMapper.selectOne(
             new LambdaQueryWrapper<Tag>()
                 .eq(Tag::getOwnerId, ownerId)
-                .eq(Tag::getNormalizedName, tag)
-                .eq(Tag::getDeleted, false));
+                .eq(Tag::getDeleted, false)
+                .and(w -> w.eq(Tag::getName, tag).or().eq(Tag::getNormalizedName, tag)));
     if (tagEntity == null) {
       return List.of();
     }

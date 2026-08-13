@@ -293,7 +293,7 @@ knowflow-sanjin/
 | `/flow` | 学习流主页 |
 | `/chat` | 聊天工作台（SSE 流式 + 知识提取） |
 | `/knowledge-bases` | 知识库管理 |
-| `/knowledge-items/:id` | 知识条目详情 |
+| `/documents/:id` | 知识文档详情 |
 | `/candidates` | 对话提取候选审核 |
 | `/processing` | 异步任务与索引状态 |
 | `/model-settings` | 模型配置 |
