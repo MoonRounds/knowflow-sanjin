@@ -33,6 +33,7 @@ import knowflow.sanjin.modules.modelconfig.exception.ModelConfigDisabledExceptio
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigInUseException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigNotFoundException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigRevisionChangedException;
+import knowflow.sanjin.modules.modelconfig.exception.ModelConfigRoleConflictException;
 import knowflow.sanjin.modules.modelconfig.exception.UtilityCapabilityRequiredException;
 import knowflow.sanjin.modules.modelconfig.exception.UtilityModelNotConfiguredException;
 import knowflow.sanjin.modules.processing.exception.ProcessingTaskNotFoundException;
@@ -170,6 +171,13 @@ public class GlobalExceptionHandler {
         "需要先通过能力测试",
         ex.getMessage(),
         ErrorCode.UTILITY_CAPABILITY_TEST_REQUIRED);
+  }
+
+  @ExceptionHandler(ModelConfigRoleConflictException.class)
+  public ResponseEntity<ProblemDetail> handleModelConfigRoleConflict(
+      ModelConfigRoleConflictException ex) {
+    return problem(
+        HttpStatus.CONFLICT, "模型角色冲突", ex.getMessage(), ErrorCode.MODEL_CONFIG_ROLE_CONFLICT);
   }
 
   @ExceptionHandler(UtilityModelNotConfiguredException.class)

@@ -226,10 +226,11 @@ describe('useChatStream reconcile', () => {
     expect(reconciled).toBe(1)
   })
 
-  it('marks failed message status on generation.failed', () => {
+  it('marks failed message status on generation.failed after output started', () => {
     const { stream, getMessages } = makeStream()
     const dispatch = stream.startGeneration()
     dispatch('generation.started', { assistantMessageId: '42' })
+    dispatch('content.delta', { assistantMessageId: '42', delta: 'part' })
     dispatch('generation.failed', { errorCode: '模型调用超时', detail: 'timeout' })
     expect(getMessages()[0].generationStatus).toBe('FAILED')
     expect(getMessages()[0].errorCode).toBe('模型调用超时')
@@ -240,6 +241,7 @@ describe('useChatStream reconcile', () => {
     const { stream, getMessages } = makeStream()
     const dispatch = stream.startGeneration()
     dispatch('generation.started', { assistantMessageId: '42' })
+    dispatch('content.delta', { assistantMessageId: '42', delta: 'answer' })
     dispatch('sources.available', {
       assistantMessageId: '42',
       ragStatus: 'USED',
@@ -248,5 +250,75 @@ describe('useChatStream reconcile', () => {
     expect(getMessages()[0].ragStatus).toBe('USED')
     expect(getMessages()[0].sources).toHaveLength(1)
     expect(getMessages()[0].sources![0].cited).toBe(true)
+  })
+})
+
+describe('useChatStream 气泡挂载时机', () => {
+  it('generation.started 不挂载 assistant 气泡', () => {
+    const { stream, getMessages } = makeStream()
+    const dispatch = stream.startGeneration()
+    dispatch('generation.started', { assistantMessageId: '42' })
+    expect(stream.phase.value).toBe('streaming')
+    expect(getMessages().some((m) => m.role === 'ASSISTANT')).toBe(false)
+  })
+
+  it('第一个 content.delta 挂载气泡并累积内容', () => {
+    const { stream, getMessages } = makeStream()
+    const dispatch = stream.startGeneration()
+    dispatch('generation.started', { assistantMessageId: '42' })
+    dispatch('content.delta', { assistantMessageId: '42', delta: 'Hel' })
+    const assistant = getMessages().find((m) => m.role === 'ASSISTANT')
+    expect(assistant).toBeTruthy()
+    expect(assistant!.id).toBe('42')
+    expect(assistant!.content).toBe('Hel')
+    dispatch('content.delta', { assistantMessageId: '42', delta: 'lo' })
+    expect(getMessages().find((m) => m.role === 'ASSISTANT')!.content).toBe('Hello')
+  })
+
+  it('首个 delta 前失败不挂气泡，错误走 streamError', () => {
+    const { stream, getMessages } = makeStream()
+    const dispatch = stream.startGeneration()
+    dispatch('generation.started', { assistantMessageId: '42' })
+    dispatch('generation.failed', { errorCode: '模型调用超时', detail: 'timeout' })
+    expect(stream.phase.value).toBe('failed')
+    expect(getMessages().some((m) => m.role === 'ASSISTANT')).toBe(false)
+    expect(stream.streamError.value).toBeTruthy()
+  })
+
+  it('首个 delta 之后失败会把已挂载气泡标记 FAILED', () => {
+    const { stream, getMessages } = makeStream()
+    const dispatch = stream.startGeneration()
+    dispatch('generation.started', { assistantMessageId: '42' })
+    dispatch('content.delta', { assistantMessageId: '42', delta: 'part' })
+    dispatch('generation.failed', { errorCode: '模型调用超时', detail: 'timeout' })
+    const assistant = getMessages().find((m) => m.role === 'ASSISTANT')
+    expect(assistant!.generationStatus).toBe('FAILED')
+    expect(assistant!.content).toBe('part')
+  })
+
+  it('isThinking 在等待期开启，首个 delta 后关闭', () => {
+    const { stream } = makeStream()
+    const dispatch = stream.startGeneration()
+    expect(stream.isThinking?.value).toBe(true)
+    dispatch('generation.started', { assistantMessageId: '42' })
+    expect(stream.isThinking?.value).toBe(true)
+    dispatch('content.delta', { assistantMessageId: '42', delta: 'Hi' })
+    expect(stream.isThinking?.value).toBe(false)
+  })
+
+  it('completed 时挂载气泡写入完整内容并 COMPLETED', () => {
+    const { stream, getMessages } = makeStream()
+    const dispatch = stream.startGeneration()
+    dispatch('generation.started', { assistantMessageId: '42' })
+    dispatch('content.delta', { assistantMessageId: '42', delta: 'Hi' })
+    dispatch('generation.completed', {
+      assistantMessageId: '42',
+      content: 'Hello',
+      active: true,
+    })
+    const assistant = getMessages().find((m) => m.role === 'ASSISTANT')
+    expect(assistant!.content).toBe('Hello')
+    expect(assistant!.generationStatus).toBe('COMPLETED')
+    expect(stream.phase.value).toBe('completed')
   })
 })

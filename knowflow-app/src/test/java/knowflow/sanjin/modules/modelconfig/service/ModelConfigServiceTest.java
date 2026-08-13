@@ -17,6 +17,7 @@ import knowflow.sanjin.modules.modelconfig.entity.ModelConfigRevision;
 import knowflow.sanjin.modules.modelconfig.entity.OwnerAiSettings;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigInUseException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigNotFoundException;
+import knowflow.sanjin.modules.modelconfig.exception.ModelConfigRoleConflictException;
 import knowflow.sanjin.modules.modelconfig.mapper.ModelConfigMapper;
 import knowflow.sanjin.modules.modelconfig.mapper.ModelConfigRevisionMapper;
 import knowflow.sanjin.modules.modelconfig.mapper.OwnerAiSettingsMapper;
@@ -178,6 +179,24 @@ class ModelConfigServiceTest {
 
     assertThatThrownBy(() -> service.softDelete(100L))
         .isInstanceOf(ModelConfigInUseException.class);
+  }
+
+  @Test
+  @DisplayName("should reject setting the same config as both default chat and utility")
+  void shouldRejectSameConfigAsDefaultAndUtility() {
+    ModelConfig config = new ModelConfig();
+    config.setId(100L);
+    config.setOwnerId(1L);
+    config.setEnabled(true);
+    config.setDeleted(false);
+    config.setCurrentRevisionId(200L);
+    config.setUtilityTestedRevisionId(200L);
+    config.setUtilityRouterSchemaValid(true);
+    config.setUtilityCandidateSchemaValid(true);
+    when(modelConfigMapper.selectOne(any(Wrapper.class))).thenReturn(config);
+
+    assertThatThrownBy(() -> service.updateOwnerSettings(100L, 100L))
+        .isInstanceOf(ModelConfigRoleConflictException.class);
   }
 
   @Test

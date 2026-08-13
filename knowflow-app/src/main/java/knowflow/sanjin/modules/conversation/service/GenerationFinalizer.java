@@ -106,4 +106,9 @@ public class GenerationFinalizer {
   public void releaseSlot(long conversationId) {
     conversationService.clearActiveGeneration(conversationId);
   }
+
+  /** 覆盖式重新生成：清除该 assistant 消息的终态标记，允许同 id 的新流再次完成/失败终结。 */
+  public void reset(long assistantMessageId) {
+    finalized.remove(assistantMessageId);
+  }
 }

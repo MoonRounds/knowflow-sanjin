@@ -18,6 +18,7 @@ import knowflow.sanjin.modules.modelconfig.exception.ModelConfigDisabledExceptio
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigInUseException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigNotFoundException;
 import knowflow.sanjin.modules.modelconfig.exception.ModelConfigRevisionChangedException;
+import knowflow.sanjin.modules.modelconfig.exception.ModelConfigRoleConflictException;
 import knowflow.sanjin.modules.modelconfig.exception.UtilityCapabilityRequiredException;
 import knowflow.sanjin.modules.modelconfig.exception.UtilityModelNotConfiguredException;
 import knowflow.sanjin.modules.modelconfig.mapper.ModelConfigMapper;
@@ -319,6 +320,10 @@ public class ModelConfigService {
     // Utility 承担 Router/Extraction 的结构化输出，未通过能力测试前不能设为默认
     if (!hasPassedUtilityCapability(utility)) {
       throw new UtilityCapabilityRequiredException(utilityModelConfigId);
+    }
+    // 同一配置不能既是默认聊天模型又是 Utility 模型，否则生成与后台任务角色互相冲突
+    if (defaultChatModelConfigId != null && defaultChatModelConfigId.equals(utilityModelConfigId)) {
+      throw new ModelConfigRoleConflictException(defaultChatModelConfigId);
     }
     if (defaultChatModelConfigId != null) {
       ModelConfig chat = getByIdAndOwnerInternal(defaultChatModelConfigId);

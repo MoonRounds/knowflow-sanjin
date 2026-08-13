@@ -112,16 +112,30 @@ export function useChatStream(options: UseChatStreamOptions) {
 
   const currentConversation = computed(() => options.getConversation())
 
-  function appendAssistantMessage(message: MessageResponse) {
+  /** 等待期（连接中或已 started 但尚未收到首个输出）：用于展示非气泡的思考提示。 */
+  const isThinking = computed(
+    () => (phase.value === 'connecting' || phase.value === 'streaming') && !pendingAssistant.value,
+  )
+
+  /** 找到本轮 assistant 消息（regenerate 时是前端清空后的既有消息），不存在则挂载新气泡。 */
+  function findOrMountAssistant(id?: string): MessageResponse | null {
+    if (!id) return null
     const messages = [...options.getMessages()]
-    // 若存在占位消息则替换
-    const idx = messages.findIndex((m) => m.id === (pendingAssistant.value?.id ?? '__pending__'))
-    if (pendingAssistant.value && idx >= 0) {
-      messages[idx] = message
-    } else {
-      messages.push(message)
+    let target = messages.find((m) => m.id === id)
+    if (!target) {
+      target = {
+        id,
+        conversationId: currentConversation.value?.id,
+        role: 'ASSISTANT',
+        content: '',
+        generationStatus: 'GENERATING',
+        active: false,
+      }
+      messages.push(target)
+      options.setMessages(messages)
     }
-    options.setMessages(messages)
+    pendingAssistant.value = target
+    return target
   }
 
   /** 事件只对"创建时的 token == 当前 token"生效（旧流/已停止流的闭包因 token 过期而失效）。 */
@@ -152,32 +166,20 @@ export function useChatStream(options: UseChatStreamOptions) {
     }
   }
 
-  function handleStarted(data: { assistantMessageId?: string }, token: number) {
+  function handleStarted(token: number) {
     if (!isGenerationActive(token)) return
     phase.value = 'streaming'
     streamError.value = null
-    if (data.assistantMessageId) {
-      pendingAssistant.value = {
-        id: data.assistantMessageId,
-        conversationId: currentConversation.value?.id,
-        role: 'ASSISTANT',
-        content: '',
-        generationStatus: 'GENERATING',
-        active: false,
-      }
-      appendAssistantMessage(pendingAssistant.value!)
-    }
+    // 不在 started 挂载气泡：等首个 content.delta 才挂载，避免"AI 还没输出就弹出空框"
   }
 
-  function handleDelta(data: { delta?: string }, token: number) {
+  function handleDelta(data: { assistantMessageId?: string; delta?: string }, token: number) {
     if (!isGenerationActive(token)) return
     if (!data.delta) return
-    const messages = [...options.getMessages()]
-    const target = messages.find((m) => m.id === (pendingAssistant.value?.id ?? ''))
-    if (target) {
-      target.content = (target.content ?? '') + data.delta
-      options.setMessages(messages)
-    }
+    const target = findOrMountAssistant(data.assistantMessageId)
+    if (!target) return
+    target.content = (target.content ?? '') + data.delta
+    options.setMessages([...options.getMessages()])
   }
 
   function handleSourcesAvailable(
@@ -202,7 +204,19 @@ export function useChatStream(options: UseChatStreamOptions) {
     if (!isGenerationActive(token)) return
     const messages = [...options.getMessages()]
     const id = data.assistantMessageId ?? pendingAssistant.value?.id
-    const target = messages.find((m) => m.id === id)
+    // 正常路径下首个 delta 已挂载气泡；空回复（无任何 delta）时 completed 携带完整内容则补挂载。
+    let target = messages.find((m) => m.id === id)
+    if (!target && data.content) {
+      target = {
+        id: id!,
+        conversationId: currentConversation.value?.id,
+        role: 'ASSISTANT',
+        content: '',
+        generationStatus: 'GENERATING',
+        active: false,
+      }
+      messages.push(target)
+    }
     if (target) {
       target.content = data.content ?? target.content
       target.generationStatus = 'COMPLETED'
@@ -236,7 +250,7 @@ export function useChatStream(options: UseChatStreamOptions) {
   /** 用"创建时刻"的 token 构造 handlers；旧 dispatch 持有的旧 token 与后续 generation 不匹配。 */
   function makeHandlers(token: number): StreamEventHandlers {
     return {
-      onStarted: (d) => handleStarted(d, token),
+      onStarted: () => handleStarted(token),
       onDelta: (d) => handleDelta(d, token),
       onSourcesAvailable: (d) => handleSourcesAvailable(d, token),
       onCompleted: (d) => handleCompleted(d, token),
@@ -247,6 +261,7 @@ export function useChatStream(options: UseChatStreamOptions) {
   return {
     phase,
     streamError,
+    isThinking,
     startGeneration,
     stopGeneration,
   }

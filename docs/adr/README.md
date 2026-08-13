@@ -9,3 +9,4 @@
 | [0002](./0002-local-file-storage-for-upload.md) | 已接受 | 上传原文件使用本地对象式存储，未来再迁移 MinIO |
 | [0003](./0003-item-delete-two-state.md) | 已接受 | KnowledgeItem 两态软删 + 异步 Qdrant 清理 |
 | [0004](./0004-auto-generated-conversation-title-and-create-state.md) | 已接受 | AI 自动生成会话标题 + 「➕ 空白态 / 已开始才新建」创建语义 |
+| [0005](./0005-overwrite-regenerate.md) | 已接受 | 覆盖式重新生成：同 id 原位替换最新 assistant 消息，失败不保留旧回答 |

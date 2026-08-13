@@ -171,55 +171,62 @@ class GenerationServiceIT extends MySQLTestBase {
   }
 
   @Test
-  @DisplayName("should create new assistant attempt on regenerate")
-  void shouldCreateNewAttemptOnRegenerate() throws Exception {
+  @DisplayName("regenerate 覆盖最新 assistant 消息，不追加新消息")
+  void shouldOverwriteLatestAssistantOnRegenerate() throws Exception {
     stubChatModel("first-answer");
     generationService.send(conversation.getId(), send("client-r1", "question"));
     awaitSlotReleased();
 
     List<ChatMessage> before = conversationService.listMessages(conversation.getId(), null, 20);
     assertThat(before).hasSize(2);
+    Long assistantId = before.get(1).getId();
+    assertThat(before.get(1).getContent()).isEqualTo("first-answer");
+    // 前置条件：上一轮完成留下了终态 RAG 状态，验证重新生成会真正清空它（updateById 默认忽略 null 字段）
+    assertThat(before.get(1).getRagStatus()).isEqualTo(RagStatus.NOT_AVAILABLE);
 
-    // 重新生成
+    // 重新生成：同一条 assistant 消息被清空并标记生成中
     SseEmitter emitter = generationService.regenerate(conversation.getId(), null);
     assertThat(emitter).isNotNull();
 
     List<ChatMessage> after = conversationService.listMessages(conversation.getId(), null, 20);
-    // user + 旧 assistant + 新 assistant(GENERATING)
-    assertThat(after).hasSize(3);
-    assertThat(after.get(2).getRole()).isEqualTo(ChatMessage.ROLE_ASSISTANT);
-    assertThat(after.get(2).getGenerationStatus()).isEqualTo(ChatMessage.GENERATING);
-    assertThat(after.get(2).getReplyToMessageId()).isEqualTo(after.get(0).getId());
+    assertThat(after).hasSize(2);
+    assertThat(after.get(1).getId()).isEqualTo(assistantId);
+    assertThat(after.get(1).getRole()).isEqualTo(ChatMessage.ROLE_ASSISTANT);
+    assertThat(after.get(1).getGenerationStatus()).isEqualTo(ChatMessage.GENERATING);
+    assertThat(after.get(1).getContent()).isEmpty();
+    // 回归：终态元数据必须真正写为 null，而非残留上一轮的 ragStatus
+    assertThat(after.get(1).getRagStatus()).isNull();
+    assertThat(after.get(1).getErrorCode()).isNull();
   }
 
   @Test
-  @DisplayName("should switch active attempt to the regenerated one on success")
-  void shouldSwitchActiveOnRegenerateSuccess() throws Exception {
+  @DisplayName("regenerate 完成后原消息被新内容覆盖为 active completed")
+  void shouldOverwriteContentOnRegenerateSuccess() throws Exception {
     stubChatModel("better-answer");
     generationService.send(conversation.getId(), send("client-r2", "question"));
     awaitSlotReleased();
 
-    // 确认旧 attempt 为 active completed
     List<ChatMessage> messages = conversationService.listMessages(conversation.getId(), null, 20);
-    ChatMessage oldAnswer = messages.get(1);
-    assertThat(oldAnswer.getGenerationStatus()).isEqualTo(ChatMessage.COMPLETED);
-    assertThat(oldAnswer.getIsActive()).isTrue();
+    Long assistantId = messages.get(1).getId();
+    assertThat(messages.get(1).getGenerationStatus()).isEqualTo(ChatMessage.COMPLETED);
+    assertThat(messages.get(1).getIsActive()).isTrue();
 
     // 重新生成并等待完成
     generationService.regenerate(conversation.getId(), null);
     awaitSlotReleased();
 
     List<ChatMessage> after = conversationService.listMessages(conversation.getId(), null, 20);
-    // 新 attempt 变为 active completed，旧 attempt 不再 active
-    ChatMessage newAnswer = after.get(2);
-    assertThat(newAnswer.getGenerationStatus()).isEqualTo(ChatMessage.COMPLETED);
-    assertThat(newAnswer.getIsActive()).isTrue();
-    assertThat(after.get(1).getIsActive()).isFalse();
+    // 同一条消息被新内容覆盖，仍是 active completed
+    assertThat(after).hasSize(2);
+    assertThat(after.get(1).getId()).isEqualTo(assistantId);
+    assertThat(after.get(1).getGenerationStatus()).isEqualTo(ChatMessage.COMPLETED);
+    assertThat(after.get(1).getIsActive()).isTrue();
+    assertThat(after.get(1).getContent()).isEqualTo("better-answer");
   }
 
   @Test
-  @DisplayName("should keep old active answer when regenerate fails")
-  void shouldKeepOldActiveOnRegenerateFailure() throws Exception {
+  @DisplayName("regenerate 失败时原消息标记 failed，不再保留旧回答")
+  void shouldMarkFailedOnRegenerateFailure() throws Exception {
     // 第一次成功
     stubChatModel("good-answer");
     generationService.send(conversation.getId(), send("client-r3", "question"));
@@ -243,11 +250,11 @@ class GenerationServiceIT extends MySQLTestBase {
     awaitSlotReleased();
 
     List<ChatMessage> after = conversationService.listMessages(conversation.getId(), null, 20);
-    // 旧回答仍 active completed，新 attempt 标记 failed
-    assertThat(after.get(1).getIsActive()).isTrue();
-    assertThat(after.get(1).getGenerationStatus()).isEqualTo(ChatMessage.COMPLETED);
-    assertThat(after.get(2).getGenerationStatus()).isEqualTo(ChatMessage.FAILED);
-    assertThat(after.get(2).getIsActive()).isFalse();
+    // 覆盖语义：原内容已清空，失败后同一消息标记 failed，旧回答不再保留
+    assertThat(after).hasSize(2);
+    assertThat(after.get(1).getGenerationStatus()).isEqualTo(ChatMessage.FAILED);
+    assertThat(after.get(1).getIsActive()).isFalse();
+    assertThat(after.get(1).getContent()).isEmpty();
   }
 
   private void awaitSlotReleased() throws InterruptedException {

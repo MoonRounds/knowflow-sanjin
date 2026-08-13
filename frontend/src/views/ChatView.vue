@@ -13,12 +13,12 @@ import {
   stopGeneration,
   updateConversation,
 } from '../api/conversations'
-import { listModelConfigs } from '../api/model-configs'
+import { listModelConfigs, getOwnerAiSettings } from '../api/model-configs'
 import { listProcessingTasks } from '../api/processing-tasks'
 import { triggerExtraction } from '../api/extraction'
 import type { ExtractionTaskResponse } from '../api/extraction'
 import type { ConversationResponse, MessageResponse } from '../api/types/conversation'
-import type { ModelConfigResponse } from '../api/types/model-config'
+import type { ModelConfigResponse, OwnerAiSettingsResponse } from '../api/types/model-config'
 import { useChatStream } from '../composables/useChatStream'
 import type { RouterDiagnostic } from '../composables/useChatStream'
 import { errorText, networkErrorMessage } from '../utils/errorText'
@@ -31,6 +31,7 @@ const messages = ref<MessageResponse[]>([])
 /** 按 assistant 消息 id 缓存 SSE sources.available 携带的 Router 诊断（仅实时可见，历史不回放）。 */
 const routerByMessage = ref<Record<string, RouterDiagnostic>>({})
 const models = ref<ModelConfigResponse[]>([])
+const ownerSettings = ref<OwnerAiSettingsResponse | null>(null)
 const input = ref('')
 const selectedModelId = ref<string | undefined>()
 const loadingHistory = ref(false)
@@ -98,6 +99,40 @@ const activeConversation = computed(() => {
   return conversations.value.find((c) => c.id === activeId.value) ?? null
 })
 
+/** Owner 设置的默认聊天模型 id（无则 undefined）。 */
+const defaultChatModelId = computed(() => ownerSettings.value?.defaultChatModelConfigId)
+
+/** Owner 设置的 Utility 模型 id（无则 undefined）。 */
+const utilityModelId = computed(() => ownerSettings.value?.utilityModelConfigId)
+
+/** 默认聊天模型的展示名，供选择器标注「跟随默认」。 */
+const defaultModelName = computed(() => {
+  const id = defaultChatModelId.value
+  if (!id) return undefined
+  return models.value.find((m) => m.id === id)?.displayName
+})
+
+/** 未显式选择模型时选择器的占位文案：明确告知实际生效模型是默认模型。 */
+const modelSelectPlaceholder = computed(() =>
+  defaultModelName.value ? `跟随默认（${defaultModelName.value}）` : '请选择模型',
+)
+
+/** 选择器「跟随默认」哨兵值：与真实模型 id 区分，选中它表示不指定模型。 */
+const FOLLOW_DEFAULT_MODEL = ''
+const pickerModel = computed({
+  get: () => selectedModelId.value ?? FOLLOW_DEFAULT_MODEL,
+  set: (v: string) => {
+    selectedModelId.value = v === FOLLOW_DEFAULT_MODEL ? undefined : v
+  },
+})
+
+/** 模型选项展示名：默认聊天模型标「默认」，Utility 模型标「Utility」，便于区分角色。 */
+function modelRoleLabel(m: ModelConfigResponse): string {
+  if (m.id === defaultChatModelId.value) return `${m.displayName}（默认）`
+  if (m.id === utilityModelId.value) return `${m.displayName}（Utility）`
+  return m.displayName
+}
+
 /** 可开始新一轮发送：idle / completed / failed 均可，仅连接或生成进行中禁止。 */
 const canStartSend = computed(
   () => stream.phase.value !== 'connecting' && stream.phase.value !== 'streaming',
@@ -105,6 +140,13 @@ const canStartSend = computed(
 
 const canSend = computed(
   () => !!activeConversation.value && canStartSend.value && input.value.trim().length > 0,
+)
+
+/** 思考期轻提示：仅在"有活跃生成但尚无任何输出气泡"时显示（re-generate 复用既有气泡时不重复提示）。 */
+const showThinking = computed(
+  () =>
+    stream.isThinking.value &&
+    !messages.value.some((m) => m.role === 'ASSISTANT' && m.generationStatus === 'GENERATING'),
 )
 
 const sendLabel = computed(() =>
@@ -123,7 +165,7 @@ onMounted(async () => {
   window.addEventListener('keydown', handleHistoryEscape)
   // 首屏即进入「新对话」草稿态：主区直接展示输入框，发送首条消息时才真正创建会话（ADR 0004 懒创建）。
   enterNewChat()
-  await Promise.all([loadConversations(), loadModels()])
+  await Promise.all([loadConversations(), loadModels(), loadOwnerSettings()])
 })
 
 onUnmounted(() => {
@@ -186,6 +228,14 @@ async function loadModels() {
     if (models.value.length > 0) {
       ElMessage.error('模型列表刷新失败')
     }
+  }
+}
+
+async function loadOwnerSettings() {
+  try {
+    ownerSettings.value = await getOwnerAiSettings()
+  } catch {
+    ownerSettings.value = null
   }
 }
 
@@ -288,11 +338,9 @@ async function createConversationFromNewChat(content: string) {
   activeId.value = created.id!
   isNewChat.value = false
   await selectConversation(created.id!)
-  // 新会话默认模型：未选时取第一个可用模型（先 selectConversation 避免其把模型覆盖为 undefined）
+  // 新会话默认模型：保留空白态已显式选择的模型；未选择则不携带 modelConfigId，交由后端回退 Owner 默认
   if (requestedModelId) {
     selectedModelId.value = requestedModelId
-  } else if (!selectedModelId.value && models.value.length > 0) {
-    selectedModelId.value = models.value[0].id
   }
   // 用真实会话内容重发刚输入的这条消息（保留 clientMessageId 幂等）
   await resendAsActive(content)
@@ -540,9 +588,19 @@ async function handleStop() {
   }
 }
 
-function handleRegenerate(message: MessageResponse) {
-  if (!activeConversation.value || !message.id) return
+function handleRegenerate() {
+  if (!activeConversation.value) return
   const dispatch = stream.startGeneration()
+  // 后端 regenerate 锁定"最新一条 assistant 消息"原位覆盖；前端同步清空该条，旧内容立即消失，流式新内容写回同一位置。
+  const target = [...messages.value].reverse().find((m) => m.role === 'ASSISTANT')
+  if (target) {
+    target.content = ''
+    target.generationStatus = 'GENERATING'
+    target.errorCode = undefined
+    target.ragStatus = undefined
+    target.sources = undefined
+    target.usage = undefined
+  }
   activeController = streamRegenerate(
     activeConversation.value.id!,
     { modelConfigId: selectedModelId.value || undefined },
@@ -556,12 +614,25 @@ function handleRegenerate(message: MessageResponse) {
 }
 
 watch(selectedModelId, async (newId, oldId) => {
-  if (newId && newId !== oldId && activeConversation.value && !isNewChat.value) {
-    await updateConversation(activeConversation.value.id!, {
-      defaultModelConfigId: newId,
-    })
+  const conv = activeConversation.value
+  if (!conv || isNewChat.value || newId === oldId) return
+  try {
+    if (newId) {
+      replaceConversation(await updateConversation(conv.id!, { defaultModelConfigId: newId }))
+    } else if (oldId && conv.defaultModelConfigId) {
+      // 显式切回「跟随默认」：清空会话级覆盖，交由后端回退 Owner 默认
+      replaceConversation(await updateConversation(conv.id!, { defaultModelConfigId: '' }))
+    }
+  } catch {
+    ElMessage.error('模型切换保存失败')
   }
 })
+
+/** 用 PATCH 返回值刷新本地会话，保持 defaultModelConfigId 与后端一致。 */
+function replaceConversation(updated: ConversationResponse) {
+  const idx = conversations.value.findIndex((c) => c.id === updated.id)
+  if (idx >= 0) conversations.value[idx] = updated
+}
 </script>
 
 <template>
@@ -668,13 +739,18 @@ watch(selectedModelId, async (newId, oldId) => {
           </div>
           <div class="chat-head-actions">
             <el-select
-              v-model="selectedModelId"
-              placeholder="选择模型"
+              v-model="pickerModel"
+              :placeholder="modelSelectPlaceholder"
               size="small"
               style="width: 170px"
               class="model-select"
             >
-              <el-option v-for="m in models" :key="m.id" :label="m.displayName" :value="m.id" />
+              <el-option
+                v-if="defaultChatModelId"
+                :value="FOLLOW_DEFAULT_MODEL"
+                :label="`跟随默认（${defaultModelName ?? '默认模型'}）`"
+              />
+              <el-option v-for="m in models" :key="m.id" :label="modelRoleLabel(m)" :value="m.id" />
             </el-select>
             <el-button size="small" @click="handleRename">重命名</el-button>
             <el-button
@@ -718,6 +794,10 @@ watch(selectedModelId, async (newId, oldId) => {
             @stop="handleStop"
             @regenerate="handleRegenerate"
           />
+          <div v-if="showThinking" class="thinking-indicator" aria-live="polite">
+            <span class="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
+            <span>AI 正在检索并组织回答…</span>
+          </div>
           <div v-if="stream.streamError.value" class="stream-error">
             {{ stream.streamError.value }}
           </div>
@@ -800,10 +880,10 @@ watch(selectedModelId, async (newId, oldId) => {
   box-sizing: border-box;
   display: grid;
   place-items: center;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
+  flex: 0 0 35px;
+  width: 35px;
+  height: 35px;
+  min-height: 35px;
   padding: 0;
   border: 1px solid var(--kf-ink);
   border-radius: 13px;
@@ -848,8 +928,9 @@ watch(selectedModelId, async (newId, oldId) => {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
+  width: 35px;
+  height: 35px;
+  min-height: 35px;
   padding: 0;
   border: 1px solid var(--kf-ink);
   border-radius: 12px;
@@ -1177,6 +1258,48 @@ watch(selectedModelId, async (newId, oldId) => {
 .stream-error {
   color: #f56c6c;
   margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  width: fit-content;
+}
+.thinking-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--kf-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.thinking-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--kf-hot);
+  animation: thinking-bounce 1.2s ease-in-out infinite;
+}
+.thinking-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.thinking-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes thinking-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
 }
 .history-loading {
   color: #999;

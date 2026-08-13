@@ -34,6 +34,7 @@ const contentHtml = computed(() =>
       </span>
     </div>
     <div
+      v-if="msg.role !== 'ASSISTANT' || msg.content"
       class="msg-content"
       :aria-live="msg.generationStatus === 'GENERATING' ? 'polite' : undefined"
       v-html="contentHtml"

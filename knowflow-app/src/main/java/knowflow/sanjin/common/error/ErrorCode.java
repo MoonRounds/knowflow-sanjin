@@ -26,6 +26,7 @@ public final class ErrorCode {
   public static final String UTILITY_CAPABILITY_TEST_REQUIRED = "Utility 能力测试未通过";
   public static final String MODEL_CONFIG_REVISION_CHANGED = "模型配置版本已变更";
   public static final String UTILITY_MODEL_NOT_CONFIGURED = "未配置Utility模型";
+  public static final String MODEL_CONFIG_ROLE_CONFLICT = "默认聊天与Utility不能是同一模型";
 
   // ---- Conversation ----
   public static final String CONVERSATION_NOT_FOUND = "会话不存在";

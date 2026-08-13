@@ -27,6 +27,7 @@ public class GenerationPrepare {
   private final ModelConfigService modelConfigService;
   private final OwnerAiSettingsMapper ownerAiSettingsMapper;
   private final CurrentOwnerProvider currentOwnerProvider;
+  private final GenerationFinalizer finalizer;
   private final GenerationProperties properties;
 
   public GenerationPrepare(
@@ -34,11 +35,13 @@ public class GenerationPrepare {
       ModelConfigService modelConfigService,
       OwnerAiSettingsMapper ownerAiSettingsMapper,
       CurrentOwnerProvider currentOwnerProvider,
+      GenerationFinalizer finalizer,
       GenerationProperties properties) {
     this.conversationService = conversationService;
     this.modelConfigService = modelConfigService;
     this.ownerAiSettingsMapper = ownerAiSettingsMapper;
     this.currentOwnerProvider = currentOwnerProvider;
+    this.finalizer = finalizer;
     this.properties = properties;
   }
 
@@ -107,7 +110,6 @@ public class GenerationPrepare {
   @Transactional
   public PreparedSend prepareRegenerate(Long conversationId, Long requestedModelConfigId) {
     conversationService.lockConversation(conversationId);
-    long ownerId = currentOwnerProvider.getCurrentOwnerId();
     ChatMessage latest = conversationService.lockLatestAssistantMessage(conversationId);
 
     if (ChatMessage.GENERATING.equals(latest.getGenerationStatus())) {
@@ -118,34 +120,35 @@ public class GenerationPrepare {
         resolveRevision(
             conversationId,
             requestedModelConfigId != null ? requestedModelConfigId : latest.getModelConfigId());
-    long newSeq = latest.getSequence() + 1;
-
-    ChatMessage newMsg = new ChatMessage();
-    newMsg.setConversationId(conversationId);
-    newMsg.setOwnerId(ownerId);
-    newMsg.setRole(ChatMessage.ROLE_ASSISTANT);
-    newMsg.setSequence(newSeq);
-    newMsg.setContent("");
-    newMsg.setReplyToMessageId(latest.getReplyToMessageId());
-    newMsg.setGenerationStatus(ChatMessage.GENERATING);
-    newMsg.setIsActive(true);
-    newMsg.setModelConfigId(revision.getModelConfigId());
-    newMsg.setRevisionNo(revision.getRevisionNo());
-    newMsg.setModelName(revision.getModelName());
-    newMsg.setProviderName(revision.getProviderName());
-    newMsg.setTemperature(revision.getTemperature());
-    newMsg.setMaxOutputTokens(revision.getMaxOutputTokens());
-    conversationService.insertMessage(newMsg);
+    // 覆盖式重新生成：复用最新 assistant 消息（同 id 同 sequence 原位），清空旧内容后由新流写回。
+    // 追加新消息会让旧内容残留在对话里，"重新生成=原位置替换"的语义无法成立。
+    latest.setContent("");
+    latest.setGenerationStatus(ChatMessage.GENERATING);
+    latest.setIsActive(true);
+    latest.setErrorCode(null);
+    latest.setRagStatus(null);
+    latest.setUsagePromptTokens(null);
+    latest.setUsageCompletionTokens(null);
+    latest.setUsageTotalTokens(null);
+    latest.setModelConfigId(revision.getModelConfigId());
+    latest.setRevisionNo(revision.getRevisionNo());
+    latest.setModelName(revision.getModelName());
+    latest.setProviderName(revision.getProviderName());
+    latest.setTemperature(revision.getTemperature());
+    latest.setMaxOutputTokens(revision.getMaxOutputTokens());
+    conversationService.updateMessage(latest);
 
     if (!conversationService.tryClaimActiveGeneration(
-        conversationId, newMsg.getId(), properties.getStaleTimeout())) {
+        conversationId, latest.getId(), properties.getStaleTimeout())) {
       throw new ActiveGenerationExistsException(conversationId);
     }
+    // 同 id 复用：清除旧流的终态标记，否则 finalizer 的幂等去重会拦截新流完成，active slot 永不释放。
+    finalizer.reset(latest.getId());
     if (requestedModelConfigId != null) {
       conversationService.updateDefaultModelConfig(conversationId, requestedModelConfigId);
     }
 
-    return new PreparedSend(null, newMsg, revision);
+    return new PreparedSend(null, latest, revision);
   }
 
   // ---- helpers ----

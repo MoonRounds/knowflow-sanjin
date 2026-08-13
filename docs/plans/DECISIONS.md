@@ -106,6 +106,7 @@ SSE 最小事件：
 - Owner AI Settings 保存 `defaultChatModelConfigId` 和 `utilityModelConfigId`。
 - Router 与 Extraction 共用一个 Utility Model，但任务锁定具体 Revision。
 - Utility Model 设置前必须通过结构化输出能力测试。
+- 默认聊天模型与 Utility 模型必须指向不同的 ModelConfig（设置时做角色冲突校验）。
 - V1 至少真实验证两个 Provider，优先 DeepSeek + Qwen。
 - Provider 只承诺基础文本、流式和基础参数；未实测服务标为“可能兼容”。
 - Token Usage 尽力记录，不承诺精确费用。
@@ -115,13 +116,13 @@ SSE 最小事件：
 - MySQL Message 是 Chat History 事实源。
 - User Message 是一轮起点；Assistant Message 本身就是 Generation Attempt。
 - Assistant Message 通过 `replyToMessageId` 指向 User Message。
-- 一个 User Message 可有多个 Assistant Attempts，但只有一个 completed attempt 为 active。
+- 一个 User Message 对应一条 assistant 消息；重新生成采用覆盖式语义，在同一条消息上原位清空并写回新流（同 id 同 sequence），不追加历史 Attempt（见 ADR 0005）。
 - 同一 Conversation 同时最多一个 active Generation，正确性由 MySQL 原子状态保证。
 - User Message 先落库，Assistant Message 经历 `GENERATING / COMPLETED / FAILED / CANCELLED`。
 - 流式 chunk 不逐 token 写 MySQL；成功保存完整内容，失败/取消可保存 partial content。
 - 已输出正文后不自动重试流式调用；用户可以重新生成。
 - failed/cancelled/abandoned Turn 不进入 Memory 或 Extraction。
-- 已提交 Message 不可编辑，不支持会话分支。
+- 已提交 Message 默认不可编辑、不支持会话分支；覆盖式重新生成是唯一原位改写已提交 assistant 消息的路径，旧内容在 prepare 阶段清空，失败/取消不再保留旧回答（见 ADR 0005）。
 - active Generation 存在时禁止删除 Conversation。
 - Conversation 软删除，不级联删除已沉淀知识。
 - 会话标题由 AI 在首轮回答结束后异步生成（首轮完整对话为来源，一句话、中文 10～20 字）；生成失败静默回退为首条 User Message 安全截断，可手动改名（见 ADR 0004）。

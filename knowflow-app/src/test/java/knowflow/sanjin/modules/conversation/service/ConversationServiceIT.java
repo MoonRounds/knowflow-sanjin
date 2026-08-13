@@ -9,6 +9,9 @@ import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.entity.Conversation;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
+import knowflow.sanjin.modules.modelconfig.dto.CreateModelConfigRequest;
+import knowflow.sanjin.modules.modelconfig.entity.ModelConfig;
+import knowflow.sanjin.modules.modelconfig.service.ModelConfigService;
 import knowflow.sanjin.testinfra.MySQLTestBase;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,7 @@ import org.springframework.dao.DuplicateKeyException;
 class ConversationServiceIT extends MySQLTestBase {
 
   @Autowired private ConversationService service;
+  @Autowired private ModelConfigService modelConfigService;
 
   private Conversation createConversation(String title) {
     CreateConversationRequest req = new CreateConversationRequest();
@@ -135,6 +139,35 @@ class ConversationServiceIT extends MySQLTestBase {
     stale.setRowVersion(0L); // 过期版本
     assertThatThrownBy(() -> service.update(c.getId(), stale))
         .isInstanceOf(org.springframework.dao.OptimisticLockingFailureException.class);
+  }
+
+  @Test
+  @DisplayName("should set conversation default model and clear it back to owner default")
+  void shouldUpdateDefaultModelAndClear() {
+    Conversation c = createConversation("model-default");
+    ModelConfig model = modelConfigService.create(modelConfigRequest("conv-default-model"));
+    UpdateConversationRequest set = new UpdateConversationRequest();
+    set.setDefaultModelConfigId(model.getId().toString());
+    service.update(c.getId(), set);
+    assertThat(service.getByIdAndOwner(c.getId()).getDefaultModelConfigId())
+        .isEqualTo(model.getId());
+
+    UpdateConversationRequest clear = new UpdateConversationRequest();
+    clear.setDefaultModelConfigId(""); // 空串 = 清空会话级覆盖，回到 Owner 默认
+    service.update(c.getId(), clear);
+    assertThat(service.getByIdAndOwner(c.getId()).getDefaultModelConfigId()).isNull();
+  }
+
+  private CreateModelConfigRequest modelConfigRequest(String name) {
+    CreateModelConfigRequest req = new CreateModelConfigRequest();
+    req.setDisplayName(name);
+    req.setProviderName("DeepSeek");
+    req.setBaseUrl("https://api.deepseek.com");
+    req.setModelName("deepseek-chat");
+    req.setTemperature(0.7);
+    req.setMaxOutputTokens(2048);
+    req.setApiKey("sk-it-" + name);
+    return req;
   }
 
   @Test

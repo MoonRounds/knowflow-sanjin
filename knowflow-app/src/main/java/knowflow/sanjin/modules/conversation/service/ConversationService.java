@@ -3,6 +3,7 @@ package knowflow.sanjin.modules.conversation.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import java.time.Instant;
 import java.util.List;
 import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.common.util.ApiValueParser;
@@ -101,8 +102,20 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
       c.setTitle(request.getTitle().trim());
     }
     if (request.getDefaultModelConfigId() != null) {
-      c.setDefaultModelConfigId(
-          ApiValueParser.positiveId(request.getDefaultModelConfigId(), "defaultModelConfigId"));
+      if (request.getDefaultModelConfigId().isEmpty()) {
+        // 空串表示清空会话级覆盖，回到 Owner 默认（动态跟随，见 DECISIONS §7）。
+        // updateById 默认忽略 null 字段，必须用显式 .set 把数据库列真正置为 NULL。
+        conversationMapper.update(
+            null,
+            new LambdaUpdateWrapper<Conversation>()
+                .eq(Conversation::getId, id)
+                .eq(Conversation::getOwnerId, c.getOwnerId())
+                .set(Conversation::getDefaultModelConfigId, null));
+        c.setDefaultModelConfigId(null);
+      } else {
+        c.setDefaultModelConfigId(
+            ApiValueParser.positiveId(request.getDefaultModelConfigId(), "defaultModelConfigId"));
+      }
     }
     updateById(c);
     return c;
@@ -248,6 +261,38 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
     } catch (DuplicateKeyException e) {
       throw e;
     }
+  }
+
+  /**
+   * 覆盖式重新生成：按 id 原位更新 assistant 消息（同 id 同 sequence 写回新流结果），而不是追加新消息。
+   *
+   * <p>必须用显式 {@code .set} 写入每个字段：MyBatis-Plus 默认 NOT_NULL 更新策略会让 {@code updateById} 跳过 null
+   * 字段，导致上一轮残留的 errorCode/ragStatus/usage 等终态元数据无法清空。同时显式刷新 updatedAt（strictUpdateFill 只在字段为 null
+   * 时填充，重新生成的消息从 DB 读出的 updatedAt 非空不会被刷新）， 否则 tryClaimActiveGeneration 的 stale
+   * 启发式会把刚认领的重新生成误判为孤儿并发抢占。
+   */
+  @Transactional
+  public void updateMessage(ChatMessage message) {
+    chatMessageMapper.update(
+        null,
+        new LambdaUpdateWrapper<ChatMessage>()
+            .eq(ChatMessage::getId, message.getId())
+            .eq(ChatMessage::getOwnerId, message.getOwnerId())
+            .set(ChatMessage::getContent, message.getContent())
+            .set(ChatMessage::getGenerationStatus, message.getGenerationStatus())
+            .set(ChatMessage::getIsActive, message.getIsActive())
+            .set(ChatMessage::getModelConfigId, message.getModelConfigId())
+            .set(ChatMessage::getRevisionNo, message.getRevisionNo())
+            .set(ChatMessage::getModelName, message.getModelName())
+            .set(ChatMessage::getProviderName, message.getProviderName())
+            .set(ChatMessage::getTemperature, message.getTemperature())
+            .set(ChatMessage::getMaxOutputTokens, message.getMaxOutputTokens())
+            .set(ChatMessage::getErrorCode, message.getErrorCode())
+            .set(ChatMessage::getRagStatus, message.getRagStatus())
+            .set(ChatMessage::getUsagePromptTokens, message.getUsagePromptTokens())
+            .set(ChatMessage::getUsageCompletionTokens, message.getUsageCompletionTokens())
+            .set(ChatMessage::getUsageTotalTokens, message.getUsageTotalTokens())
+            .set(ChatMessage::getUpdatedAt, Instant.now()));
   }
 
   /**

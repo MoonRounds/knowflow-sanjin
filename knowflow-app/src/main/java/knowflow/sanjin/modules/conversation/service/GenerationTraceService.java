@@ -95,6 +95,12 @@ public class GenerationTraceService {
 
   private void saveTrace(
       long conversationId, long assistantMessageId, GenerationTraceSnapshot snapshot) {
+    // 覆盖式重新生成会复用同一条 assistant 消息（同 id）；无论本次是否产出 trace 都先删旧记录，
+    // 避免 uk_gtrace_message 冲突，并保证重新生成失败/无 RAG 时上一轮的旧来源不会残留。
+    // 普通新消息没有旧 trace，删除为空操作。
+    mapper.delete(
+        new LambdaQueryWrapper<GenerationTrace>()
+            .eq(GenerationTrace::getAssistantMessageId, assistantMessageId));
     if (snapshot == null) {
       return;
     }
