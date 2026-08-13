@@ -1,0 +1,101 @@
+/* 聊天/知识正文里 Markdown 代码块与流程图的共享样式。
+   仅覆盖新增结构类（kf-codeblock / kf-flow 等），不触碰组件已有的 pre/code 基础样式。 */
+
+.kf-codeblock {
+  margin: 0.6em 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #20221e;
+  color: #f2f0e9;
+}
+
+.kf-codehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.kf-lang {
+  font-family: var(--kf-font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f2f0e9;
+  opacity: 0.75;
+}
+
+.kf-copy-btn {
+  border: none;
+  background: transparent;
+  color: #f2f0e9;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+  opacity: 0.85;
+  transition:
+    opacity var(--kf-duration-fast) var(--kf-ease),
+    background var(--kf-duration-fast) var(--kf-ease);
+}
+
+.kf-copy-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.kf-flow {
+  counter-reset: kf-flow;
+  list-style: none;
+  margin: 0.6em 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kf-flow li {
+  position: relative;
+  padding: 8px 12px 8px 42px;
+  background: var(--kf-paper);
+  border: 1px solid var(--kf-line);
+  border-radius: 8px;
+  font-weight: 700;
+  color: var(--kf-ink);
+}
+
+.kf-flow li:not(:last-child) {
+  margin-bottom: 16px;
+}
+
+.kf-flow li:not(:last-child)::after {
+  content: '↓';
+  position: absolute;
+  left: 21px;
+  bottom: -15px;
+  color: var(--kf-muted);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.kf-flow li::before {
+  counter-increment: kf-flow;
+  content: counter(kf-flow);
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  background: var(--kf-ink);
+  color: var(--kf-paper);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}

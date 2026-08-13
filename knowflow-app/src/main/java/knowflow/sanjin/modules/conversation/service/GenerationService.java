@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.dao.DuplicateKeyException;
@@ -37,6 +38,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class GenerationService {
 
   private static final Logger log = LoggerFactory.getLogger(GenerationService.class);
+
+  /** 主聊天输出格式约束：只约束展示格式，不改变 RAG/Citation 语义。 */
+  private static final String CHAT_SYSTEM_PROMPT =
+      "你是 KnowFlow 的个人学习助手，回答时注意输出格式：\n"
+          + "1. 真实代码必须放在围栏代码块中，并标注准确语言（如 ```javascript、```sql、```bash）。\n"
+          + "2. 展示流程、步骤或过程时，用 ```text 围栏块，每行一步，步骤之间用 ↓ 连接；前端会把这类块渲染成流程图。\n"
+          + "3. 不要用代码块展示普通文本或列表，普通文本直接用段落表达。";
 
   private final GenerationPrepare prepare;
   private final ConversationService conversationService;
@@ -166,6 +174,7 @@ public class GenerationService {
   private List<Message> buildPrompt(
       long conversationId, String currentQuestion, RagContext ragContext) {
     List<Message> result = new ArrayList<>(memoryService.loadWindow(conversationId));
+    result.add(0, new SystemMessage(CHAT_SYSTEM_PROMPT));
     // RAG 材料作为独立 UserMessage 注入，标注不可信引用，与系统指令分离
     if (ragContext != null
         && ragContext.getInjectedText() != null

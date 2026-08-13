@@ -10,6 +10,7 @@ import type { KnowledgeItemResponse } from '../api/types/knowledge-item'
 import { getFileMetadataByItem, downloadFileUrl } from '../api/files'
 import type { FileMetadataResponse } from '../api/files'
 import { renderMarkdown } from '../utils/markdown'
+import { useCodeBlockCopy } from '../composables/useCodeBlockCopy'
 import { errorText } from '../utils/errorText'
 import KfEmptyState from '../components/KfEmptyState.vue'
 
@@ -27,6 +28,8 @@ const isUpload = computed(() => item.value?.sourceType === 'UPLOAD_FILE')
 
 /** 正文按受控 Markdown 渲染（raw HTML 已被 markdown-it 禁用）。 */
 const renderedContent = computed(() => renderMarkdown(item.value?.content ?? ''))
+
+const { handleClick: handleCodeBlockClick } = useCodeBlockCopy()
 
 const editMode = ref(false)
 const form = reactive<{
@@ -252,7 +255,7 @@ onBeforeUnmount(stopPolling)
         </div>
         <div v-if="item.summary" class="summary">{{ item.summary }}</div>
         <el-divider />
-        <div class="content markdown-body" v-html="renderedContent" />
+        <div class="content markdown-body" @click="handleCodeBlockClick" v-html="renderedContent" />
         <el-divider />
         <div class="relations">
           <span class="label">知识库：</span>
@@ -411,6 +414,12 @@ onBeforeUnmount(stopPolling)
 .content :deep(pre code) {
   background: transparent;
   padding: 0;
+}
+.content :deep(.kf-codeblock pre) {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 0;
+  background: transparent;
 }
 .content :deep(blockquote) {
   border-left: 3px solid #e4e7ed;

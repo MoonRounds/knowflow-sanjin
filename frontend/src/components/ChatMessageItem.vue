@@ -5,6 +5,7 @@ import type { MessageResponse } from '../api/types/conversation'
 import type { RouterDiagnostic } from '../composables/useChatStream'
 import { escapeHtml, renderMarkdown } from '../utils/markdown'
 import MessageSourcesPanel from './MessageSourcesPanel.vue'
+import { useCodeBlockCopy } from '../composables/useCodeBlockCopy'
 
 const props = defineProps<{
   msg: MessageResponse
@@ -12,6 +13,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ stop: []; regenerate: [msg: MessageResponse] }>()
+
+const { handleClick: handleCodeBlockClick } = useCodeBlockCopy()
 
 /** 按消息内容缓存渲染：同一条消息的 content 未变则不重新解析 markdown。 */
 const contentHtml = computed(() =>
@@ -37,6 +40,7 @@ const contentHtml = computed(() =>
       v-if="msg.role !== 'ASSISTANT' || msg.content"
       class="msg-content"
       :aria-live="msg.generationStatus === 'GENERATING' ? 'polite' : undefined"
+      @click="handleCodeBlockClick"
       v-html="contentHtml"
     />
     <div v-if="msg.generationStatus === 'FAILED'" class="msg-error">
@@ -139,6 +143,12 @@ const contentHtml = computed(() =>
 .msg-content :deep(pre code) {
   background: transparent;
   padding: 0;
+}
+.msg-content :deep(.kf-codeblock pre) {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 0;
+  background: transparent;
 }
 .msg-content :deep(ul),
 .msg-content :deep(ol) {
