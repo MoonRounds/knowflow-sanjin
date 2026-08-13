@@ -20,13 +20,13 @@ knowflow-app/src/main/java/knowflow/sanjin/
     │   ├── entity/
     │   └── service/
     ├── knowledge/
-    │   ├── controller/                    # KnowledgeItem / Manual Note REST
+    │   ├── controller/                    # KnowledgeDocument / Manual Note REST
     │   ├── dto/                           # Manual Note 创建/更新请求
-    │   ├── entity/                        # KnowledgeItem / Tag / 关联 / KnowledgeChunk
+    │   ├── entity/                        # KnowledgeDocument / Tag / KnowledgeDocumentTag / KnowledgeDocumentChunk
     │   ├── exception/                     # 模块业务异常与索引错误分类
     │   ├── infrastructure/                # Embedding / Qdrant 薄客户端
     │   ├── mapper/
-    │   ├── service/                       # KnowledgeService / KnowledgeIndexingService / TextChunker
+    │   ├── service/                       # KnowledgeDocumentService / KnowledgeIndexingService / TextChunker
     │   └── vo/
     ├── processing/
     │   ├── assembler/
@@ -69,14 +69,14 @@ knowflow-app/src/main/java/knowflow/sanjin/
         ├── listener/                      # ExtractionTaskConsumer（RabbitMQ 独立工作队列）
         ├── mapper/
         └── service/                       # ExtractionService / ExtractionExecutor / CandidateService / CandidateConfirmService
-    └── document/                         # Markdown/TXT 上传、去重与文档解析（Phase 8）
-        ├── config/                        # DocumentProperties（knowflow.document.*）
-        ├── controller/                    # DocumentController（上传/元数据/下载）+ FileMetadataAssembler
-        ├── entity/                        # FileMetadata（与 KnowledgeItem 一对一）
+    └── file/                             # Markdown/TXT 上传、去重与文档解析（Phase 8）
+        ├── config/                        # FileProperties（knowflow.document.*）
+        ├── controller/                    # FileController（上传/元数据/下载）+ FileMetadataAssembler
+        ├── entity/                        # FileMetadata（与 KnowledgeDocument 一对一）
         ├── exception/                     # 大小/类型/内容/存储缺失/解析失败异常
-        ├── listener/                      # DocumentParseTaskConsumer（RabbitMQ 独立 document 工作队列）
+        ├── listener/                      # FileParseTaskConsumer（RabbitMQ 独立 file 工作队列）
         ├── mapper/
-        └── service/                       # DocumentUploadService / DocumentParsingService / DocumentParser
+        └── service/                       # FileUploadService / FileParsingService / FileParser
                                             # MimeDetectionService(tika-core) / FileStorageService / LocalFileStore
 ```
 

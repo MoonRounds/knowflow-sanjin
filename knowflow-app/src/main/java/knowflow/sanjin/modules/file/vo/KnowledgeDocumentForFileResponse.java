@@ -1,6 +1,6 @@
 package knowflow.sanjin.modules.file.vo;
 
-/** 上传后关联的 KnowledgeItem 摘要视图（供前端跳转详情）。 */
+/** 上传后关联的 KnowledgeDocument 摘要视图（供前端跳转详情）。 */
 public class KnowledgeDocumentForFileResponse {
 
   private String id;

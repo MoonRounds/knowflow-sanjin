@@ -345,6 +345,9 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
     KnowledgeDocument created = knowledgeService.createManualNote(noteRequest());
     waitForIndexed(created.getId());
 
+    // G13 过滤条件：已 INDEXED 且版本一致的文档不应被重提
+    assertThat(knowledgeService.reindexAllForOwner()).isZero();
+
     // 模拟存量缺索引/索引过期（V12 迁移后需全量重建）：重置 index_status 与 indexed_version
     itemMapper.update(
         null,
@@ -354,7 +357,7 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
             .set(KnowledgeDocument::getIndexedVersion, null));
 
     int submitted = knowledgeService.reindexAllForOwner();
-    assertThat(submitted).isGreaterThanOrEqualTo(1);
+    assertThat(submitted).isEqualTo(1);
 
     waitForIndexed(created.getId());
     KnowledgeDocument reindexed = itemMapper.selectById(created.getId());

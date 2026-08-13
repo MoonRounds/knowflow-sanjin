@@ -149,8 +149,8 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
    * 硬删除会话并级联清理：删除消息、GenerationTrace、提取任务与候选，最后删除会话本身。
    *
    * <p>单事务内完成；顺序依赖外键：先删 trace（引用消息/会话）→ 候选（引用提取任务）→ 提取任务（引用会话与消息）→ 消息（自引用 reply_to 由 V10 迁移的 ON
-   * DELETE CASCADE 兜底）→ 会话。已确认候选沉淀的 KnowledgeItem 依赖 V10 迁移的 ON DELETE SET NULL 保留，仅解除 candidate_id
-   * 关联。删除前守卫：active 生成与 非终态提取任务 存在时拒绝，避免与生成/消费端并发竞态。
+   * DELETE CASCADE 兜底）→ 会话。已确认候选沉淀的 KnowledgeDocument 依赖 V10 迁移的 ON DELETE SET NULL 保留，仅解除
+   * candidate_id 关联。删除前守卫：active 生成与 非终态提取任务 存在时拒绝，避免与生成/消费端并发竞态。
    */
   @Transactional
   public void hardDelete(Long id) {

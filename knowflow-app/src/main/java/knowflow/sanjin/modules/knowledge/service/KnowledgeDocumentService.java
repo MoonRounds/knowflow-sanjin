@@ -451,10 +451,11 @@ public class KnowledgeDocumentService {
   }
 
   /**
-   * 全量重建（G13）：对当前 Owner 所有未软删 Document 按当前 contentVersion 提交 FULL 索引任务。
+   * 全量重建（G13）：对当前 Owner 未软删且「缺索引或索引过期」的 Document 按当前 contentVersion 提交 FULL 索引任务。
    *
-   * <p>用于存量回填 / Qdrant 全量重建 / Embedding 维度变更后的重建（DECISIONS §12）。幂等：已有活动索引任务的 Document 跳过（{@code
-   * knowledge_document} 同版本点会被确定性 Point ID 覆盖写入，无需清理）。
+   * <p>用于存量回填 / Qdrant 全量重建 / Embedding 维度变更后的重建（DECISIONS §12）。已 INDEXED 且 {@code indexed_version
+   * == content_version} 的 Document 跳过，避免无谓重索引。幂等：已有活动索引任务的 Document 跳过（{@code knowledge_document}
+   * 同版本点会被确定性 Point ID 覆盖写入，无需清理）。
    */
   @Transactional
   public int reindexAllForOwner() {
@@ -466,12 +467,26 @@ public class KnowledgeDocumentService {
                 .eq(KnowledgeDocument::getDeleted, false));
     int submitted = 0;
     for (KnowledgeDocument document : documents) {
+      if (isIndexCurrent(document)) {
+        continue;
+      }
       int version = document.getContentVersion() == null ? 1 : document.getContentVersion();
       submitIndexTaskAfterParse(document.getId(), ownerId, version);
       submitted++;
     }
     log.info("reindexAllForOwner: owner={} submitted {} documents", ownerId, submitted);
     return submitted;
+  }
+
+  private boolean isIndexCurrent(KnowledgeDocument document) {
+    if (!KnowledgeConstants.INDEX_INDEXED.equals(document.getIndexStatus())) {
+      return false;
+    }
+    Integer contentVersion = document.getContentVersion();
+    if (contentVersion == null) {
+      return false;
+    }
+    return Integer.valueOf(contentVersion).equals(document.getIndexedVersion());
   }
 
   private static String businessKey(Long itemId, int contentVersion) {

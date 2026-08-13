@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 上传应用服务：流式接收 → 大小/扩展名校验 → Tika MIME 检测 → SHA-256 去重 → 创建 FileMetadata + KnowledgeItem + 提交
+ * 上传应用服务：流式接收 → 大小/扩展名校验 → Tika MIME 检测 → SHA-256 去重 → 创建 FileMetadata + KnowledgeDocument + 提交
  * DOCUMENT_PARSE 任务。
  *
  * <p>去重身份为 owner + 检测 MIME + 原始内容 SHA-256（文件名不参与）。事务边界：文件正式落盘与数据库写入在同一事务；数据库提交失败或中途异常时补偿删除
