@@ -17,6 +17,7 @@ const kb: KnowledgeBaseResponse = {
   name: 'Java',
   description: 'Java notes',
   enabled: true,
+  documentCount: 3,
   rowVersion: 0,
   createdAt: '2026-08-09T00:00:00Z',
   updatedAt: '2026-08-09T00:00:00Z',

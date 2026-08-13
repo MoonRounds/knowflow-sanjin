@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -555,7 +555,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -574,6 +574,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_4"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -659,6 +675,15 @@ export interface components {
             /** Format: double */
             temperature?: number;
         };
+        DocumentPageResponse: {
+            items?: components["schemas"]["KnowledgeDocumentSummaryResponse"][];
+            /** Format: int64 */
+            page?: number;
+            /** Format: int64 */
+            size?: number;
+            /** Format: int64 */
+            total?: number;
+        };
         EmbeddingConfigResponse: {
             apiKeyMasked: string;
             baseUrl: string;
@@ -718,6 +743,8 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             description?: string;
+            /** Format: int64 */
+            documentCount?: number;
             enabled: boolean;
             id: string;
             name: string;
@@ -749,6 +776,24 @@ export interface components {
             rowVersion: number;
             sourceType: string;
             summary?: string;
+            tags: string[];
+            title: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        KnowledgeDocumentSummaryResponse: {
+            /** Format: int32 */
+            contentVersion: number;
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            indexStatus: string;
+            /** Format: int32 */
+            indexedVersion?: number;
+            knowledgeBaseId: string;
+            /** Format: int32 */
+            rowVersion: number;
+            sourceType: string;
             tags: string[];
             title: string;
             /** Format: date-time */
@@ -878,6 +923,10 @@ export interface components {
             /** Format: int64 */
             timeout?: number;
         };
+        TagResponse: {
+            id: string;
+            name: string;
+        };
         TestEmbeddingConfigRequest: {
             apiKey: string;
             baseUrl: string;
@@ -959,7 +1008,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_5: {
+    list_6: {
         parameters: {
             query?: {
                 status?: string;
@@ -1336,7 +1385,14 @@ export interface operations {
     };
     list_2: {
         parameters: {
-            query?: never;
+            query?: {
+                knowledgeBaseId?: string;
+                sourceType?: string;
+                tag?: string;
+                indexStatus?: string;
+                page?: number;
+                size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1349,7 +1405,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["KnowledgeDocumentResponse"][];
+                    "*/*": components["schemas"]["DocumentPageResponse"];
                 };
             };
         };
@@ -2076,7 +2132,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: {
                 status?: string;
@@ -2116,6 +2172,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ProcessingTaskResponse"];
+                };
+            };
+        };
+    };
+    list_4: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TagResponse"][];
                 };
             };
         };

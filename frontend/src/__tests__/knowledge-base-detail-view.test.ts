@@ -1,0 +1,196 @@
+// KnowledgeBaseDetailView（库详情）视图测试：页头、过滤、分页、空态、新建笔记/上传归属当前库。
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import ElementPlus from 'element-plus'
+import { nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import KnowledgeBaseDetailView from '../views/KnowledgeBaseDetailView.vue'
+import * as kbApi from '../api/knowledge-bases'
+import * as documentsApi from '../api/documents'
+import * as tagsApi from '../api/tags'
+import * as filesApi from '../api/files'
+import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
+import type { DocumentPageResponse, KnowledgeDocumentResponse } from '../api/types/document'
+
+const kb: KnowledgeBaseResponse = {
+  id: '2',
+  name: 'Java',
+  description: 'Java notes',
+  enabled: true,
+  documentCount: 3,
+  rowVersion: 0,
+  createdAt: '2026-08-09T00:00:00Z',
+  updatedAt: '2026-08-09T00:00:00Z',
+}
+
+const summaryItem = {
+  id: '1',
+  sourceType: 'MANUAL_NOTE' as const,
+  title: 'My Note',
+  contentVersion: 1,
+  indexStatus: 'INDEXED',
+  knowledgeBaseId: '2',
+  tags: ['java'],
+  rowVersion: 0,
+  createdAt: '2026-08-09T00:00:00Z',
+  updatedAt: '2026-08-09T00:00:00Z',
+}
+
+const page: DocumentPageResponse = {
+  items: [summaryItem],
+  page: 1,
+  size: 20,
+  total: 1,
+}
+
+/** script setup 内部绑定经 VTU 暴露在 vm 上，这里显式声明供测试直接修改过滤条件。 */
+type DetailVm = {
+  sourceType: string
+  tag: string
+  uploadFileRaw: File | null
+}
+
+async function mountView(): Promise<VueWrapper> {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/knowledge-bases/:id', component: { template: '<div />' } },
+      { path: '/documents/:id', component: { template: '<div />' } },
+    ],
+  })
+  await router.push('/knowledge-bases/2')
+  await router.isReady()
+  return mount(KnowledgeBaseDetailView, { global: { plugins: [ElementPlus, router] } })
+}
+
+describe('KnowledgeBaseDetailView', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function stubBaseApis() {
+    vi.spyOn(kbApi, 'getKnowledgeBase').mockResolvedValue(kb)
+    vi.spyOn(tagsApi, 'listTags').mockResolvedValue([
+      { id: '1', name: 'java' },
+      { id: '2', name: 'spring' },
+    ])
+  }
+
+  it('renders the header and loads documents of the current knowledge base', async () => {
+    const listMock = vi.spyOn(documentsApi, 'listDocuments').mockResolvedValue(page)
+    stubBaseApis()
+    const wrapper = await mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Java')
+    expect(wrapper.text()).toContain('已启用')
+    expect(wrapper.text()).toContain('My Note')
+    expect(listMock).toHaveBeenCalledWith({ knowledgeBaseId: '2', page: 1, size: 20 })
+  })
+
+  it('reloads from page 1 when a filter changes', async () => {
+    const listMock = vi.spyOn(documentsApi, 'listDocuments').mockResolvedValue(page)
+    stubBaseApis()
+    const wrapper = await mountView()
+    await flushPromises()
+    const vm = wrapper.vm as unknown as DetailVm
+
+    vm.sourceType = 'UPLOAD_FILE'
+    await nextTick()
+    await flushPromises()
+    expect(listMock).toHaveBeenLastCalledWith({
+      knowledgeBaseId: '2',
+      sourceType: 'UPLOAD_FILE',
+      page: 1,
+      size: 20,
+    })
+
+    vm.tag = 'java'
+    await nextTick()
+    await flushPromises()
+    expect(listMock).toHaveBeenLastCalledWith({
+      knowledgeBaseId: '2',
+      sourceType: 'UPLOAD_FILE',
+      tag: 'java',
+      page: 1,
+      size: 20,
+    })
+  })
+
+  it('shows an empty state with a create-note action when no documents', async () => {
+    vi.spyOn(documentsApi, 'listDocuments').mockResolvedValue({
+      items: [],
+      page: 1,
+      size: 20,
+      total: 0,
+    })
+    stubBaseApis()
+    const wrapper = await mountView()
+    await flushPromises()
+
+    expect(wrapper.find('.kf-empty--wide').exists()).toBe(true)
+    expect(wrapper.text()).toContain('这个知识库还没有文档')
+  })
+
+  it('creates a note fixed to the current knowledge base and navigates to it', async () => {
+    const created: KnowledgeDocumentResponse = { ...summaryItem, id: '9', content: '# hello' }
+    const createMock = vi.spyOn(documentsApi, 'createDocument').mockResolvedValue(created)
+    vi.spyOn(documentsApi, 'listDocuments').mockResolvedValue(page)
+    stubBaseApis()
+    const wrapper = await mountView()
+    await flushPromises()
+
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === '新建笔记')!
+      .trigger('click')
+    await nextTick()
+
+    const textareas = wrapper.findAll('textarea')
+    await textareas[textareas.length - 1].setValue('# hello')
+    const inputs = wrapper.findAll('input')
+    await inputs[inputs.length - 1].setValue('java, ai')
+
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === '创建')!
+      .trigger('click')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: '# hello',
+        knowledgeBaseId: '2',
+        tags: ['java', 'ai'],
+      }),
+    )
+  })
+
+  it('uploads a file to the current knowledge base and navigates to the item', async () => {
+    const uploadMock = vi.spyOn(filesApi, 'uploadFile').mockResolvedValue({
+      duplicate: false,
+      item: { id: '9', title: 'a.md', sourceType: 'UPLOAD_FILE', indexStatus: 'PENDING' },
+    })
+    vi.spyOn(documentsApi, 'listDocuments').mockResolvedValue(page)
+    stubBaseApis()
+    const wrapper = await mountView()
+    await flushPromises()
+
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === '上传文件')!
+      .trigger('click')
+    await nextTick()
+    const vm = wrapper.vm as unknown as DetailVm
+    vm.uploadFileRaw = new File(['# hello'], 'a.md', { type: 'text/markdown' })
+    await nextTick()
+
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === '上传')!
+      .trigger('click')
+    await flushPromises()
+
+    expect(uploadMock).toHaveBeenCalledWith(expect.any(File), '2')
+  })
+})

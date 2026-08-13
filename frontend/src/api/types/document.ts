@@ -4,3 +4,6 @@ import type { components } from './generated'
 export type CreateDocumentRequest = components['schemas']['CreateDocumentRequest']
 export type UpdateDocumentRequest = components['schemas']['UpdateDocumentRequest']
 export type KnowledgeDocumentResponse = components['schemas']['KnowledgeDocumentResponse']
+export type KnowledgeDocumentSummaryResponse =
+  components['schemas']['KnowledgeDocumentSummaryResponse']
+export type DocumentPageResponse = components['schemas']['DocumentPageResponse']

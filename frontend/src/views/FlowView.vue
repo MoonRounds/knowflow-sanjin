@@ -40,7 +40,7 @@ function metricValue(label: string): number {
 }
 /** 最近活跃跳转：对话进 /chat，知识条目进详情页。 */
 function goOpen(r: { type: 'conversation' | 'knowledge'; id: string }) {
-  void router.push(r.type === 'conversation' ? '/chat' : `/knowledge-items/${r.id}`)
+  void router.push(r.type === 'conversation' ? '/chat' : `/documents/${r.id}`)
 }
 /** 最近活跃的时间格式化：今天显示 HH:mm，昨天显示「昨天」，更早显示 M 月 d 日。 */
 function formatTime(iso: string): string {

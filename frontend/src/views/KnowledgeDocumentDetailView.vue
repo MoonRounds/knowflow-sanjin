@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Document 详情页：展示标题/摘要/正文/来源/知识库/标签/版本/索引状态；Manual Note 可编辑。
+// Document 详情页：展示标题/摘要/正文/来源/所属知识库/标签/版本/索引状态；Manual Note 可编辑。
+// 所属知识库名称通过前端 listKnowledgeBases() 映射（G27），库名链接回库详情。
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -25,6 +26,12 @@ const knowledgeBases = ref<KnowledgeBaseResponse[]>([])
 const fileMeta = ref<FileMetadataResponse | null>(null)
 
 const isUpload = computed(() => item.value?.sourceType === 'UPLOAD_FILE')
+
+/** 所属知识库名称：由 knowledgeBaseId 在前端映射（G27）。 */
+const knowledgeBaseName = computed(() => {
+  const kbId = item.value?.knowledgeBaseId
+  return knowledgeBases.value.find((kb) => kb.id === kbId)?.name ?? ''
+})
 
 /** 正文按受控 Markdown 渲染（raw HTML 已被 markdown-it 禁用）。 */
 const renderedContent = computed(() => renderMarkdown(item.value?.content ?? ''))
@@ -258,10 +265,14 @@ onBeforeUnmount(stopPolling)
         <div class="content markdown-body" @click="handleCodeBlockClick" v-html="renderedContent" />
         <el-divider />
         <div class="relations">
-          <span class="label">知识库：</span>
-          <el-tag v-if="item.knowledgeBaseId" size="small" type="primary">
-            {{ item.knowledgeBaseId }}
-          </el-tag>
+          <span class="label">所属知识库：</span>
+          <el-link
+            v-if="item.knowledgeBaseId"
+            type="primary"
+            @click="router.push(`/knowledge-bases/${item.knowledgeBaseId}`)"
+          >
+            {{ knowledgeBaseName || item.knowledgeBaseId }}
+          </el-link>
           <span v-if="!item.knowledgeBaseId" class="muted">无</span>
         </div>
         <div class="relations">

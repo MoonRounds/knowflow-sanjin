@@ -113,7 +113,7 @@ async function confirmCandidateRow(candidate: CandidateResponse) {
     const updated = await confirmCandidate(candidate.id)
     ElMessage.success('已确认并创建知识条目')
     if (updated.confirmedItemId) {
-      await router.push(`/knowledge-items/${updated.confirmedItemId}`)
+      await router.push(`/documents/${updated.confirmedItemId}`)
       return
     }
     await load()
@@ -159,7 +159,7 @@ async function restoreRow(candidate: CandidateResponse) {
 
 function goItem(id?: string) {
   if (!id) return
-  void router.push(`/knowledge-items/${id}`)
+  void router.push(`/documents/${id}`)
 }
 
 function goChat() {

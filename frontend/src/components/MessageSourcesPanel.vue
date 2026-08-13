@@ -30,7 +30,7 @@ const summaryText = computed(() => {
 
 function openDocument(documentId?: string) {
   if (documentId) {
-    void router.push(`/knowledge-items/${documentId}`)
+    void router.push(`/documents/${documentId}`)
   }
 }
 </script>

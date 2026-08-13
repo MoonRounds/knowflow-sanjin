@@ -107,16 +107,18 @@ export function useFlowData() {
     refreshing = true
     if (initial) loading.value = true
     try {
-      const [candidates, kbs, items, tasks, conversations] = await Promise.all([
+      const [candidates, kbs, docPage, tasks, conversations] = await Promise.all([
         listCandidates({ status: 'PENDING' }),
         listKnowledgeBases(),
-        listDocuments(),
+        listDocuments({ size: 100 }),
         listProcessingTasks(),
         listConversations(),
       ])
 
       const pending = candidates.items ?? []
       const pendingCount = candidates.total ?? pending.length
+      const items = docPage.items ?? []
+      const itemsCount = docPage.total ?? items.length
       const domains = kbs
         .filter((kb) => kb.enabled)
         .map((kb) => ({ name: kb.name, count: 0, color: 'var(--kf-green)' }))
@@ -150,10 +152,9 @@ export function useFlowData() {
         : null
 
       const kbCount = domains.length
-      const itemsCount = (items ?? []).length
       // 只数运行中（PENDING/PROCESSING）任务；终态历史任务不计入指标。
       const taskCount = runningTasks.length
-      const idx = indexCounts(items ?? [])
+      const idx = indexCounts(items)
 
       data.value = {
         focus: {
@@ -179,7 +180,7 @@ export function useFlowData() {
         },
         candidate,
         domains,
-        recent: buildRecent(conversations ?? [], items ?? []),
+        recent: buildRecent(conversations ?? [], items),
         ...idx,
       }
     } catch {

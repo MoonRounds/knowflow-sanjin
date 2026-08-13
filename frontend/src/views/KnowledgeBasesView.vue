@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 知识库管理页：列表 + 新建/编辑弹窗 + 启用/禁用/删除；从知识库创建 Manual Note；笔记列表可跳转详情。
+// 知识库列表页：库 CRUD + 库内文档数；库名链接进库详情（P2 拆分的库列表层）。
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -16,9 +16,6 @@ import type {
   KnowledgeBaseResponse,
   UpdateKnowledgeBaseRequest,
 } from '../api/types/knowledge-base'
-import { createDocument, listDocuments } from '../api/documents'
-import type { KnowledgeDocumentResponse } from '../api/types/document'
-import { uploadFile } from '../api/files'
 import { errorText } from '../utils/errorText'
 import KfEmptyState from '../components/KfEmptyState.vue'
 
@@ -26,7 +23,6 @@ const router = useRouter()
 
 const loading = ref(false)
 const items = ref<KnowledgeBaseResponse[]>([])
-const notes = ref<KnowledgeDocumentResponse[]>([])
 
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
@@ -34,21 +30,6 @@ const form = reactive<{ name: string; description: string }>({
   name: '',
   description: '',
 })
-
-const noteDialogVisible = ref(false)
-const noteForm = reactive<{
-  title: string
-  summary: string
-  content: string
-  knowledgeBaseId: string
-  tags: string
-}>({ title: '', summary: '', content: '', knowledgeBaseId: '', tags: '' })
-
-const uploadDialogVisible = ref(false)
-const uploadFileRaw = ref<File | null>(null)
-const uploadKbId = ref('')
-const uploading = ref(false)
-const uploadProgress = ref(0)
 
 const emptyState = ref(true)
 /** 行级操作守卫：避免切换状态/删除重复提交。 */
@@ -59,11 +40,6 @@ async function load() {
   try {
     items.value = await listKnowledgeBases()
     emptyState.value = items.value.length === 0
-    try {
-      notes.value = await listDocuments()
-    } catch {
-      notes.value = []
-    }
   } catch (e) {
     ElMessage.error(errorText(e, '加载知识库失败'))
   } finally {
@@ -150,105 +126,6 @@ async function confirmDelete(row: KnowledgeBaseResponse) {
   }
 }
 
-function openCreateNote() {
-  noteForm.title = ''
-  noteForm.summary = ''
-  noteForm.content = ''
-  noteForm.tags = ''
-  // 默认选中第一个知识库，避免提交时为空被后端拒绝
-  noteForm.knowledgeBaseId = items.value.length ? items.value[0].id : ''
-  noteDialogVisible.value = true
-}
-
-function openUpload() {
-  uploadFileRaw.value = null
-  uploadKbId.value = items.value.length ? items.value[0].id : ''
-  uploadProgress.value = 0
-  uploadDialogVisible.value = true
-}
-
-const MAX_FILE_BYTES = 5 * 1024 * 1024
-
-function onUploadFileChange(file: File) {
-  const name = file.name.toLowerCase()
-  const okExt = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt')
-  if (!okExt) {
-    ElMessage.warning('仅支持 .md / .markdown / .txt 文件')
-    uploadFileRaw.value = null
-    return
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    ElMessage.warning('文件超过 5 MiB 上限')
-    uploadFileRaw.value = null
-    return
-  }
-  uploadFileRaw.value = file
-}
-
-async function submitUpload() {
-  if (!uploadFileRaw.value) {
-    ElMessage.warning('请选择文件')
-    return
-  }
-  if (!uploadKbId.value) {
-    ElMessage.warning('请选择一个知识库')
-    return
-  }
-  uploading.value = true
-  uploadProgress.value = 10
-  try {
-    const result = await uploadFile(uploadFileRaw.value, uploadKbId.value)
-    uploadProgress.value = 100
-    uploadDialogVisible.value = false
-    await load()
-    if (result.item?.id) {
-      if (result.duplicate) {
-        ElMessage.info('已存在相同内容的文件，跳转到已有条目')
-        router.push(`/knowledge-items/${result.item.id}`)
-      } else {
-        ElMessage.success('文件已上传，正在解析与索引')
-        router.push(`/knowledge-items/${result.item.id}`)
-      }
-    }
-  } catch (e) {
-    ElMessage.error(errorText(e, '上传失败'))
-  } finally {
-    uploading.value = false
-  }
-}
-
-async function submitNote() {
-  if (!noteForm.knowledgeBaseId) {
-    ElMessage.warning('请选择一个知识库')
-    return
-  }
-  try {
-    const created = await createDocument({
-      title: noteForm.title.trim() || undefined,
-      summary: noteForm.summary,
-      content: noteForm.content,
-      knowledgeBaseId: noteForm.knowledgeBaseId,
-      tags: noteForm.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
-    })
-    ElMessage.success('笔记已创建，索引处理中')
-    noteDialogVisible.value = false
-    await load()
-    router.push(`/knowledge-items/${created.id}`)
-  } catch (e) {
-    ElMessage.error(errorText(e, '创建笔记失败'))
-  }
-}
-
-function noteStatusType(status: string): 'success' | 'warning' | 'danger' | 'info' {
-  if (status === 'INDEXED') return 'success'
-  if (status === 'FAILED') return 'danger'
-  if (status === 'PROCESSING') return 'warning'
-  return 'info'
-}
-
 onMounted(load)
 </script>
 
@@ -257,8 +134,6 @@ onMounted(load)
     <div class="page-header kf-list-page-header">
       <h2>知识库</h2>
       <div class="kf-list-page-actions">
-        <el-button type="primary" plain @click="openCreateNote"> 新建笔记 </el-button>
-        <el-button type="primary" plain @click="openUpload"> 上传文件 </el-button>
         <el-button type="primary" @click="openCreate"> 新建知识库 </el-button>
       </div>
     </div>
@@ -273,11 +148,20 @@ onMounted(load)
     />
 
     <el-table v-else v-loading="loading" :data="items" style="width: 100%">
-      <el-table-column prop="name" label="名称" min-width="180" />
+      <el-table-column prop="name" label="名称" min-width="180">
+        <template #default="{ row }">
+          <el-link type="primary" @click="router.push(`/knowledge-bases/${row.id}`)">
+            {{ row.name }}
+          </el-link>
+        </template>
+      </el-table-column>
       <el-table-column prop="description" label="描述" min-width="240">
         <template #default="{ row }">
           <span class="desc">{{ row.description || '—' }}</span>
         </template>
+      </el-table-column>
+      <el-table-column prop="documentCount" label="文档数" width="110">
+        <template #default="{ row }">{{ row.documentCount ?? 0 }}</template>
       </el-table-column>
       <el-table-column prop="enabled" label="状态" width="100">
         <template #default="{ row }">
@@ -313,30 +197,6 @@ onMounted(load)
             删除
           </el-button>
         </template>
-      </el-table-column>
-    </el-table>
-
-    <h3 v-if="loading || !emptyState" class="notes-heading">我的笔记</h3>
-    <el-table v-if="loading || !emptyState" v-loading="loading" :data="notes" style="width: 100%">
-      <el-table-column prop="title" label="标题" min-width="200">
-        <template #default="{ row }">
-          <el-link type="primary" @click="router.push(`/knowledge-items/${row.id}`)">
-            {{ row.title }}
-          </el-link>
-        </template>
-      </el-table-column>
-      <el-table-column label="索引状态" width="120">
-        <template #default="{ row }">
-          <el-tag size="small" :type="noteStatusType(row.indexStatus)">
-            {{ row.indexStatus }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="contentVersion" label="版本" width="90">
-        <template #default="{ row }">v{{ row.contentVersion }}</template>
-      </el-table-column>
-      <el-table-column prop="updatedAt" label="更新时间" width="180">
-        <template #default="{ row }">{{ new Date(row.updatedAt).toLocaleString() }}</template>
       </el-table-column>
     </el-table>
 
@@ -378,86 +238,6 @@ onMounted(load)
         </div>
       </div>
     </el-dialog>
-
-    <el-dialog
-      v-model="uploadDialogVisible"
-      title="上传 Markdown / TXT 文件"
-      width="min(520px, 94vw)"
-    >
-      <el-form label-width="80px">
-        <el-form-item label="文件" required>
-          <el-upload
-            :auto-upload="false"
-            :show-file-list="true"
-            :limit="1"
-            accept=".md,.markdown,.txt"
-            :on-change="(uploadFile: any) => onUploadFileChange(uploadFile.raw)"
-            :on-remove="() => (uploadFileRaw = null)"
-          >
-            <el-button> 选择文件 </el-button>
-            <template #tip>
-              <div class="upload-tip">支持 .md / .markdown / .txt，最大 5 MiB，UTF-8 编码。</div>
-            </template>
-          </el-upload>
-        </el-form-item>
-        <el-form-item label="知识库" required>
-          <el-select v-model="uploadKbId" placeholder="选择知识库" style="width: 100%">
-            <el-option v-for="kb in items" :key="kb.id" :label="kb.name" :value="kb.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="uploading" label="进度">
-          <el-progress :percentage="uploadProgress" :stroke-width="10" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="uploadDialogVisible = false"> 取消 </el-button>
-        <el-button
-          type="primary"
-          :loading="uploading"
-          :disabled="!uploadFileRaw || !uploadKbId"
-          @click="submitUpload"
-        >
-          上传
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="noteDialogVisible" title="新建笔记" width="min(640px, 94vw)">
-      <el-form label-width="80px">
-        <el-form-item label="标题">
-          <el-input v-model="noteForm.title" maxlength="500" placeholder="留空则取正文首行" />
-        </el-form-item>
-        <el-form-item label="摘要">
-          <el-input v-model="noteForm.summary" type="textarea" :rows="2" maxlength="2000" />
-        </el-form-item>
-        <el-form-item label="正文" required>
-          <el-input
-            v-model="noteForm.content"
-            type="textarea"
-            :rows="10"
-            placeholder="Markdown 正文"
-          />
-        </el-form-item>
-        <el-form-item label="知识库" required>
-          <el-select
-            v-model="noteForm.knowledgeBaseId"
-            placeholder="选择知识库"
-            style="width: 100%"
-          >
-            <el-option v-for="kb in items" :key="kb.id" :label="kb.name" :value="kb.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="标签">
-          <el-input v-model="noteForm.tags" placeholder="逗号分隔，如：ai, 笔记" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="noteDialogVisible = false"> 取消 </el-button>
-        <el-button type="primary" :disabled="!noteForm.content.trim()" @click="submitNote">
-          创建
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -471,15 +251,6 @@ onMounted(load)
 }
 .desc {
   color: #666;
-}
-.upload-tip {
-  color: #999;
-  font-size: 0.8rem;
-  margin-top: 4px;
-}
-.notes-heading {
-  margin: 24px 0 12px;
-  font-size: 1.1rem;
 }
 /* ---- 特色弹窗：纸感 + 硬阴影 ---- */
 .kf-dialog-inner {
