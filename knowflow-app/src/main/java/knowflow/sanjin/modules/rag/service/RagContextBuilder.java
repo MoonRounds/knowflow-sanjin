@@ -147,7 +147,7 @@ public class RagContextBuilder {
     for (int i = 0; i < sources.size(); i++) {
       RetrievedSource s = sources.get(i);
       String snippet = s.getSnippet() == null ? "" : s.getSnippet();
-      String block = "[S" + (i + 1) + "]（来源：" + s.getItemTitle() + "）\n" + snippet + "\n";
+      String block = "[S" + (i + 1) + "]（来源：" + s.getDocumentTitle() + "）\n" + snippet + "\n";
       if (used + block.length() > budget) {
         break;
       }

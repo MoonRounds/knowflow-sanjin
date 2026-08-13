@@ -8,15 +8,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import knowflow.sanjin.common.config.QdrantProperties;
-import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeBaseItem;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeChunk;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentChunk;
 import knowflow.sanjin.modules.knowledge.infrastructure.EmbeddingClient;
 import knowflow.sanjin.modules.knowledge.infrastructure.QdrantClient;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeBaseItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeChunkMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentChunkMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
+import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
+import knowflow.sanjin.modules.knowledgebase.mapper.KnowledgeBaseMapper;
 import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import knowflow.sanjin.modules.rag.dto.RetrievalTrace;
 import knowflow.sanjin.modules.rag.dto.RetrievedSource;
@@ -25,10 +24,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Retrieval：对检索查询生成 Embedding → Qdrant owner + 多知识库 OR filter 检索 → MySQL 批量回查并二次校验。
+ * Retrieval：对检索查询生成 Embedding → Qdrant owner + 单归属 KB OR filter 检索 → MySQL 批量回查并二次校验。
  *
- * <p>Qdrant 命中后必须从 MySQL 校验 owner、当前内容版本、Item 状态与 KB 关系；校验失败的点逐条丢弃，不使整次检索失败。 幽灵 Point（旧版本、已删除
- * Item、关系已移除）不会进入 Prompt。低分候选同样被剔除。
+ * <p>Qdrant 命中后必须从 MySQL 校验 owner、当前内容版本、Document 未软删、单归属 KB 命中 Router 选中集合且 KB 仍启用（deleted=false
+ * && enabled=true）；校验失败的点逐条丢弃，不使整次检索失败。 幽灵 Point（旧版本、已删除 Document、KB 已禁用/删除）不会进入 Prompt。低分候选同样被剔除。
  */
 @Service
 public class RetrievalService {
@@ -40,9 +39,9 @@ public class RetrievalService {
   private final EmbeddingClient embeddingClient;
   private final QdrantClient qdrantClient;
   private final QdrantProperties qdrantProperties;
-  private final KnowledgeChunkMapper chunkMapper;
-  private final KnowledgeItemMapper itemMapper;
-  private final KnowledgeBaseItemMapper kbItemMapper;
+  private final KnowledgeDocumentChunkMapper chunkMapper;
+  private final KnowledgeDocumentMapper documentMapper;
+  private final KnowledgeBaseMapper knowledgeBaseMapper;
   private final knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService
       embeddingConfigService;
 
@@ -52,9 +51,9 @@ public class RetrievalService {
       EmbeddingClient embeddingClient,
       QdrantClient qdrantClient,
       QdrantProperties qdrantProperties,
-      KnowledgeChunkMapper chunkMapper,
-      KnowledgeItemMapper itemMapper,
-      KnowledgeBaseItemMapper kbItemMapper,
+      KnowledgeDocumentChunkMapper chunkMapper,
+      KnowledgeDocumentMapper documentMapper,
+      KnowledgeBaseMapper knowledgeBaseMapper,
       knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService
           embeddingConfigService) {
     this.properties = properties;
@@ -63,8 +62,8 @@ public class RetrievalService {
     this.qdrantClient = qdrantClient;
     this.qdrantProperties = qdrantProperties;
     this.chunkMapper = chunkMapper;
-    this.itemMapper = itemMapper;
-    this.kbItemMapper = kbItemMapper;
+    this.documentMapper = documentMapper;
+    this.knowledgeBaseMapper = knowledgeBaseMapper;
     this.embeddingConfigService = embeddingConfigService;
   }
 
@@ -85,13 +84,7 @@ public class RetrievalService {
 
     float[] vector = embedQuery(effectiveQuery, ownerId);
 
-    Map<String, Object> filter =
-        java.util.Map.of(
-            "must",
-            List.of(
-                java.util.Map.of("key", "user_id", "match", java.util.Map.of("value", ownerId)),
-                java.util.Map.of(
-                    "key", "knowledge_base_ids", "match", java.util.Map.of("any", selectedKbIds))));
+    Map<String, Object> filter = buildFilter(ownerId, selectedKbIds);
 
     List<QdrantClient.ScoredPoint> candidates =
         qdrantClient.search(
@@ -101,6 +94,21 @@ public class RetrievalService {
     List<RetrievedSource> injected = validateAndLoad(candidates, selectedKbIds, ownerId, trace);
     trace.setInjectedCount(injected.size());
     return new RetrievalResult(injected, trace);
+  }
+
+  /** owner must + 单归属 KB should-OR；selectedKbIds 为空时不发送空 should（仅 must）。 */
+  private Map<String, Object> buildFilter(long ownerId, List<Long> selectedKbIds) {
+    List<Map<String, Object>> must = new ArrayList<>();
+    must.add(java.util.Map.of("key", "user_id", "match", java.util.Map.of("value", ownerId)));
+    if (selectedKbIds.isEmpty()) {
+      return java.util.Map.of("must", must);
+    }
+    List<Map<String, Object>> should = new ArrayList<>();
+    for (Long kbId : selectedKbIds) {
+      should.add(
+          java.util.Map.of("key", "knowledge_base_id", "match", java.util.Map.of("value", kbId)));
+    }
+    return java.util.Map.of("must", must, "should", should);
   }
 
   private float[] embedQuery(String query, long ownerId) {
@@ -154,51 +162,49 @@ public class RetrievalService {
     if (chunkIds.isEmpty()) {
       return List.of();
     }
-    List<KnowledgeChunk> chunks =
+    List<KnowledgeDocumentChunk> chunks =
         chunkMapper.selectList(
-            new LambdaQueryWrapper<KnowledgeChunk>()
-                .in(KnowledgeChunk::getChunkId, chunkIds)
-                .eq(KnowledgeChunk::getOwnerId, ownerId));
-    Map<String, KnowledgeChunk> chunkById = new LinkedHashMap<>();
-    for (KnowledgeChunk c : chunks) {
+            new LambdaQueryWrapper<KnowledgeDocumentChunk>()
+                .in(KnowledgeDocumentChunk::getChunkId, chunkIds)
+                .eq(KnowledgeDocumentChunk::getOwnerId, ownerId));
+    Map<String, KnowledgeDocumentChunk> chunkById = new LinkedHashMap<>();
+    for (KnowledgeDocumentChunk c : chunks) {
       chunkById.putIfAbsent(c.getChunkId(), c);
     }
 
-    // 批量加载 Item 与活跃关系
-    List<Long> itemIds =
-        chunks.stream().map(KnowledgeChunk::getKnowledgeItemId).distinct().toList();
-    Map<Long, KnowledgeItem> itemById = loadItems(itemIds);
-    Map<Long, Set<Long>> kbIdsByItem = loadActiveKbIds(itemIds, ownerId);
+    // 批量加载 Document 与单归属 KB 状态（deleted=false && enabled=true 才可注入）
+    List<Long> documentIds =
+        chunks.stream().map(KnowledgeDocumentChunk::getKnowledgeDocumentId).distinct().toList();
+    Map<Long, KnowledgeDocument> documentById = loadDocuments(documentIds);
+    Map<Long, KnowledgeBase> enabledKbById = loadEnabledKbs(ownerId, documentById);
 
     Set<String> seenChunks = new HashSet<>();
     List<RetrievedSource> result = new ArrayList<>();
     for (QdrantClient.ScoredPoint c : aboveThreshold) {
-      KnowledgeChunk chunk = chunkById.get(c.payload().path("chunk_id").asText(""));
+      KnowledgeDocumentChunk chunk = chunkById.get(c.payload().path("chunk_id").asText(""));
       if (chunk == null) {
         trace.setDiscardedByValidation(trace.getDiscardedByValidation() + 1);
         continue;
       }
-      KnowledgeItem item = itemById.get(chunk.getKnowledgeItemId());
-      if (item == null || !KnowledgeConstants.STATUS_ACTIVE.equals(item.getStatus())) {
+      KnowledgeDocument document = documentById.get(chunk.getKnowledgeDocumentId());
+      if (document == null || Boolean.TRUE.equals(document.getDeleted())) {
         trace.setDiscardedByValidation(trace.getDiscardedByValidation() + 1);
         continue;
       }
       // 当前内容版本校验：仅注入 indexed_version 对应的 chunk
-      if (item.getIndexedVersion() == null
-          || !item.getIndexedVersion().equals(chunk.getContentVersion())) {
+      if (document.getIndexedVersion() == null
+          || !document.getIndexedVersion().equals(chunk.getContentVersion())) {
         trace.setDiscardedByValidation(trace.getDiscardedByValidation() + 1);
         continue;
       }
-      // KB 关系校验：Item 的活跃 KB 必须与 Router 选中集合有交集
-      Set<Long> activeKbs = kbIdsByItem.getOrDefault(item.getId(), Set.of());
-      boolean overlapsSelected = false;
-      for (Long kbId : selectedKbIds) {
-        if (activeKbs.contains(kbId)) {
-          overlapsSelected = true;
-          break;
-        }
+      // 单归属 KB 校验：Document 的 kbId 必须命中 Router 选中集合
+      if (document.getKbId() == null || !selectedKbIds.contains(document.getKbId())) {
+        trace.setDiscardedByValidation(trace.getDiscardedByValidation() + 1);
+        continue;
       }
-      if (!overlapsSelected) {
+      // KB 仍启用（G10）：已删除/禁用的 KB 下文档不得注入
+      KnowledgeBase kb = enabledKbById.get(document.getKbId());
+      if (kb == null) {
         trace.setDiscardedByValidation(trace.getDiscardedByValidation() + 1);
         continue;
       }
@@ -210,9 +216,9 @@ public class RetrievalService {
 
       RetrievedSource source = new RetrievedSource();
       source.setSourceId(chunk.getChunkId());
-      source.setItemId(item.getId().toString());
-      source.setItemTitle(item.getTitle());
-      source.setSourceType(item.getSourceType());
+      source.setDocumentId(document.getId().toString());
+      source.setDocumentTitle(document.getTitle());
+      source.setSourceType(document.getSourceType());
       source.setContentVersion(chunk.getContentVersion());
       source.setChunkIndex(chunk.getChunkIndex());
       source.setSnippet(trim(chunk.getContent()));
@@ -224,30 +230,36 @@ public class RetrievalService {
     return result;
   }
 
-  private Map<Long, KnowledgeItem> loadItems(List<Long> itemIds) {
-    if (itemIds.isEmpty()) {
+  private Map<Long, KnowledgeDocument> loadDocuments(List<Long> documentIds) {
+    if (documentIds.isEmpty()) {
       return Map.of();
     }
-    Map<Long, KnowledgeItem> map = new LinkedHashMap<>();
-    itemMapper.selectBatchIds(itemIds).forEach(i -> map.putIfAbsent(i.getId(), i));
+    Map<Long, KnowledgeDocument> map = new LinkedHashMap<>();
+    documentMapper.selectBatchIds(documentIds).forEach(d -> map.putIfAbsent(d.getId(), d));
     return map;
   }
 
-  private Map<Long, Set<Long>> loadActiveKbIds(List<Long> itemIds, long ownerId) {
-    if (itemIds.isEmpty()) {
+  /** 加载文档归属且 owner 过滤、未软删、已启用的 KB；返回 map（不含删除/禁用 KB）。 */
+  private Map<Long, KnowledgeBase> loadEnabledKbs(
+      long ownerId, Map<Long, KnowledgeDocument> documentById) {
+    List<Long> kbIds =
+        documentById.values().stream()
+            .map(KnowledgeDocument::getKbId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+    if (kbIds.isEmpty()) {
       return Map.of();
     }
-    Map<Long, Set<Long>> map = new LinkedHashMap<>();
-    kbItemMapper
+    Map<Long, KnowledgeBase> map = new LinkedHashMap<>();
+    knowledgeBaseMapper
         .selectList(
-            new LambdaQueryWrapper<KnowledgeBaseItem>()
-                .in(KnowledgeBaseItem::getKnowledgeItemId, itemIds)
-                .eq(KnowledgeBaseItem::getOwnerId, ownerId)
-                .eq(KnowledgeBaseItem::getDeleted, false))
-        .forEach(
-            rel ->
-                map.computeIfAbsent(rel.getKnowledgeItemId(), k -> new HashSet<>())
-                    .add(rel.getKnowledgeBaseId()));
+            new LambdaQueryWrapper<KnowledgeBase>()
+                .in(KnowledgeBase::getId, kbIds)
+                .eq(KnowledgeBase::getOwnerId, ownerId)
+                .eq(KnowledgeBase::getDeleted, false)
+                .eq(KnowledgeBase::getEnabled, true))
+        .forEach(kb -> map.putIfAbsent(kb.getId(), kb));
     return map;
   }
 

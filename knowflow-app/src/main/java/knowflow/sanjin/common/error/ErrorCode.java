@@ -40,7 +40,7 @@ public final class ErrorCode {
   public static final String MODEL_CALL_FAILED = "模型调用失败";
   public static final String GENERATION_CLIENT_DISCONNECTED = "客户端已断开";
 
-  // ---- KnowledgeItem ----
+  // ---- KnowledgeDocument ----
   public static final String KNOWLEDGE_ITEM_NOT_FOUND = "知识条目不存在";
   public static final String KNOWLEDGE_BASE_REF_NOT_FOUND = "引用的知识库不存在";
   public static final String KNOWLEDGE_ITEM_VERSION_CONFLICT = "知识条目版本冲突";

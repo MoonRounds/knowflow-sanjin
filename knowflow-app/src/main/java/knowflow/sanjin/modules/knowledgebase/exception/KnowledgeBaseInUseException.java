@@ -1,6 +1,6 @@
 package knowflow.sanjin.modules.knowledgebase.exception;
 
-/** 删除 KnowledgeBase 会导致 KnowledgeItem 零归属（DECISIONS §10），阻止删除。 */
+/** 删除 KnowledgeBase 会导致 KnowledgeDocument 零归属（ADR 0007 单归属），阻止删除。 */
 public class KnowledgeBaseInUseException extends RuntimeException {
 
   private final Long knowledgeBaseId;

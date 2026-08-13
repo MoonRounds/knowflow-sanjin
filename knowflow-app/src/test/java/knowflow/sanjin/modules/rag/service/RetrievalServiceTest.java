@@ -13,21 +13,21 @@ import java.util.List;
 import java.util.Map;
 import knowflow.sanjin.common.config.QdrantProperties;
 import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeBaseItem;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeChunk;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentChunk;
 import knowflow.sanjin.modules.knowledge.infrastructure.EmbeddingClient;
 import knowflow.sanjin.modules.knowledge.infrastructure.QdrantClient;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeBaseItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeChunkMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentChunkMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
+import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
+import knowflow.sanjin.modules.knowledgebase.mapper.KnowledgeBaseMapper;
 import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import knowflow.sanjin.modules.rag.dto.RetrievedSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** RetrievalService 单元测试：owner 过滤、KB OR filter、MySQL 回查二次校验、幽灵 Point 剔除。 */
+/** RetrievalService 单元测试：owner 过滤、KB should-OR filter、MySQL 回查二次校验、幽灵 Point 剔除。 */
 class RetrievalServiceTest {
 
   private static final long OWNER_ID = 1L;
@@ -35,9 +35,9 @@ class RetrievalServiceTest {
   private RagProperties properties;
   private EmbeddingClient embeddingClient;
   private QdrantClient qdrantClient;
-  private KnowledgeChunkMapper chunkMapper;
-  private KnowledgeItemMapper itemMapper;
-  private KnowledgeBaseItemMapper kbItemMapper;
+  private KnowledgeDocumentChunkMapper chunkMapper;
+  private KnowledgeDocumentMapper itemMapper;
+  private KnowledgeBaseMapper knowledgeBaseMapper;
   private RetrievalService retrievalService;
 
   @BeforeEach
@@ -51,9 +51,9 @@ class RetrievalServiceTest {
     when(embeddingClient.embed(any(), any())).thenReturn(List.of(new float[] {1f, 0f}));
     qdrantClient = mock(QdrantClient.class);
     when(qdrantClient.search(any(), any(float[].class), anyInt(), any())).thenReturn(List.of());
-    chunkMapper = mock(KnowledgeChunkMapper.class);
-    itemMapper = mock(KnowledgeItemMapper.class);
-    kbItemMapper = mock(KnowledgeBaseItemMapper.class);
+    chunkMapper = mock(KnowledgeDocumentChunkMapper.class);
+    itemMapper = mock(KnowledgeDocumentMapper.class);
+    knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
     QdrantProperties qp = new QdrantProperties();
     knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService embeddingConfigService =
         mock(knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService.class);
@@ -71,7 +71,7 @@ class RetrievalServiceTest {
             qp,
             chunkMapper,
             itemMapper,
-            kbItemMapper,
+            knowledgeBaseMapper,
             embeddingConfigService);
   }
 
@@ -80,16 +80,16 @@ class RetrievalServiceTest {
     ObjectNode payload =
         new ObjectNode(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance);
     payload.put("chunk_id", chunkId);
-    payload.put("knowledge_item_id", itemId);
+    payload.put("knowledge_document_id", itemId);
     payload.put("content_version", contentVersion);
     payload.put("user_id", OWNER_ID);
     return new QdrantClient.ScoredPoint("point-" + chunkId, score, payload);
   }
 
-  private KnowledgeChunk chunk(String chunkId, long itemId, int contentVersion) {
-    KnowledgeChunk c = new KnowledgeChunk();
+  private KnowledgeDocumentChunk chunk(String chunkId, long itemId, int contentVersion) {
+    KnowledgeDocumentChunk c = new KnowledgeDocumentChunk();
     c.setChunkId(chunkId);
-    c.setKnowledgeItemId(itemId);
+    c.setKnowledgeDocumentId(itemId);
     c.setOwnerId(OWNER_ID);
     c.setContentVersion(contentVersion);
     c.setChunkIndex(0);
@@ -97,39 +97,38 @@ class RetrievalServiceTest {
     return c;
   }
 
-  private KnowledgeItem item(long id, Integer indexedVersion, String status) {
-    KnowledgeItem i = new KnowledgeItem();
+  private KnowledgeDocument item(long id, long kbId, Integer indexedVersion, boolean deleted) {
+    KnowledgeDocument i = new KnowledgeDocument();
     i.setId(id);
     i.setOwnerId(OWNER_ID);
+    i.setKbId(kbId);
     i.setIndexedVersion(indexedVersion);
-    i.setStatus(status);
+    i.setDeleted(deleted);
     i.setTitle("Item " + id);
     i.setSourceType(KnowledgeConstants.SOURCE_MANUAL_NOTE);
     return i;
   }
 
-  private void stubChunkLookup(KnowledgeChunk... chunks) {
+  private KnowledgeBase kb(long id) {
+    KnowledgeBase kb = new KnowledgeBase();
+    kb.setId(id);
+    kb.setOwnerId(OWNER_ID);
+    kb.setDeleted(false);
+    kb.setEnabled(true);
+    return kb;
+  }
+
+  private void stubChunkLookup(KnowledgeDocumentChunk... chunks) {
     when(chunkMapper.selectList(any())).thenReturn(java.util.Arrays.asList(chunks));
   }
 
-  private void stubItemLookup(KnowledgeItem... items) {
+  private void stubItemLookup(KnowledgeDocument... items) {
     when(itemMapper.selectBatchIds(any())).thenReturn(java.util.Arrays.asList(items));
   }
 
-  private void stubActiveKbRelations(Map<Long, Long> itemToKb) {
-    List<KnowledgeBaseItem> rels =
-        itemToKb.entrySet().stream()
-            .map(
-                e -> {
-                  KnowledgeBaseItem rel = new KnowledgeBaseItem();
-                  rel.setKnowledgeItemId(e.getKey());
-                  rel.setKnowledgeBaseId(e.getValue());
-                  rel.setOwnerId(OWNER_ID);
-                  rel.setDeleted(false);
-                  return rel;
-                })
-            .toList();
-    when(kbItemMapper.selectList(any())).thenReturn(rels);
+  /** 模拟 loadEnabledKbs：仅返回 owner 下未软删且启用的 KB。 */
+  private void stubEnabledKbs(KnowledgeBase... kbs) {
+    when(knowledgeBaseMapper.selectList(any())).thenReturn(java.util.Arrays.asList(kbs));
   }
 
   @Test
@@ -138,10 +137,8 @@ class RetrievalServiceTest {
     when(qdrantClient.search(any(), any(float[].class), anyInt(), any()))
         .thenReturn(List.of(scored("c1", 10L, 1, 0.9f), scored("c2", 11L, 1, 0.8f)));
     stubChunkLookup(chunk("c1", 10L, 1), chunk("c2", 11L, 1));
-    stubItemLookup(
-        item(10L, 1, KnowledgeConstants.STATUS_ACTIVE),
-        item(11L, 1, KnowledgeConstants.STATUS_ACTIVE));
-    stubActiveKbRelations(Map.of(10L, 1L, 11L, 1L));
+    stubItemLookup(item(10L, 1L, 1, false), item(11L, 1L, 1, false));
+    stubEnabledKbs(kb(1L));
 
     RetrievalService.RetrievalResult result = retrievalService.retrieve("q", List.of(1L), "q");
 
@@ -153,12 +150,12 @@ class RetrievalServiceTest {
   }
 
   @Test
-  @DisplayName("should send Qdrant filter with owner and OR knowledge-base match")
+  @DisplayName("should send Qdrant filter with owner must and OR knowledge-base should")
   void shouldFilterByOwnerAndKbOrMatch() {
     when(qdrantClient.search(any(), any(float[].class), anyInt(), any())).thenReturn(List.of());
     stubChunkLookup();
     stubItemLookup();
-    stubActiveKbRelations(Map.of());
+    stubEnabledKbs();
 
     retrievalService.retrieve("q", List.of(1L, 2L), "q");
 
@@ -168,15 +165,20 @@ class RetrievalServiceTest {
     @SuppressWarnings("unchecked")
     List<Map<String, Object>> must =
         (List<Map<String, Object>>) filterCaptor.getValue().get("must");
-    assertThat(must).hasSize(2);
+    assertThat(must).hasSize(1);
     // owner 匹配
     Map<String, Object> ownerClause = must.get(0);
     assertThat(ownerClause.get("key")).isEqualTo("user_id");
     assertThat(((Map<?, ?>) ownerClause.get("match")).get("value")).isEqualTo(OWNER_ID);
-    // 多知识库 OR match
-    Map<String, Object> kbClause = must.get(1);
-    assertThat(kbClause.get("key")).isEqualTo("knowledge_base_ids");
-    assertThat(((Map<?, ?>) kbClause.get("match")).get("any")).isEqualTo(List.of(1L, 2L));
+    // 多知识库：should-OR 单个 knowledge_base_id match，而非旧数组 any-match
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> should =
+        (List<Map<String, Object>>) filterCaptor.getValue().get("should");
+    assertThat(should).hasSize(2);
+    assertThat(should.get(0).get("key")).isEqualTo("knowledge_base_id");
+    assertThat(((Map<?, ?>) should.get(0).get("match")).get("value")).isEqualTo(1L);
+    assertThat(should.get(1).get("key")).isEqualTo("knowledge_base_id");
+    assertThat(((Map<?, ?>) should.get(1).get("match")).get("value")).isEqualTo(2L);
   }
 
   @Test
@@ -186,8 +188,8 @@ class RetrievalServiceTest {
         .thenReturn(List.of(scored("old", 10L, 1, 0.9f), scored("cur", 10L, 2, 0.9f)));
     stubChunkLookup(chunk("old", 10L, 1), chunk("cur", 10L, 2));
     // Item 当前 indexed_version=2 → 仅注入 content_version=2 的 chunk
-    stubItemLookup(item(10L, 2, KnowledgeConstants.STATUS_ACTIVE));
-    stubActiveKbRelations(Map.of(10L, 1L));
+    stubItemLookup(item(10L, 1L, 2, false));
+    stubEnabledKbs(kb(1L));
 
     RetrievalService.RetrievalResult result = retrievalService.retrieve("q", List.of(1L), "q");
 
@@ -197,13 +199,13 @@ class RetrievalServiceTest {
   }
 
   @Test
-  @DisplayName("should discard chunks whose item is not active or is deleted")
+  @DisplayName("should discard chunks whose item is deleted")
   void shouldDiscardDeletedItem() {
     when(qdrantClient.search(any(), any(float[].class), anyInt(), any()))
         .thenReturn(List.of(scored("d", 10L, 1, 0.9f)));
     stubChunkLookup(chunk("d", 10L, 1));
-    stubItemLookup(item(10L, 1, KnowledgeConstants.STATUS_DELETED));
-    stubActiveKbRelations(Map.of(10L, 1L));
+    stubItemLookup(item(10L, 1L, 1, true));
+    stubEnabledKbs(kb(1L));
 
     RetrievalService.RetrievalResult result = retrievalService.retrieve("q", List.of(1L), "q");
 
@@ -212,14 +214,30 @@ class RetrievalServiceTest {
   }
 
   @Test
-  @DisplayName("should discard chunks whose KB relation was removed")
-  void shouldDiscardWhenRelationRemoved() {
+  @DisplayName("should discard chunks whose single kbId is not in the selected set")
+  void shouldDiscardWhenKbNotSelected() {
     when(qdrantClient.search(any(), any(float[].class), anyInt(), any()))
         .thenReturn(List.of(scored("r", 10L, 1, 0.9f)));
     stubChunkLookup(chunk("r", 10L, 1));
-    stubItemLookup(item(10L, 1, KnowledgeConstants.STATUS_ACTIVE));
+    stubItemLookup(item(10L, 2L, 1, false));
     // Item 仅归属 KB 2，而 Router 选中 KB 1 → 无交集，剔除
-    stubActiveKbRelations(Map.of(10L, 2L));
+    stubEnabledKbs(kb(1L));
+
+    RetrievalService.RetrievalResult result = retrievalService.retrieve("q", List.of(1L), "q");
+
+    assertThat(result.hasContext()).isFalse();
+    assertThat(result.trace().getDiscardedByValidation()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("should discard chunks whose KnowledgeBase is deleted or disabled")
+  void shouldDiscardWhenKbNotEnabled() {
+    when(qdrantClient.search(any(), any(float[].class), anyInt(), any()))
+        .thenReturn(List.of(scored("k", 10L, 1, 0.9f)));
+    stubChunkLookup(chunk("k", 10L, 1));
+    stubItemLookup(item(10L, 1L, 1, false));
+    // 该 KB 已删除/禁用 → loadEnabledKbs 返回空 → 剔除
+    stubEnabledKbs();
 
     RetrievalService.RetrievalResult result = retrievalService.retrieve("q", List.of(1L), "q");
 
@@ -233,8 +251,8 @@ class RetrievalServiceTest {
     when(qdrantClient.search(any(), any(float[].class), anyInt(), any()))
         .thenReturn(List.of(scored("low", 10L, 1, 0.05f)));
     stubChunkLookup(chunk("low", 10L, 1));
-    stubItemLookup(item(10L, 1, KnowledgeConstants.STATUS_ACTIVE));
-    stubActiveKbRelations(Map.of(10L, 1L));
+    stubItemLookup(item(10L, 1L, 1, false));
+    stubEnabledKbs(kb(1L));
 
     RetrievalService.RetrievalResult result = retrievalService.retrieve("q", List.of(1L), "q");
 
@@ -280,10 +298,8 @@ class RetrievalServiceTest {
     when(qdrantClient.search(any(), any(float[].class), anyInt(), any()))
         .thenReturn(List.of(scored("cA", 10L, 1, 0.5f), scored("cB", 11L, 1, 0.9f)));
     stubChunkLookup(chunk("cA", 10L, 1), chunk("cB", 11L, 1));
-    stubItemLookup(
-        item(10L, 1, KnowledgeConstants.STATUS_ACTIVE),
-        item(11L, 1, KnowledgeConstants.STATUS_ACTIVE));
-    stubActiveKbRelations(Map.of(10L, 1L, 11L, 1L));
+    stubItemLookup(item(10L, 1L, 1, false), item(11L, 1L, 1, false));
+    stubEnabledKbs(kb(1L));
 
     RetrievalService.RetrievalResult result = retrievalService.retrieve("q", List.of(1L), "q");
 

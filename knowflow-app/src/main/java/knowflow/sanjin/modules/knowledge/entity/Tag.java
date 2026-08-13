@@ -20,6 +20,9 @@ public class Tag {
 
   private String normalizedName;
 
+  /** 软删标记：true 表示已删除，查询时不得复活（unique 约束走 active_normalized_name 生成列）。 */
+  private Boolean deleted;
+
   @TableField(fill = FieldFill.INSERT)
   private Instant createdAt;
 
@@ -53,6 +56,14 @@ public class Tag {
 
   public void setNormalizedName(String normalizedName) {
     this.normalizedName = normalizedName;
+  }
+
+  public Boolean getDeleted() {
+    return deleted;
+  }
+
+  public void setDeleted(Boolean deleted) {
+    this.deleted = deleted;
   }
 
   public Instant getCreatedAt() {

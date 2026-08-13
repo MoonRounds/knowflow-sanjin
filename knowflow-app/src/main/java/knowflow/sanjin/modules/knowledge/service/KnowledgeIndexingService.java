@@ -8,23 +8,22 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import knowflow.sanjin.common.config.QdrantProperties;
 import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeBaseItem;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeChunk;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItemTag;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentChunk;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentTag;
 import knowflow.sanjin.modules.knowledge.entity.Tag;
 import knowflow.sanjin.modules.knowledge.exception.RetryableIndexException;
 import knowflow.sanjin.modules.knowledge.exception.TerminalIndexException;
 import knowflow.sanjin.modules.knowledge.infrastructure.EmbeddingClient;
 import knowflow.sanjin.modules.knowledge.infrastructure.QdrantClient;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeBaseItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeChunkMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemTagMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentChunkMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentTagMapper;
 import knowflow.sanjin.modules.knowledge.mapper.TagMapper;
 import knowflow.sanjin.modules.processing.ProcessingConstants;
 import knowflow.sanjin.modules.processing.entity.ProcessingTask;
@@ -36,8 +35,8 @@ import org.springframework.stereotype.Service;
 /**
  * 知识索引执行器：Chunk → 保存 MySQL → Embedding → Qdrant Upsert。
  *
- * <p>对 FULL 任务：重算 Chunk 与向量，成功后更新 knowledge_item.indexed_version 与 index_status， 并按 payload filter
- * 清理旧版本 Point。对 PAYLOAD 任务：仅按当前 relations/tags 更新已有 Point 的 metadata，不重算向量、不切换版本。Qdrant Payload
+ * <p>对 FULL 任务：重算 Chunk 与向量，成功后更新 knowledge_document.indexed_version 与 index_status， 并按 payload
+ * filter 清理旧版本 Point。对 PAYLOAD 任务：仅按当前归属/tags 更新已有 Point 的 metadata，不重算向量、不切换版本。Qdrant Payload
  * 不含完整正文。
  */
 @Service
@@ -45,10 +44,9 @@ public class KnowledgeIndexingService implements IndexingService {
 
   private static final Logger log = LoggerFactory.getLogger(KnowledgeIndexingService.class);
 
-  private final KnowledgeItemMapper itemMapper;
-  private final KnowledgeChunkMapper chunkMapper;
-  private final KnowledgeBaseItemMapper kbItemMapper;
-  private final KnowledgeItemTagMapper itemTagMapper;
+  private final KnowledgeDocumentMapper documentMapper;
+  private final KnowledgeDocumentChunkMapper chunkMapper;
+  private final KnowledgeDocumentTagMapper documentTagMapper;
   private final TagMapper tagMapper;
   private final TextChunker textChunker;
   private final EmbeddingClient embeddingClient;
@@ -59,20 +57,18 @@ public class KnowledgeIndexingService implements IndexingService {
   private final ObjectMapper objectMapper;
 
   public KnowledgeIndexingService(
-      KnowledgeItemMapper itemMapper,
-      KnowledgeChunkMapper chunkMapper,
-      KnowledgeBaseItemMapper kbItemMapper,
-      KnowledgeItemTagMapper itemTagMapper,
+      KnowledgeDocumentMapper documentMapper,
+      KnowledgeDocumentChunkMapper chunkMapper,
+      KnowledgeDocumentTagMapper documentTagMapper,
       TagMapper tagMapper,
       TextChunker textChunker,
       EmbeddingClient embeddingClient,
       QdrantClient qdrantClient,
       knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService embeddingConfigService,
       QdrantProperties qdrantProperties) {
-    this.itemMapper = itemMapper;
+    this.documentMapper = documentMapper;
     this.chunkMapper = chunkMapper;
-    this.kbItemMapper = kbItemMapper;
-    this.itemTagMapper = itemTagMapper;
+    this.documentTagMapper = documentTagMapper;
     this.tagMapper = tagMapper;
     this.textChunker = textChunker;
     this.embeddingClient = embeddingClient;
@@ -89,7 +85,7 @@ public class KnowledgeIndexingService implements IndexingService {
     boolean deleteTask = ProcessingConstants.TASK_TYPE_KNOWLEDGE_DELETE.equals(task.getTaskType());
     long itemId = task.getBusinessId();
     log.info(
-        "Indexing task {} item {} key {} payloadOnly={} delete={}",
+        "Indexing task {} document {} key {} payloadOnly={} delete={}",
         task.getId(),
         itemId,
         businessKey,
@@ -99,10 +95,10 @@ public class KnowledgeIndexingService implements IndexingService {
     if (deleteTask) {
       int deleteThroughVersion =
           taskContentVersion(businessKey, KnowledgeConstants.BUSINESS_KEY_DELETE_SUFFIX);
-      KnowledgeItem current = itemMapper.selectById(itemId);
+      KnowledgeDocument current = documentMapper.selectById(itemId);
       if (deleteThroughVersion == 0) {
-        // 兼容修复前已创建的 :0:DELETE 任务：仅当 Item 仍为删除态时执行，恢复后到达的旧任务直接跳过。
-        if (current == null || !KnowledgeConstants.STATUS_ACTIVE.equals(current.getStatus())) {
+        // 兼容修复前已创建的 :0:DELETE 任务：仅当 Document 仍为删除态时执行，恢复后到达的旧任务直接跳过。
+        if (current == null || Boolean.TRUE.equals(current.getDeleted())) {
           deleteAllPoints(itemId);
         }
       } else {
@@ -111,10 +107,10 @@ public class KnowledgeIndexingService implements IndexingService {
       return;
     }
 
-    KnowledgeItem item = itemMapper.selectById(itemId);
-    if (item == null || !KnowledgeConstants.STATUS_ACTIVE.equals(item.getStatus())) {
+    KnowledgeDocument document = documentMapper.selectById(itemId);
+    if (document == null || Boolean.TRUE.equals(document.getDeleted())) {
       throw new TerminalIndexException(
-          ErrorCode.INDEX_SCHEMA_FAILURE, "KnowledgeItem " + itemId + " no longer active");
+          ErrorCode.INDEX_SCHEMA_FAILURE, "KnowledgeDocument " + itemId + " no longer active");
     }
 
     if (payloadOnly) {
@@ -122,36 +118,36 @@ public class KnowledgeIndexingService implements IndexingService {
       log.info("Ensuring Qdrant collection {}", collection);
       qdrantClient.ensureCollection(
           collection, embeddingConfigService.getCurrentSnapshot().dimension());
-      updatePayloadOnly(item);
+      updatePayloadOnly(document);
       return;
     }
 
     int version = taskContentVersion(businessKey, null);
-    if (!java.util.Objects.equals(item.getContentVersion(), version)) {
+    if (!Objects.equals(document.getContentVersion(), version)) {
       log.info(
-          "Skipping superseded index task {} for item {} version {}; current version is {}",
+          "Skipping superseded index task {} for document {} version {}; current version is {}",
           task.getId(),
           itemId,
           version,
-          item.getContentVersion());
+          document.getContentVersion());
       return;
     }
     String collection = qdrantProperties.getCollectionName();
     log.info("Ensuring Qdrant collection {}", collection);
     qdrantClient.ensureCollection(
         collection, embeddingConfigService.getCurrentSnapshot().dimension());
-    log.info("Indexing item {} contentVersion {}", itemId, version);
-    indexVersion(item, version, collection);
+    log.info("Indexing document {} contentVersion {}", itemId, version);
+    indexVersion(document, version, collection);
   }
 
-  /** 删除 Item 在删除动作发生时已经存在的 Qdrant Point；恢复后更高版本的 Point 不受迟到删除任务影响。 */
+  /** 删除 Document 在删除动作发生时已经存在的 Qdrant Point；恢复后更高版本的 Point 不受迟到删除任务影响。 */
   private void deletePointsThroughVersion(long itemId, int deleteThroughVersion) {
     java.util.Map<String, Object> filter =
         java.util.Map.of(
             "must",
             List.of(
                 java.util.Map.of(
-                    "key", "knowledge_item_id", "match", java.util.Map.of("value", itemId)),
+                    "key", "knowledge_document_id", "match", java.util.Map.of("value", itemId)),
                 java.util.Map.of(
                     "key",
                     "content_version",
@@ -166,54 +162,54 @@ public class KnowledgeIndexingService implements IndexingService {
             "must",
             List.of(
                 java.util.Map.of(
-                    "key", "knowledge_item_id", "match", java.util.Map.of("value", itemId))));
+                    "key", "knowledge_document_id", "match", java.util.Map.of("value", itemId))));
     qdrantClient.deletePointsByFilter(qdrantProperties.getCollectionName(), filter);
   }
 
-  private void updatePayloadOnly(KnowledgeItem item) {
+  private void updatePayloadOnly(KnowledgeDocument document) {
     // 仅更新现有 Point 的 payload；若无已索引版本则跳过（FULL 任务会覆盖）
-    Integer indexedVersion = item.getIndexedVersion();
+    Integer indexedVersion = document.getIndexedVersion();
     if (indexedVersion == null) {
       return;
     }
-    List<KnowledgeChunk> chunks =
+    List<KnowledgeDocumentChunk> chunks =
         chunkMapper.selectList(
-            new LambdaQueryWrapper<KnowledgeChunk>()
-                .eq(KnowledgeChunk::getKnowledgeItemId, item.getId())
-                .eq(KnowledgeChunk::getContentVersion, indexedVersion));
+            new LambdaQueryWrapper<KnowledgeDocumentChunk>()
+                .eq(KnowledgeDocumentChunk::getKnowledgeDocumentId, document.getId())
+                .eq(KnowledgeDocumentChunk::getContentVersion, indexedVersion));
     if (chunks.isEmpty()) {
       return;
     }
     List<String> pointIds =
-        chunks.stream().map(c -> pointId(item, indexedVersion, c.getChunkIndex())).toList();
-    ObjectNode payload = payload(item, indexedVersion, 0);
+        chunks.stream().map(c -> pointId(document, indexedVersion, c.getChunkIndex())).toList();
+    ObjectNode payload = payload(document, indexedVersion, 0);
     qdrantClient.setPayload(qdrantProperties.getCollectionName(), pointIds, payload);
   }
 
-  private void indexVersion(KnowledgeItem item, int version, String collection) {
-    List<TextChunker.Chunk> chunks = textChunker.chunk(item.getTitle(), item.getContent());
+  private void indexVersion(KnowledgeDocument document, int version, String collection) {
+    List<TextChunker.Chunk> chunks = textChunker.chunk(document.getTitle(), document.getContent());
     if (chunks.isEmpty()) {
       throw new TerminalIndexException(
-          ErrorCode.CHUNK_EMPTY, "No chunks produced for KnowledgeItem " + item.getId());
+          ErrorCode.CHUNK_EMPTY, "No chunks produced for KnowledgeDocument " + document.getId());
     }
 
     // 幂等：重试或重复投递时先清掉该版本已有 chunk，再重新落库，避免唯一约束冲突
     chunkMapper.delete(
-        new LambdaQueryWrapper<KnowledgeChunk>()
-            .eq(KnowledgeChunk::getKnowledgeItemId, item.getId())
-            .eq(KnowledgeChunk::getContentVersion, version));
+        new LambdaQueryWrapper<KnowledgeDocumentChunk>()
+            .eq(KnowledgeDocumentChunk::getKnowledgeDocumentId, document.getId())
+            .eq(KnowledgeDocumentChunk::getContentVersion, version));
 
     // 保存 Chunk 到 MySQL（事实源）
     List<String> embeddingTexts = new ArrayList<>();
-    List<KnowledgeChunk> savedChunks = new ArrayList<>();
+    List<KnowledgeDocumentChunk> savedChunks = new ArrayList<>();
     int index = 0;
     for (TextChunker.Chunk chunk : chunks) {
-      KnowledgeChunk kc = new KnowledgeChunk();
-      kc.setKnowledgeItemId(item.getId());
-      kc.setOwnerId(item.getOwnerId());
+      KnowledgeDocumentChunk kc = new KnowledgeDocumentChunk();
+      kc.setKnowledgeDocumentId(document.getId());
+      kc.setOwnerId(document.getOwnerId());
       kc.setContentVersion(version);
       kc.setChunkIndex(index);
-      kc.setChunkId(chunkId(item, version, index));
+      kc.setChunkId(chunkId(document, version, index));
       kc.setContent(chunk.text());
       kc.setHeadingPath(chunk.headingPath());
       chunkMapper.insert(kc);
@@ -236,26 +232,26 @@ public class KnowledgeIndexingService implements IndexingService {
     // Qdrant Upsert
     List<QdrantClient.Point> points = new ArrayList<>();
     for (int i = 0; i < savedChunks.size(); i++) {
-      KnowledgeChunk kc = savedChunks.get(i);
+      KnowledgeDocumentChunk kc = savedChunks.get(i);
       points.add(
           new QdrantClient.Point(
-              pointId(item, version, kc.getChunkIndex()),
+              pointId(document, version, kc.getChunkIndex()),
               vectors.get(i),
-              payload(item, version, kc.getChunkIndex())));
+              payload(document, version, kc.getChunkIndex())));
     }
     qdrantClient.upsertPoints(collection, points);
     log.info("Upserted {} points to Qdrant", points.size());
 
     // 成功后切换当前索引版本
-    itemMapper.update(
+    documentMapper.update(
         null,
-        new LambdaUpdateWrapper<KnowledgeItem>()
-            .eq(KnowledgeItem::getId, item.getId())
-            .eq(KnowledgeItem::getContentVersion, version)
-            .set(KnowledgeItem::getIndexedVersion, version)
-            .set(KnowledgeItem::getIndexStatus, KnowledgeConstants.INDEX_INDEXED)
-            .set(KnowledgeItem::getIndexErrorCode, null)
-            .set(KnowledgeItem::getIndexErrorMessage, null));
+        new LambdaUpdateWrapper<KnowledgeDocument>()
+            .eq(KnowledgeDocument::getId, document.getId())
+            .eq(KnowledgeDocument::getContentVersion, version)
+            .set(KnowledgeDocument::getIndexedVersion, version)
+            .set(KnowledgeDocument::getIndexStatus, KnowledgeConstants.INDEX_INDEXED)
+            .set(KnowledgeDocument::getIndexErrorCode, null)
+            .set(KnowledgeDocument::getIndexErrorMessage, null));
 
     // 清理旧版本 Point（content_version < 当前）
     java.util.Map<String, Object> oldFilter =
@@ -263,15 +259,18 @@ public class KnowledgeIndexingService implements IndexingService {
             "must",
             List.of(
                 java.util.Map.of(
-                    "key", "knowledge_item_id", "match", java.util.Map.of("value", item.getId())),
+                    "key",
+                    "knowledge_document_id",
+                    "match",
+                    java.util.Map.of("value", document.getId())),
                 java.util.Map.of(
                     "key", "content_version", "range", java.util.Map.of("lt", version))));
     qdrantClient.deletePointsByFilter(collection, oldFilter);
   }
 
   private int taskContentVersion(String businessKey, String suffix) {
-    // 格式：KNOWLEDGE_ITEM:{itemId}:{contentVersion} 或
-    // KNOWLEDGE_ITEM:{itemId}:{contentVersion}:PAYLOAD
+    // 格式：KNOWLEDGE_DOCUMENT:{documentId}:{contentVersion} 或
+    // KNOWLEDGE_DOCUMENT:{documentId}:{contentVersion}:PAYLOAD
     String key = businessKey;
     if (suffix != null && businessKey.endsWith(suffix)) {
       key = businessKey.substring(0, businessKey.length() - suffix.length());
@@ -291,14 +290,14 @@ public class KnowledgeIndexingService implements IndexingService {
     return version;
   }
 
-  /** 确定性 Chunk ID：ownerId:itemId:contentVersion:chunkIndex 的 UUID v5。 */
-  private String chunkId(KnowledgeItem item, int version, int index) {
-    return uuid5("chunk:" + item.getId() + ":" + version + ":" + index);
+  /** 确定性 Chunk ID：ownerId:documentId:contentVersion:chunkIndex 的 UUID v5。 */
+  private String chunkId(KnowledgeDocument document, int version, int index) {
+    return uuid5("chunk:" + document.getId() + ":" + version + ":" + index);
   }
 
   /** 确定性 Qdrant Point ID。 */
-  private String pointId(KnowledgeItem item, int version, int index) {
-    return uuid5("point:" + item.getId() + ":" + version + ":" + index);
+  private String pointId(KnowledgeDocument document, int version, int index) {
+    return uuid5("point:" + document.getId() + ":" + version + ":" + index);
   }
 
   private static String uuid5(String namespaceValue) {
@@ -327,30 +326,23 @@ public class KnowledgeIndexingService implements IndexingService {
     return bytes;
   }
 
-  /** Qdrant Payload：不含完整正文，仅检索所需 metadata 与归属/标签。 */
-  private ObjectNode payload(KnowledgeItem item, int version, int chunkIndex) {
+  /** Qdrant Payload：不含完整正文，仅检索所需 metadata 与单归属/标签。 */
+  private ObjectNode payload(KnowledgeDocument document, int version, int chunkIndex) {
     ObjectNode payload = objectMapper.createObjectNode();
-    payload.put("user_id", item.getOwnerId());
-    payload.put("knowledge_item_id", item.getId());
+    payload.put("user_id", document.getOwnerId());
+    payload.put("knowledge_document_id", document.getId());
     payload.put("content_version", version);
     payload.put("chunk_index", chunkIndex);
-    payload.put("chunk_id", chunkId(item, version, chunkIndex));
-    payload.put("source_type", item.getSourceType());
-
-    ArrayNode kbIds = payload.putArray("knowledge_base_ids");
-    kbItemMapper
-        .selectList(
-            new LambdaQueryWrapper<KnowledgeBaseItem>()
-                .eq(KnowledgeBaseItem::getKnowledgeItemId, item.getId())
-                .eq(KnowledgeBaseItem::getDeleted, false))
-        .forEach(rel -> kbIds.add(rel.getKnowledgeBaseId()));
+    payload.put("chunk_id", chunkId(document, version, chunkIndex));
+    payload.put("source_type", document.getSourceType());
+    payload.put("knowledge_base_id", document.getKbId());
 
     ArrayNode tags = payload.putArray("tags");
-    itemTagMapper
+    documentTagMapper
         .selectList(
-            new LambdaQueryWrapper<KnowledgeItemTag>()
-                .eq(KnowledgeItemTag::getKnowledgeItemId, item.getId())
-                .eq(KnowledgeItemTag::getDeleted, false))
+            new LambdaQueryWrapper<KnowledgeDocumentTag>()
+                .eq(KnowledgeDocumentTag::getKnowledgeDocumentId, document.getId())
+                .eq(KnowledgeDocumentTag::getDeleted, false))
         .forEach(
             rel -> {
               Tag tag = tagMapper.selectById(rel.getTagId());

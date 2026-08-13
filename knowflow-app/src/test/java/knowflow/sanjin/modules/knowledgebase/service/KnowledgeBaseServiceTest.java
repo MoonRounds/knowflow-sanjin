@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.knowledgebase.dto.UpdateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
 import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseVersionConflictException;
@@ -40,9 +41,7 @@ class KnowledgeBaseServiceTest {
 
     KnowledgeBaseService service =
         new KnowledgeBaseService(
-            new CurrentOwnerProvider(),
-            mapper,
-            mock(org.springframework.jdbc.core.JdbcTemplate.class));
+            new CurrentOwnerProvider(), mapper, mock(KnowledgeDocumentMapper.class));
     UpdateKnowledgeBaseRequest request = new UpdateKnowledgeBaseRequest();
     request.setDescription("concurrent edit");
     request.setRowVersion(3);

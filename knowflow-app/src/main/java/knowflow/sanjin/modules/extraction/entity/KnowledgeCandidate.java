@@ -12,7 +12,9 @@ import java.time.Instant;
  *
  * <p>{@code ai_*} 是 AI 原始提取结果，写入后不可变快照；{@code draft_*} 是用户可编辑草稿，初始化时复制 AI 原值， 确认时完整读取草稿字段 （未改动的字段即
  * AI 原值，无「回退」语义）。状态迁移：PENDING → CONFIRMED / REJECTED； REJECTED → PENDING（撤销拒绝，唯一回退）； CONFIRMED
- * 是终态，不得再次生成第二个 Item。每个 Candidate 通过 {@code knowledge_item.candidate_id} 至多创建一个 Item，由唯一约束保证。
+ * 是终态，不得再次生成第二个 Document。每个 Candidate 通过 {@code knowledge_document.candidate_id} 至多创建一个
+ * Document，由唯一约束保证。 KB 归属为单值（ADR 0007）：{@code ai_knowledge_base_id} / {@code
+ * draft_knowledge_base_id}。
  */
 @TableName("knowledge_candidate")
 public class KnowledgeCandidate {
@@ -32,7 +34,7 @@ public class KnowledgeCandidate {
 
   private String aiContent;
 
-  private String aiKnowledgeBaseIds;
+  private String aiKnowledgeBaseId;
 
   private String aiTags;
 
@@ -44,7 +46,7 @@ public class KnowledgeCandidate {
 
   private String draftContent;
 
-  private String draftKnowledgeBaseIds;
+  private String draftKnowledgeBaseId;
 
   private String draftTags;
 
@@ -118,12 +120,12 @@ public class KnowledgeCandidate {
     this.aiContent = aiContent;
   }
 
-  public String getAiKnowledgeBaseIds() {
-    return aiKnowledgeBaseIds;
+  public String getAiKnowledgeBaseId() {
+    return aiKnowledgeBaseId;
   }
 
-  public void setAiKnowledgeBaseIds(String aiKnowledgeBaseIds) {
-    this.aiKnowledgeBaseIds = aiKnowledgeBaseIds;
+  public void setAiKnowledgeBaseId(String aiKnowledgeBaseId) {
+    this.aiKnowledgeBaseId = aiKnowledgeBaseId;
   }
 
   public String getAiTags() {
@@ -166,12 +168,12 @@ public class KnowledgeCandidate {
     this.draftContent = draftContent;
   }
 
-  public String getDraftKnowledgeBaseIds() {
-    return draftKnowledgeBaseIds;
+  public String getDraftKnowledgeBaseId() {
+    return draftKnowledgeBaseId;
   }
 
-  public void setDraftKnowledgeBaseIds(String draftKnowledgeBaseIds) {
-    this.draftKnowledgeBaseIds = draftKnowledgeBaseIds;
+  public void setDraftKnowledgeBaseId(String draftKnowledgeBaseId) {
+    this.draftKnowledgeBaseId = draftKnowledgeBaseId;
   }
 
   public String getDraftTags() {

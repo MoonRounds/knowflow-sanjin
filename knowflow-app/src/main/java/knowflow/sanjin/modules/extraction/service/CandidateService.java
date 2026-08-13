@@ -98,9 +98,7 @@ public class CandidateService {
                 .set(KnowledgeCandidate::getDraftTitle, request.getTitle().trim())
                 .set(KnowledgeCandidate::getDraftSummary, request.getSummary())
                 .set(KnowledgeCandidate::getDraftContent, request.getContent())
-                .set(
-                    KnowledgeCandidate::getDraftKnowledgeBaseIds,
-                    joinIds(request.getKnowledgeBaseIds()))
+                .set(KnowledgeCandidate::getDraftKnowledgeBaseId, request.getKnowledgeBaseId())
                 .set(KnowledgeCandidate::getDraftTags, joinIds(request.getTags()))
                 .set(KnowledgeCandidate::getDraftUpdatedAt, Instant.now())
                 .setSql("row_version = row_version + 1"));

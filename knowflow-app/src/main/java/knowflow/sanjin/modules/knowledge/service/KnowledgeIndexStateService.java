@@ -2,21 +2,21 @@ package knowflow.sanjin.modules.knowledge.service;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.processing.ProcessingConstants;
 import knowflow.sanjin.modules.processing.entity.ProcessingTask;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 把完整索引任务状态投影到 KnowledgeItem；payload 更新与删除任务不改变正文索引状态。 */
+/** 把完整索引任务状态投影到 KnowledgeDocument；payload 更新与删除任务不改变正文索引状态。 */
 @Service
 public class KnowledgeIndexStateService {
 
-  private final KnowledgeItemMapper itemMapper;
+  private final KnowledgeDocumentMapper documentMapper;
 
-  public KnowledgeIndexStateService(KnowledgeItemMapper itemMapper) {
-    this.itemMapper = itemMapper;
+  public KnowledgeIndexStateService(KnowledgeDocumentMapper documentMapper) {
+    this.documentMapper = documentMapper;
   }
 
   @Transactional
@@ -42,16 +42,16 @@ public class KnowledgeIndexStateService {
     if (taskVersion == null) {
       return;
     }
-    itemMapper.update(
+    documentMapper.update(
         null,
-        new LambdaUpdateWrapper<KnowledgeItem>()
-            .eq(KnowledgeItem::getId, task.getBusinessId())
-            .eq(KnowledgeItem::getOwnerId, task.getOwnerId())
-            .eq(KnowledgeItem::getStatus, KnowledgeConstants.STATUS_ACTIVE)
-            .eq(KnowledgeItem::getContentVersion, taskVersion)
-            .set(KnowledgeItem::getIndexStatus, status)
-            .set(KnowledgeItem::getIndexErrorCode, failureCode)
-            .set(KnowledgeItem::getIndexErrorMessage, errorMessage));
+        new LambdaUpdateWrapper<KnowledgeDocument>()
+            .eq(KnowledgeDocument::getId, task.getBusinessId())
+            .eq(KnowledgeDocument::getOwnerId, task.getOwnerId())
+            .eq(KnowledgeDocument::getDeleted, false)
+            .eq(KnowledgeDocument::getContentVersion, taskVersion)
+            .set(KnowledgeDocument::getIndexStatus, status)
+            .set(KnowledgeDocument::getIndexErrorCode, failureCode)
+            .set(KnowledgeDocument::getIndexErrorMessage, errorMessage));
   }
 
   private static boolean isFullIndex(ProcessingTask task) {

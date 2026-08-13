@@ -3,6 +3,8 @@ package knowflow.sanjin.modules.knowledgebase.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.util.List;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.dto.UpdateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
@@ -13,7 +15,6 @@ import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseVersionConfl
 import knowflow.sanjin.modules.knowledgebase.mapper.KnowledgeBaseMapper;
 import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,15 +30,15 @@ public class KnowledgeBaseService {
 
   private final CurrentOwnerProvider currentOwnerProvider;
   private final KnowledgeBaseMapper mapper;
-  private final JdbcTemplate jdbcTemplate;
+  private final KnowledgeDocumentMapper documentMapper;
 
   public KnowledgeBaseService(
       CurrentOwnerProvider currentOwnerProvider,
       KnowledgeBaseMapper mapper,
-      JdbcTemplate jdbcTemplate) {
+      KnowledgeDocumentMapper documentMapper) {
     this.currentOwnerProvider = currentOwnerProvider;
     this.mapper = mapper;
-    this.jdbcTemplate = jdbcTemplate;
+    this.documentMapper = documentMapper;
   }
 
   /** 创建知识库：默认启用、未删除；normalized name 由 display name 规范化（trim + 小写）。 */
@@ -123,20 +124,15 @@ public class KnowledgeBaseService {
   }
 
   /**
-   * 归属约束（DECISIONS §10）：若存在只归属于本 KB 的活跃 KnowledgeItem，删除会导致其零归属，阻止删除。 通过 JdbcTemplate 直查关联表，避免
-   * knowledgebase ↔ knowledge 模块反向依赖。
+   * 归属约束（ADR 0007 单归属）：若该 KB 下仍存在活跃（未软删）KnowledgeDocument，删除会导致文档失去归属，阻止删除。 通过 {@link
+   * KnowledgeDocumentMapper} 按 {@code kb_id + deleted=0} 计数实现。
    */
   private void ensureNoOrphanedItems(Long knowledgeBaseId) {
     Long count =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM knowledge_base_item kbi "
-                + "WHERE kbi.knowledge_base_id = ? AND kbi.deleted = 0 "
-                + "AND NOT EXISTS (SELECT 1 FROM knowledge_base_item other "
-                + "  WHERE other.knowledge_item_id = kbi.knowledge_item_id "
-                + "    AND other.knowledge_base_id <> ? AND other.deleted = 0)",
-            Long.class,
-            knowledgeBaseId,
-            knowledgeBaseId);
+        documentMapper.selectCount(
+            new LambdaQueryWrapper<KnowledgeDocument>()
+                .eq(KnowledgeDocument::getKbId, knowledgeBaseId)
+                .eq(KnowledgeDocument::getDeleted, false));
     if (count != null && count > 0) {
       throw new KnowledgeBaseInUseException(knowledgeBaseId);
     }

@@ -14,10 +14,10 @@ import knowflow.sanjin.modules.conversation.entity.GenerationTrace;
 import knowflow.sanjin.modules.conversation.mapper.GenerationTraceMapper;
 import knowflow.sanjin.modules.conversation.service.ConversationService;
 import knowflow.sanjin.modules.conversation.service.GenerationService;
-import knowflow.sanjin.modules.knowledge.dto.CreateManualNoteRequest;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
-import knowflow.sanjin.modules.knowledge.service.KnowledgeService;
+import knowflow.sanjin.modules.knowledge.dto.CreateDocumentRequest;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
+import knowflow.sanjin.modules.knowledge.service.KnowledgeDocumentService;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
 import knowflow.sanjin.modules.knowledgebase.service.KnowledgeBaseService;
@@ -88,12 +88,12 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     registry.add("knowflow.embedding.api-key", () -> "test-key");
   }
 
-  @Autowired private KnowledgeService knowledgeService;
+  @Autowired private KnowledgeDocumentService knowledgeService;
   @Autowired private KnowledgeBaseService knowledgeBaseService;
   @Autowired private ConversationService conversationService;
   @Autowired private ModelConfigService modelConfigService;
   @Autowired private GenerationService generationService;
-  @Autowired private KnowledgeItemMapper itemMapper;
+  @Autowired private KnowledgeDocumentMapper itemMapper;
   @Autowired private GenerationTraceMapper traceMapper;
   @MockitoBean private ModelClientFactory modelClientFactory;
   @MockitoBean private RouterService routerService;
@@ -110,13 +110,13 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     KnowledgeBase kb = knowledgeBaseService.create(kbReq);
     kbId = kb.getId();
 
-    CreateManualNoteRequest note = new CreateManualNoteRequest();
+    CreateDocumentRequest note = new CreateDocumentRequest();
     note.setTitle("Spring 事务传播");
     note.setContent(
         "# Spring 事务传播\n\nREQUIRED 传播行为：如果外层已有事务则加入，否则新建。\n\n"
             + "## REQUIRES_NEW\n\n总是开启新事务，暂停外层事务。");
-    note.setKnowledgeBaseIds(List.of(kbId.toString()));
-    KnowledgeItem item = knowledgeService.createManualNote(note);
+    note.setKnowledgeBaseId(kbId.toString());
+    KnowledgeDocument item = knowledgeService.createManualNote(note);
     itemId = item.getId();
     waitForIndexed(itemId);
 
@@ -151,7 +151,7 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
   private void waitForIndexed(Long id) throws InterruptedException {
     long deadline = System.currentTimeMillis() + 30_000;
     while (System.currentTimeMillis() < deadline) {
-      KnowledgeItem item = itemMapper.selectById(id);
+      KnowledgeDocument item = itemMapper.selectById(id);
       if (item != null
           && "INDEXED".equals(item.getIndexStatus())
           && item.getIndexedVersion() != null) {

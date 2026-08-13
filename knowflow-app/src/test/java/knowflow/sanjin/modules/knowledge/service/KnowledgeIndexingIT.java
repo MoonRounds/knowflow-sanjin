@@ -4,14 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.io.IOException;
 import java.util.List;
-import knowflow.sanjin.modules.knowledge.dto.CreateManualNoteRequest;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeChunk;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
+import knowflow.sanjin.modules.knowledge.dto.CreateDocumentRequest;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentChunk;
 import knowflow.sanjin.modules.knowledge.infrastructure.QdrantClient;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeChunkMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentChunkMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
 import knowflow.sanjin.modules.knowledgebase.service.KnowledgeBaseService;
@@ -75,13 +76,13 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
     registry.add("knowflow.embedding.api-key", () -> "test-key");
   }
 
-  @Autowired private KnowledgeService knowledgeService;
+  @Autowired private KnowledgeDocumentService knowledgeService;
 
   @Autowired private KnowledgeBaseService knowledgeBaseService;
 
-  @Autowired private KnowledgeItemMapper itemMapper;
+  @Autowired private KnowledgeDocumentMapper itemMapper;
 
-  @Autowired private KnowledgeChunkMapper chunkMapper;
+  @Autowired private KnowledgeDocumentChunkMapper chunkMapper;
 
   @Autowired private ProcessingTaskMapper processingTaskMapper;
 
@@ -99,13 +100,13 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
     kbId = kb.getId();
   }
 
-  private CreateManualNoteRequest noteRequest() {
-    CreateManualNoteRequest req = new CreateManualNoteRequest();
+  private CreateDocumentRequest noteRequest() {
+    CreateDocumentRequest req = new CreateDocumentRequest();
     req.setTitle("Test Note");
     req.setContent(
         "# Intro\n\nThis is the introduction paragraph.\n\n"
             + "## Details\n\nDetailed content here about vectors and retrieval.");
-    req.setKnowledgeBaseIds(List.of(kbId.toString()));
+    req.setKnowledgeBaseId(kbId.toString());
     req.setTags(List.of("testing"));
     return req;
   }
@@ -113,7 +114,7 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
   private void waitForIndexed(Long itemId) throws InterruptedException {
     long deadline = System.currentTimeMillis() + 30_000;
     while (System.currentTimeMillis() < deadline) {
-      KnowledgeItem item = itemMapper.selectById(itemId);
+      KnowledgeDocument item = itemMapper.selectById(itemId);
       if (item != null
           && "INDEXED".equals(item.getIndexStatus())
           && item.getIndexedVersion() != null) {
@@ -121,7 +122,7 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
       }
       Thread.sleep(200);
     }
-    KnowledgeItem last = itemMapper.selectById(itemId);
+    KnowledgeDocument last = itemMapper.selectById(itemId);
     throw new AssertionError(
         "Timed out waiting for item "
             + itemId
@@ -134,18 +135,18 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
   @Order(1)
   @DisplayName("should index a manual note into MySQL chunks and Qdrant points")
   void shouldIndexManualNote() throws Exception {
-    KnowledgeItem item = knowledgeService.createManualNote(noteRequest());
+    KnowledgeDocument item = knowledgeService.createManualNote(noteRequest());
 
     waitForIndexed(item.getId());
 
-    KnowledgeItem indexed = itemMapper.selectById(item.getId());
+    KnowledgeDocument indexed = itemMapper.selectById(item.getId());
     assertThat(indexed.getIndexStatus()).isEqualTo("INDEXED");
     assertThat(indexed.getIndexedVersion()).isEqualTo(1);
 
-    List<KnowledgeChunk> chunks =
+    List<KnowledgeDocumentChunk> chunks =
         chunkMapper.selectList(
-            new LambdaQueryWrapper<KnowledgeChunk>()
-                .eq(KnowledgeChunk::getKnowledgeItemId, item.getId()));
+            new LambdaQueryWrapper<KnowledgeDocumentChunk>()
+                .eq(KnowledgeDocumentChunk::getKnowledgeDocumentId, item.getId()));
     assertThat(chunks).isNotEmpty();
     chunks.forEach(
         c -> {
@@ -166,22 +167,22 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
   @Order(2)
   @DisplayName("should reindex with a new contentVersion and keep old chunks serviceable")
   void shouldReindexOnContentEdit() throws Exception {
-    KnowledgeItem created = knowledgeService.createManualNote(noteRequest());
+    KnowledgeDocument created = knowledgeService.createManualNote(noteRequest());
     waitForIndexed(created.getId());
 
     // 编辑正文 → contentVersion 2 → 新 FULL 任务
-    knowflow.sanjin.modules.knowledge.dto.UpdateManualNoteRequest update =
-        new knowflow.sanjin.modules.knowledge.dto.UpdateManualNoteRequest();
+    knowflow.sanjin.modules.knowledge.dto.UpdateDocumentRequest update =
+        new knowflow.sanjin.modules.knowledge.dto.UpdateDocumentRequest();
     update.setContent("# Intro\n\nCompletely new body after edit.");
-    update.setKnowledgeBaseIds(List.of(kbId.toString()));
+    update.setKnowledgeBaseId(kbId.toString());
     update.setRowVersion(created.getRowVersion());
-    KnowledgeItem updated = knowledgeService.updateManualNote(created.getId(), update);
+    KnowledgeDocument updated = knowledgeService.updateManualNote(created.getId(), update);
     assertThat(updated.getContentVersion()).isEqualTo(2);
 
     // 等待 v2 索引成功
     long deadline = System.currentTimeMillis() + 30_000;
     while (System.currentTimeMillis() < deadline) {
-      KnowledgeItem item = itemMapper.selectById(created.getId());
+      KnowledgeDocument item = itemMapper.selectById(created.getId());
       if (item != null
           && "INDEXED".equals(item.getIndexStatus())
           && Integer.valueOf(2).equals(item.getIndexedVersion())) {
@@ -194,11 +195,11 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
     }
 
     // v2 chunks 存在；旧 v1 无残留（FULL 任务按 version 落库，v1 行仍在，仅 content_version=1）
-    List<KnowledgeChunk> v2 =
+    List<KnowledgeDocumentChunk> v2 =
         chunkMapper.selectList(
-            new LambdaQueryWrapper<KnowledgeChunk>()
-                .eq(KnowledgeChunk::getKnowledgeItemId, created.getId())
-                .eq(KnowledgeChunk::getContentVersion, 2));
+            new LambdaQueryWrapper<KnowledgeDocumentChunk>()
+                .eq(KnowledgeDocumentChunk::getKnowledgeDocumentId, created.getId())
+                .eq(KnowledgeDocumentChunk::getContentVersion, 2));
     assertThat(v2).isNotEmpty();
   }
 
@@ -206,7 +207,7 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
   @Order(3)
   @DisplayName("should remove all Qdrant points when the item is deleted")
   void shouldRemovePointsOnDelete() throws Exception {
-    KnowledgeItem created = knowledgeService.createManualNote(noteRequest());
+    KnowledgeDocument created = knowledgeService.createManualNote(noteRequest());
     waitForIndexed(created.getId());
 
     java.util.Map<String, Object> filter =
@@ -215,7 +216,7 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
             List.of(
                 java.util.Map.of(
                     "key",
-                    "knowledge_item_id",
+                    "knowledge_document_id",
                     "match",
                     java.util.Map.of("value", created.getId()))));
     assertThat(qdrantClient.countPoints("knowflow_it_dense", filter)).isGreaterThan(0);
@@ -240,7 +241,7 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
   @Order(4)
   @DisplayName("should reject deleting a KnowledgeBase that is the only owner of an item")
   void shouldRejectDeletingOnlyOwnerKnowledgeBase() throws Exception {
-    KnowledgeItem created = knowledgeService.createManualNote(noteRequest());
+    KnowledgeDocument created = knowledgeService.createManualNote(noteRequest());
     waitForIndexed(created.getId());
 
     // 该 KB 是 Item 唯一归属 → 删除被阻止
@@ -261,7 +262,7 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
                   List.of(
                       java.util.Map.of(
                           "key",
-                          "knowledge_item_id",
+                          "knowledge_document_id",
                           "match",
                           java.util.Map.of("value", created.getId())))))
           == 0) {
@@ -276,13 +277,13 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
   @Order(5)
   @DisplayName("late v1 index/delete tasks must not affect the current v2 index")
   void shouldIgnoreLateOlderVersionTasks() throws Exception {
-    KnowledgeItem created = knowledgeService.createManualNote(noteRequest());
+    KnowledgeDocument created = knowledgeService.createManualNote(noteRequest());
     waitForIndexed(created.getId());
 
-    knowflow.sanjin.modules.knowledge.dto.UpdateManualNoteRequest update =
-        new knowflow.sanjin.modules.knowledge.dto.UpdateManualNoteRequest();
+    knowflow.sanjin.modules.knowledge.dto.UpdateDocumentRequest update =
+        new knowflow.sanjin.modules.knowledge.dto.UpdateDocumentRequest();
     update.setContent("# Current\n\nThe current version must survive late v1 deliveries.");
-    update.setKnowledgeBaseIds(List.of(kbId.toString()));
+    update.setKnowledgeBaseId(kbId.toString());
     update.setRowVersion(created.getRowVersion());
     knowledgeService.updateManualNote(created.getId(), update);
     waitForIndexedVersion(created.getId(), 2);
@@ -296,14 +297,14 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
     staleIndex.setId(-1L);
     staleIndex.setTaskType(ProcessingConstants.TASK_TYPE_KNOWLEDGE_INDEX);
     staleIndex.setBusinessId(created.getId());
-    staleIndex.setBusinessKey("KNOWLEDGE_ITEM:" + created.getId() + ":1");
+    staleIndex.setBusinessKey("KNOWLEDGE_DOCUMENT:" + created.getId() + ":1");
     indexingService.execute(staleIndex);
 
     ProcessingTask lateDelete = new ProcessingTask();
     lateDelete.setId(-2L);
     lateDelete.setTaskType(ProcessingConstants.TASK_TYPE_KNOWLEDGE_DELETE);
     lateDelete.setBusinessId(created.getId());
-    lateDelete.setBusinessKey("KNOWLEDGE_ITEM:" + created.getId() + ":1:DELETE");
+    lateDelete.setBusinessKey("KNOWLEDGE_DOCUMENT:" + created.getId() + ":1:DELETE");
     indexingService.execute(lateDelete);
 
     assertThat(qdrantClient.countPoints("knowflow_it_dense", versionFilter(created.getId(), 1)))
@@ -316,7 +317,7 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
   private void waitForIndexedVersion(Long itemId, int version) throws InterruptedException {
     long deadline = System.currentTimeMillis() + 30_000;
     while (System.currentTimeMillis() < deadline) {
-      KnowledgeItem item = itemMapper.selectById(itemId);
+      KnowledgeDocument item = itemMapper.selectById(itemId);
       if (item != null
           && "INDEXED".equals(item.getIndexStatus())
           && Integer.valueOf(version).equals(item.getIndexedVersion())) {
@@ -332,8 +333,35 @@ class KnowledgeIndexingIT extends MySQLRabbitMQIndexingTestBase {
         "must",
         List.of(
             java.util.Map.of(
-                "key", "knowledge_item_id", "match", java.util.Map.of("value", itemId)),
+                "key", "knowledge_document_id", "match", java.util.Map.of("value", itemId)),
             java.util.Map.of(
                 "key", "content_version", "match", java.util.Map.of("value", version))));
+  }
+
+  @Test
+  @Order(6)
+  @DisplayName("should rebuild missing/stale indexes via reindexAllForOwner")
+  void shouldRebuildViaReindexAllForOwner() throws Exception {
+    KnowledgeDocument created = knowledgeService.createManualNote(noteRequest());
+    waitForIndexed(created.getId());
+
+    // 模拟存量缺索引/索引过期（V12 迁移后需全量重建）：重置 index_status 与 indexed_version
+    itemMapper.update(
+        null,
+        new LambdaUpdateWrapper<KnowledgeDocument>()
+            .eq(KnowledgeDocument::getId, created.getId())
+            .set(KnowledgeDocument::getIndexStatus, "PENDING")
+            .set(KnowledgeDocument::getIndexedVersion, null));
+
+    int submitted = knowledgeService.reindexAllForOwner();
+    assertThat(submitted).isGreaterThanOrEqualTo(1);
+
+    waitForIndexed(created.getId());
+    KnowledgeDocument reindexed = itemMapper.selectById(created.getId());
+    assertThat(reindexed.getIndexStatus()).isEqualTo("INDEXED");
+    assertThat(reindexed.getIndexedVersion()).isEqualTo(1);
+
+    assertThat(qdrantClient.countPoints("knowflow_it_dense", versionFilter(created.getId(), 1)))
+        .isGreaterThan(0);
   }
 }

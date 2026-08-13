@@ -9,8 +9,8 @@ import org.apache.ibatis.annotations.Select;
  * 会话硬删除级联清理 Mapper：按 conversationId 一次删除消息、trace、提取任务与候选，并删除会话本身。
  *
  * <p>使用显式 SQL 而非实体 Lambda 删除，原因：级联要跨模块表（generation_trace / knowledge_candidate /
- * knowledge_extraction_task），且候选删除依赖子查询；全部在单个事务内执行。已确认候选的 KnowledgeItem 依赖 V10 迁移的 {@code ON DELETE
- * SET NULL} 保留沉淀数据。
+ * knowledge_extraction_task），且候选删除依赖子查询；全部在单个事务内执行。已确认候选的 KnowledgeDocument 依赖 V10 迁移的 {@code ON
+ * DELETE SET NULL} 保留沉淀数据。
  */
 @Mapper
 public interface ConversationCascadeMapper {

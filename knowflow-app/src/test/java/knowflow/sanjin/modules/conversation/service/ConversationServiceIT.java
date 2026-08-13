@@ -20,8 +20,8 @@ import knowflow.sanjin.modules.extraction.entity.KnowledgeCandidate;
 import knowflow.sanjin.modules.extraction.entity.KnowledgeExtractionTask;
 import knowflow.sanjin.modules.extraction.mapper.KnowledgeCandidateMapper;
 import knowflow.sanjin.modules.extraction.mapper.KnowledgeExtractionTaskMapper;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.modelconfig.dto.CreateModelConfigRequest;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfig;
 import knowflow.sanjin.modules.modelconfig.service.ModelConfigService;
@@ -47,7 +47,10 @@ class ConversationServiceIT extends MySQLTestBase {
   @Autowired private KnowledgeExtractionTaskMapper extractionTaskMapper;
   @Autowired private KnowledgeCandidateMapper candidateMapper;
   @Autowired private ProcessingTaskMapper processingTaskMapper;
-  @Autowired private KnowledgeItemMapper knowledgeItemMapper;
+  @Autowired private KnowledgeDocumentMapper knowledgeItemMapper;
+
+  @Autowired
+  private knowflow.sanjin.modules.knowledgebase.service.KnowledgeBaseService knowledgeBaseService;
 
   private Conversation createConversation(String title) {
     CreateConversationRequest req = new CreateConversationRequest();
@@ -125,11 +128,11 @@ class ConversationServiceIT extends MySQLTestBase {
     c.setStatus(status);
     c.setAiTitle("候选标题");
     c.setAiContent("候选内容");
-    c.setAiKnowledgeBaseIds("[]");
+    c.setAiKnowledgeBaseId(null);
     c.setAiTags("[]");
     c.setDraftTitle("候选标题");
     c.setDraftContent("候选内容");
-    c.setDraftKnowledgeBaseIds("[]");
+    c.setDraftKnowledgeBaseId(null);
     c.setDraftTags("[]");
     candidateMapper.insert(c);
     return c;
@@ -145,19 +148,27 @@ class ConversationServiceIT extends MySQLTestBase {
     return t;
   }
 
-  private KnowledgeItem itemFromCandidate(KnowledgeCandidate candidate) {
-    KnowledgeItem i = new KnowledgeItem();
+  private KnowledgeDocument itemFromCandidate(KnowledgeCandidate candidate, Long kbId) {
+    KnowledgeDocument i = new KnowledgeDocument();
     i.setOwnerId(1L);
+    i.setKbId(kbId);
     i.setSourceType(ExtractionConstants.SOURCE_AI_CONVERSATION);
     i.setTitle(candidate.getAiTitle());
     i.setContent(candidate.getAiContent());
     i.setContentVersion(1);
     i.setIndexStatus("PENDING");
-    i.setStatus("ACTIVE");
+    i.setDeleted(false);
     i.setRowVersion(0);
     i.setCandidateId(candidate.getId());
     knowledgeItemMapper.insert(i);
     return i;
+  }
+
+  private Long createKb() {
+    knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest req =
+        new knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest();
+    req.setName("Conv KB " + System.nanoTime());
+    return knowledgeBaseService.create(req).getId();
   }
 
   private long countChatMessages(Long conversationId) {
@@ -237,11 +248,11 @@ class ConversationServiceIT extends MySQLTestBase {
     ProcessingTask pt = processingTask(ProcessingConstants.STATUS_SUCCEEDED);
     KnowledgeExtractionTask et = extractionTask(c, assistant.getId(), pt.getId());
     KnowledgeCandidate confirmed = candidate(et, ExtractionConstants.CANDIDATE_CONFIRMED);
-    KnowledgeItem item = itemFromCandidate(confirmed);
+    KnowledgeDocument item = itemFromCandidate(confirmed, createKb());
 
     service.hardDelete(c.getId());
 
-    KnowledgeItem kept = knowledgeItemMapper.selectById(item.getId());
+    KnowledgeDocument kept = knowledgeItemMapper.selectById(item.getId());
     assertThat(kept).isNotNull();
     assertThat(kept.getCandidateId()).isNull();
   }

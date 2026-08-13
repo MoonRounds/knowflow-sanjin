@@ -1,6 +1,7 @@
 package knowflow.sanjin.modules.extraction.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -11,13 +12,11 @@ import knowflow.sanjin.modules.extraction.exception.CandidateNoKnowledgeBaseExce
 import knowflow.sanjin.modules.extraction.exception.CandidateNotFoundException;
 import knowflow.sanjin.modules.extraction.mapper.KnowledgeCandidateMapper;
 import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeBaseItem;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItemTag;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentTag;
 import knowflow.sanjin.modules.knowledge.entity.Tag;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeBaseItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemTagMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentTagMapper;
 import knowflow.sanjin.modules.knowledge.mapper.TagMapper;
 import knowflow.sanjin.modules.knowledgebase.mapper.KnowledgeBaseMapper;
 import knowflow.sanjin.modules.knowledgebase.service.KnowledgeBaseService;
@@ -29,11 +28,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Candidate 确认应用服务：幂等地把草稿转换为 KnowledgeItem 并提交索引任务。
+ * Candidate 确认应用服务：幂等地把草稿转换为 KnowledgeDocument 并提交索引任务。
  *
- * <p>幂等（DECISIONS §11）：每个 Candidate 至多创建一个 Item，由 {@code knowledge_item.candidate_id} 唯一约束保证；
- * 并发双击时只有首个事务成功， 其余捕获 DuplicateKeyException 返回已创建的 Item。确认事务内创建 Item、KB 关系、Tag 关系与索引
- * ProcessingTask， 失败整体回滚不留半成品。索引复用 Phase 05 的 KnowledgeItem 链路（FULL 索引）。
+ * <p>幂等（DECISIONS §11）：每个 Candidate 至多创建一个 Document，由 {@code knowledge_document.candidate_id}
+ * 唯一约束保证； 并发双击时只有首个事务成功， 其余捕获 DuplicateKeyException 返回已创建的 Document。确认事务内创建 Document、单归属 KB（ADR
+ * 0007）、Tag 关系与索引 ProcessingTask， 失败整体回滚不留半成品。索引复用 Phase 05 的 KnowledgeDocument 链路（FULL 索引）。
  */
 @Service
 public class CandidateConfirmService {
@@ -42,9 +41,8 @@ public class CandidateConfirmService {
 
   private final CurrentOwnerProvider currentOwnerProvider;
   private final KnowledgeCandidateMapper candidateMapper;
-  private final KnowledgeItemMapper itemMapper;
-  private final KnowledgeBaseItemMapper kbItemMapper;
-  private final KnowledgeItemTagMapper itemTagMapper;
+  private final KnowledgeDocumentMapper documentMapper;
+  private final KnowledgeDocumentTagMapper documentTagMapper;
   private final TagMapper tagMapper;
   private final KnowledgeBaseMapper knowledgeBaseMapper;
   private final KnowledgeBaseService knowledgeBaseService;
@@ -53,25 +51,25 @@ public class CandidateConfirmService {
   public CandidateConfirmService(
       CurrentOwnerProvider currentOwnerProvider,
       KnowledgeCandidateMapper candidateMapper,
-      KnowledgeItemMapper itemMapper,
-      KnowledgeBaseItemMapper kbItemMapper,
-      KnowledgeItemTagMapper itemTagMapper,
+      KnowledgeDocumentMapper documentMapper,
+      KnowledgeDocumentTagMapper documentTagMapper,
       TagMapper tagMapper,
       KnowledgeBaseMapper knowledgeBaseMapper,
       KnowledgeBaseService knowledgeBaseService,
       TaskSubmissionService taskSubmissionService) {
     this.currentOwnerProvider = currentOwnerProvider;
     this.candidateMapper = candidateMapper;
-    this.itemMapper = itemMapper;
-    this.kbItemMapper = kbItemMapper;
-    this.itemTagMapper = itemTagMapper;
+    this.documentMapper = documentMapper;
+    this.documentTagMapper = documentTagMapper;
     this.tagMapper = tagMapper;
     this.knowledgeBaseMapper = knowledgeBaseMapper;
     this.knowledgeBaseService = knowledgeBaseService;
     this.taskSubmissionService = taskSubmissionService;
   }
 
-  /** 确认候选：PENDING → CONFIRMED 并创建 Item。幂等：已 CONFIRMED 且已有 Item 时返回原候选（不重复创建）。 并发双击由唯一约束兜底。 */
+  /**
+   * 确认候选：PENDING → CONFIRMED 并创建 Document。幂等：已 CONFIRMED 且已有 Document 时返回原候选（不重复创建）。 并发双击由唯一约束兜底。
+   */
   @Transactional
   public KnowledgeCandidate confirm(Long candidateId) {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
@@ -85,9 +83,9 @@ public class CandidateConfirmService {
           "Only PENDING candidate can be confirmed, current status=" + candidate.getStatus());
     }
 
-    // 校验草稿（确认保存用户最终编辑内容）：至少一个 KB，正文非空
-    List<Long> kbIds = parseIds(candidate.getDraftKnowledgeBaseIds());
-    if (kbIds.isEmpty()) {
+    // 校验草稿（确认保存用户最终编辑内容）：必须归属一个知识库，正文非空
+    Long kbId = parseSingleKbId(candidate.getDraftKnowledgeBaseId());
+    if (kbId == null) {
       throw new CandidateNoKnowledgeBaseException(candidateId);
     }
     if (candidate.getDraftTitle() == null || candidate.getDraftTitle().isBlank()) {
@@ -98,39 +96,38 @@ public class CandidateConfirmService {
       throw new knowflow.sanjin.modules.extraction.exception.CandidateEmptyDraftException(
           candidateId, "content");
     }
-    resolveKnowledgeBaseIds(ownerId, kbIds);
+    knowledgeBaseService.getByIdAndOwner(kbId); // 校验存在与 owner 边界
 
     List<String> tagNames = normalizeTags(splitTags(candidate.getDraftTags()));
 
-    // 创建 KnowledgeItem（来源 AI_CONVERSATION，Candidate 来源关系）
-    KnowledgeItem item = new KnowledgeItem();
-    item.setOwnerId(ownerId);
-    item.setSourceType(ExtractionConstants.SOURCE_AI_CONVERSATION);
-    item.setCandidateId(candidateId);
-    item.setTitle(candidate.getDraftTitle().trim());
-    item.setSummary(candidate.getDraftSummary());
-    item.setContent(candidate.getDraftContent());
-    item.setContentVersion(1);
-    item.setIndexStatus(KnowledgeConstants.INDEX_PENDING);
-    item.setStatus(KnowledgeConstants.STATUS_ACTIVE);
-    item.setRowVersion(0);
+    // 创建 KnowledgeDocument（来源 AI_CONVERSATION，单归属 KB，Candidate 来源关系）
+    KnowledgeDocument document = new KnowledgeDocument();
+    document.setOwnerId(ownerId);
+    document.setKbId(kbId);
+    document.setSourceType(ExtractionConstants.SOURCE_AI_CONVERSATION);
+    document.setCandidateId(candidateId);
+    document.setTitle(candidate.getDraftTitle().trim());
+    document.setSummary(candidate.getDraftSummary());
+    document.setContent(candidate.getDraftContent());
+    document.setContentVersion(1);
+    document.setIndexStatus(KnowledgeConstants.INDEX_PENDING);
+    document.setDeleted(false);
+    document.setRowVersion(0);
     try {
-      itemMapper.insert(item);
+      documentMapper.insert(document);
     } catch (DuplicateKeyException e) {
-      // 并发确认：另一个事务已用此候选创建了 Item，返回已确认候选（幂等）
+      // 并发确认：另一个事务已用此候选创建了 Document，返回已确认候选（幂等）
       KnowledgeCandidate alreadyConfirmed = getByIdAndOwner(candidateId, ownerId);
       return alreadyConfirmed;
     }
 
-    replaceKnowledgeBaseRelations(ownerId, item.getId(), kbIds);
-    replaceTagRelations(ownerId, item.getId(), tagNames);
+    replaceTagRelations(ownerId, document.getId(), tagNames);
 
-    // 确认状态 + 记录确认时间；并发 reject/confirm 竞争时条件更新可能影响 0 行，此时回滚整个事务（候选状态已非 PENDING，Item 不得残留）
+    // 确认状态 + 记录确认时间；并发 reject/confirm 竞争时条件更新可能影响 0 行，此时回滚整个事务（候选状态已非 PENDING，Document 不得残留）
     int statusUpdated =
         candidateMapper.update(
             null,
-            new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<
-                    KnowledgeCandidate>()
+            new LambdaUpdateWrapper<KnowledgeCandidate>()
                 .eq(KnowledgeCandidate::getId, candidateId)
                 .eq(KnowledgeCandidate::getOwnerId, ownerId)
                 .eq(KnowledgeCandidate::getStatus, ExtractionConstants.CANDIDATE_PENDING)
@@ -142,20 +139,20 @@ public class CandidateConfirmService {
           "Candidate " + candidateId + " no longer PENDING, confirm rolled back");
     }
 
-    submitIndexTask(item.getId(), ownerId, 1);
+    submitIndexTask(document.getId(), ownerId, 1);
     return getByIdAndOwner(candidateId, ownerId);
   }
 
-  /** 已确认候选对应的 Item id；未确认或未创建返回 null。 */
+  /** 已确认候选对应的 Document id；未确认或未创建返回 null。 */
   @Transactional(readOnly = true)
   public String findConfirmedItemId(Long candidateId) {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
-    KnowledgeItem item =
-        itemMapper.selectOne(
-            new LambdaQueryWrapper<KnowledgeItem>()
-                .eq(KnowledgeItem::getCandidateId, candidateId)
-                .eq(KnowledgeItem::getOwnerId, ownerId));
-    return item != null ? String.valueOf(item.getId()) : null;
+    KnowledgeDocument document =
+        documentMapper.selectOne(
+            new LambdaQueryWrapper<KnowledgeDocument>()
+                .eq(KnowledgeDocument::getCandidateId, candidateId)
+                .eq(KnowledgeDocument::getOwnerId, ownerId));
+    return document != null ? String.valueOf(document.getId()) : null;
   }
 
   private KnowledgeCandidate getByIdAndOwner(Long id, long ownerId) {
@@ -170,10 +167,13 @@ public class CandidateConfirmService {
     return candidate;
   }
 
-  private void resolveKnowledgeBaseIds(long ownerId, List<Long> kbIds) {
-    for (Long id : kbIds) {
-      knowledgeBaseService.getByIdAndOwner(id); // 校验存在与 owner 边界
+  /** 单归属 KB 解析：草稿列为单值（可空）；空/空白 → null（确认时拒绝）。 */
+  private static Long parseSingleKbId(String raw) {
+    if (raw == null || raw.isBlank()) {
+      return null;
     }
+    String trimmed = raw.trim();
+    return Long.valueOf(trimmed);
   }
 
   private void submitIndexTask(Long itemId, long ownerId, int contentVersion) {
@@ -186,26 +186,15 @@ public class CandidateConfirmService {
         DEFAULT_MAX_RETRIES);
   }
 
-  private void replaceKnowledgeBaseRelations(long ownerId, Long itemId, List<Long> newKbIds) {
-    for (Long kbId : newKbIds) {
-      KnowledgeBaseItem fresh = new KnowledgeBaseItem();
-      fresh.setOwnerId(ownerId);
-      fresh.setKnowledgeBaseId(kbId);
-      fresh.setKnowledgeItemId(itemId);
-      fresh.setDeleted(false);
-      kbItemMapper.insert(fresh);
-    }
-  }
-
   private void replaceTagRelations(long ownerId, Long itemId, List<String> newNames) {
     for (String name : newNames) {
       Long tagId = findOrCreateTag(ownerId, name);
-      KnowledgeItemTag rel = new KnowledgeItemTag();
+      KnowledgeDocumentTag rel = new KnowledgeDocumentTag();
       rel.setOwnerId(ownerId);
-      rel.setKnowledgeItemId(itemId);
+      rel.setKnowledgeDocumentId(itemId);
       rel.setTagId(tagId);
       rel.setDeleted(false);
-      itemTagMapper.insert(rel);
+      documentTagMapper.insert(rel);
     }
   }
 
@@ -214,7 +203,8 @@ public class CandidateConfirmService {
         tagMapper.selectOne(
             new LambdaQueryWrapper<Tag>()
                 .eq(Tag::getOwnerId, ownerId)
-                .eq(Tag::getNormalizedName, normalizedName));
+                .eq(Tag::getNormalizedName, normalizedName)
+                .eq(Tag::getDeleted, false));
     if (tag != null) {
       return tag.getId();
     }
@@ -222,6 +212,7 @@ public class CandidateConfirmService {
     fresh.setOwnerId(ownerId);
     fresh.setName(normalizedName);
     fresh.setNormalizedName(normalizedName);
+    fresh.setDeleted(false);
     try {
       tagMapper.insert(fresh);
       return fresh.getId();
@@ -230,22 +221,10 @@ public class CandidateConfirmService {
           .selectOne(
               new LambdaQueryWrapper<Tag>()
                   .eq(Tag::getOwnerId, ownerId)
-                  .eq(Tag::getNormalizedName, normalizedName))
+                  .eq(Tag::getNormalizedName, normalizedName)
+                  .eq(Tag::getDeleted, false))
           .getId();
     }
-  }
-
-  private static List<Long> parseIds(String raw) {
-    if (raw == null || raw.isBlank()) {
-      return List.of();
-    }
-    return java.util.Arrays.stream(raw.split(","))
-        .map(String::trim)
-        .filter(s -> !s.isBlank())
-        .map(Long::valueOf)
-        .collect(Collectors.toCollection(LinkedHashSet::new))
-        .stream()
-        .toList();
   }
 
   private static List<String> splitTags(String raw) {

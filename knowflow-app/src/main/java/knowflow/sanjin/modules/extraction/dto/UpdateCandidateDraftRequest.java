@@ -1,7 +1,6 @@
 package knowflow.sanjin.modules.extraction.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 
 /** Candidate 草稿编辑请求：完整覆盖草稿字段；随 If-Match/ETag 传递 rowVersion 乐观锁。 */
@@ -13,7 +12,7 @@ public class UpdateCandidateDraftRequest {
 
   @NotBlank private String content;
 
-  @NotEmpty private List<String> knowledgeBaseIds;
+  @NotBlank private String knowledgeBaseId;
 
   private List<String> tags;
 
@@ -43,12 +42,12 @@ public class UpdateCandidateDraftRequest {
     this.content = content;
   }
 
-  public List<String> getKnowledgeBaseIds() {
-    return knowledgeBaseIds;
+  public String getKnowledgeBaseId() {
+    return knowledgeBaseId;
   }
 
-  public void setKnowledgeBaseIds(List<String> knowledgeBaseIds) {
-    this.knowledgeBaseIds = knowledgeBaseIds;
+  public void setKnowledgeBaseId(String knowledgeBaseId) {
+    this.knowledgeBaseId = knowledgeBaseId;
   }
 
   public List<String> getTags() {

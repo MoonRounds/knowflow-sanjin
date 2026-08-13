@@ -53,11 +53,11 @@ class ExtractionExecutorTest {
             properties);
   }
 
-  private ExtractionResult.Candidate candidate(String title, String content, String... kbIds) {
+  private ExtractionResult.Candidate candidate(String title, String content, String kbId) {
     ExtractionResult.Candidate c = new ExtractionResult.Candidate();
     c.setTitle(title);
     c.setContent(content);
-    c.setKnowledgeBaseIds(java.util.Arrays.asList(kbIds));
+    c.setKnowledgeBaseId(kbId);
     return c;
   }
 
@@ -106,16 +106,16 @@ class ExtractionExecutorTest {
   }
 
   @Test
-  @DisplayName("should reject duplicate KB ids in one candidate")
-  void shouldRejectDuplicateKbId() {
-    assertThat(executor.isValid(result(candidate("标题", "内容", "1", "1")))).isFalse();
+  @DisplayName("should reject non-numeric KB id")
+  void shouldRejectNonNumericKbId() {
+    assertThat(executor.isValid(result(candidate("标题", "内容", "not-a-number")))).isFalse();
   }
 
   @Test
-  @DisplayName("should reject when KB count exceeds per-candidate limit")
-  void shouldRejectTooManyKbsPerCandidate() {
-    properties.setMaxKnowledgeBasesPerCandidate(2);
-    assertThat(executor.isValid(result(candidate("标题", "内容", "1")))).isTrue();
+  @DisplayName("should accept a candidate with a blank KB id (AI did not recommend a KB)")
+  void shouldAcceptBlankKbId() {
+    assertThat(executor.isValid(result(candidate("标题", "内容", null)))).isTrue();
+    assertThat(executor.isValid(result(candidate("标题", "内容", "  ")))).isTrue();
   }
 
   @Test

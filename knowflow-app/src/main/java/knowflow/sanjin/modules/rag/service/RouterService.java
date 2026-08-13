@@ -7,11 +7,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import knowflow.sanjin.modules.conversation.memory.MemoryService;
-import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeBaseItem;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeBaseItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
 import knowflow.sanjin.modules.knowledgebase.mapper.KnowledgeBaseMapper;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfigRevision;
@@ -50,8 +47,7 @@ public class RouterService {
   private final RagProperties properties;
   private final CurrentOwnerProvider currentOwnerProvider;
   private final KnowledgeBaseMapper knowledgeBaseMapper;
-  private final KnowledgeBaseItemMapper kbItemMapper;
-  private final KnowledgeItemMapper itemMapper;
+  private final KnowledgeDocumentMapper documentMapper;
   private final ModelConfigService modelConfigService;
   private final ModelClientFactory modelClientFactory;
   private final MemoryService memoryService;
@@ -60,16 +56,14 @@ public class RouterService {
       RagProperties properties,
       CurrentOwnerProvider currentOwnerProvider,
       KnowledgeBaseMapper knowledgeBaseMapper,
-      KnowledgeBaseItemMapper kbItemMapper,
-      KnowledgeItemMapper itemMapper,
+      KnowledgeDocumentMapper documentMapper,
       ModelConfigService modelConfigService,
       ModelClientFactory modelClientFactory,
       MemoryService memoryService) {
     this.properties = properties;
     this.currentOwnerProvider = currentOwnerProvider;
     this.knowledgeBaseMapper = knowledgeBaseMapper;
-    this.kbItemMapper = kbItemMapper;
-    this.itemMapper = itemMapper;
+    this.documentMapper = documentMapper;
     this.modelConfigService = modelConfigService;
     this.modelClientFactory = modelClientFactory;
     this.memoryService = memoryService;
@@ -135,7 +129,7 @@ public class RouterService {
     }
   }
 
-  /** 构建「当前 owner 下 enabled 且至少有一个可检索 Item」的 KnowledgeBase 目录，按名称排序后截断到上限。 */
+  /** 构建「当前 owner 下 enabled 且至少有一个可检索 Document」的 KnowledgeBase 目录，按名称排序后截断到上限。 */
   private List<RoutableKnowledgeBase> buildCatalog() {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     List<KnowledgeBase> enabled =
@@ -150,19 +144,21 @@ public class RouterService {
     Set<Long> enabledIds = new LinkedHashSet<>();
     enabled.forEach(kb -> enabledIds.add(kb.getId()));
 
-    // 有可检索 Item（ACTIVE 且已成功索引）的 KB
+    // 可路由 KB：有活跃且已成功索引 Document（kb_id IN enabledIds，未软删，indexedVersion 非空）的 KB
     Set<Long> routableIds = new LinkedHashSet<>();
-    List<Long> activeIds = activeItemIds(enabledIds);
-    if (!activeIds.isEmpty()) {
-      itemMapper
-          .selectList(
-              new LambdaQueryWrapper<KnowledgeItem>()
-                  .eq(KnowledgeItem::getOwnerId, ownerId)
-                  .eq(KnowledgeItem::getStatus, KnowledgeConstants.STATUS_ACTIVE)
-                  .isNotNull(KnowledgeItem::getIndexedVersion)
-                  .in(KnowledgeItem::getId, activeIds))
-          .forEach(item -> routableIds.addAll(knowledgeBaseIdsOf(item.getId(), ownerId)));
-    }
+    documentMapper
+        .selectList(
+            new LambdaQueryWrapper<KnowledgeDocument>()
+                .eq(KnowledgeDocument::getOwnerId, ownerId)
+                .eq(KnowledgeDocument::getDeleted, false)
+                .isNotNull(KnowledgeDocument::getIndexedVersion)
+                .in(KnowledgeDocument::getKbId, enabledIds))
+        .forEach(
+            document -> {
+              if (document.getKbId() != null) {
+                routableIds.add(document.getKbId());
+              }
+            });
     routableIds.retainAll(enabledIds);
 
     List<RoutableKnowledgeBase> catalog = new ArrayList<>();
@@ -176,30 +172,6 @@ public class RouterService {
     catalog.sort(Comparator.comparing(RoutableKnowledgeBase::getName));
     int limit = Math.max(1, properties.getCatalogLimit());
     return catalog.size() > limit ? new ArrayList<>(catalog.subList(0, limit)) : catalog;
-  }
-
-  private List<Long> activeItemIds(Set<Long> kbIds) {
-    return kbItemMapper
-        .selectList(
-            new LambdaQueryWrapper<KnowledgeBaseItem>()
-                .in(KnowledgeBaseItem::getKnowledgeBaseId, kbIds)
-                .eq(KnowledgeBaseItem::getDeleted, false))
-        .stream()
-        .map(KnowledgeBaseItem::getKnowledgeItemId)
-        .distinct()
-        .toList();
-  }
-
-  private List<Long> knowledgeBaseIdsOf(Long itemId, long ownerId) {
-    return kbItemMapper
-        .selectList(
-            new LambdaQueryWrapper<KnowledgeBaseItem>()
-                .eq(KnowledgeBaseItem::getKnowledgeItemId, itemId)
-                .eq(KnowledgeBaseItem::getOwnerId, ownerId)
-                .eq(KnowledgeBaseItem::getDeleted, false))
-        .stream()
-        .map(KnowledgeBaseItem::getKnowledgeBaseId)
-        .toList();
   }
 
   private ModelConfigRevision resolveUtilityRevision() {

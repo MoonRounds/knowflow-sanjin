@@ -27,13 +27,13 @@ import knowflow.sanjin.modules.conversation.service.ConversationService;
 import knowflow.sanjin.modules.conversation.vo.ConversationResponse;
 import knowflow.sanjin.modules.conversation.vo.MessagePageResponse;
 import knowflow.sanjin.modules.conversation.vo.MessageResponse;
-import knowflow.sanjin.modules.knowledge.controller.KnowledgeItemController;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeChunk;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
+import knowflow.sanjin.modules.knowledge.controller.KnowledgeDocumentController;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentChunk;
 import knowflow.sanjin.modules.knowledge.entity.Tag;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
-import knowflow.sanjin.modules.knowledge.service.KnowledgeService;
-import knowflow.sanjin.modules.knowledge.vo.KnowledgeItemResponse;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
+import knowflow.sanjin.modules.knowledge.service.KnowledgeDocumentService;
+import knowflow.sanjin.modules.knowledge.vo.KnowledgeDocumentResponse;
 import knowflow.sanjin.modules.knowledgebase.assembler.KnowledgeBaseAssembler;
 import knowflow.sanjin.modules.knowledgebase.controller.KnowledgeBaseController;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
@@ -185,19 +185,40 @@ class BackendPackageStructureTest {
 
   @Test
   void separatesKnowledgeModuleByResponsibility() {
-    assertThat(KnowledgeItemController.class.getPackageName())
+    assertThat(KnowledgeDocumentController.class.getPackageName())
         .isEqualTo("knowflow.sanjin.modules.knowledge.controller");
-    assertThat(KnowledgeService.class.getPackageName())
+    assertThat(KnowledgeDocumentService.class.getPackageName())
         .isEqualTo("knowflow.sanjin.modules.knowledge.service");
-    assertThat(KnowledgeItemMapper.class.getPackageName())
+    assertThat(KnowledgeDocumentMapper.class.getPackageName())
         .isEqualTo("knowflow.sanjin.modules.knowledge.mapper");
-    assertThat(KnowledgeItem.class.getPackageName())
+    assertThat(KnowledgeDocument.class.getPackageName())
         .isEqualTo("knowflow.sanjin.modules.knowledge.entity");
-    assertThat(KnowledgeChunk.class.getPackageName())
+    assertThat(KnowledgeDocumentChunk.class.getPackageName())
         .isEqualTo("knowflow.sanjin.modules.knowledge.entity");
     assertThat(Tag.class.getPackageName()).isEqualTo("knowflow.sanjin.modules.knowledge.entity");
-    assertThat(KnowledgeItemResponse.class.getPackageName())
+    assertThat(KnowledgeDocumentResponse.class.getPackageName())
         .isEqualTo("knowflow.sanjin.modules.knowledge.vo");
+  }
+
+  @Test
+  void separatesFileModuleByResponsibility() {
+    assertThat(knowflow.sanjin.modules.file.controller.FileController.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.file.controller");
+    assertThat(knowflow.sanjin.modules.file.service.FileUploadService.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.file.service");
+    assertThat(knowflow.sanjin.modules.file.service.FileUploadCoordinator.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.file.service");
+    assertThat(knowflow.sanjin.modules.file.entity.FileMetadata.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.file.entity");
+    assertThat(knowflow.sanjin.modules.file.config.FileProperties.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.file.config");
+    assertThat(knowflow.sanjin.modules.file.vo.FileMetadataResponse.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.file.vo");
+    assertThat(
+            knowflow.sanjin.modules.file.vo.KnowledgeDocumentForFileResponse.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.file.vo");
+    assertThat(knowflow.sanjin.modules.file.exception.RetryableFileException.class.getPackageName())
+        .isEqualTo("knowflow.sanjin.modules.file.exception");
   }
 
   @Test

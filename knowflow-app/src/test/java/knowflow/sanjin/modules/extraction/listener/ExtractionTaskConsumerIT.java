@@ -143,9 +143,9 @@ class ExtractionTaskConsumerIT extends MySQLRabbitMQTestBase {
     ChatModel mock = org.mockito.Mockito.mock(ChatModel.class);
     String json =
         "{\"candidates\":[{\"title\":\"提取到的知识\",\"summary\":\"摘要\",\"content\":\"正文内容\","
-            + "\"knowledgeBaseIds\":[\""
+            + "\"knowledgeBaseId\":\""
             + kbId
-            + "\"],\"tags\":[\"tag\"],\"reason\":\"有沉淀价值\"}]}";
+            + "\",\"tags\":[\"tag\"],\"reason\":\"有沉淀价值\"}]}";
     when(mock.call(any(Prompt.class)))
         .thenAnswer(
             inv ->

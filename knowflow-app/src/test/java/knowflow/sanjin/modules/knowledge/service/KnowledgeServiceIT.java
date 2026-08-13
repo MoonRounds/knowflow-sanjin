@@ -6,15 +6,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.util.List;
 import java.util.UUID;
-import knowflow.sanjin.modules.knowledge.dto.CreateManualNoteRequest;
-import knowflow.sanjin.modules.knowledge.dto.UpdateManualNoteRequest;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeBaseItem;
-import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
-import knowflow.sanjin.modules.knowledge.exception.KnowledgeItemNotFoundException;
-import knowflow.sanjin.modules.knowledge.exception.KnowledgeItemVersionConflictException;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeBaseItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
-import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemTagMapper;
+import knowflow.sanjin.modules.knowledge.dto.CreateDocumentRequest;
+import knowflow.sanjin.modules.knowledge.dto.UpdateDocumentRequest;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.exception.KnowledgeDocumentNotFoundException;
+import knowflow.sanjin.modules.knowledge.exception.KnowledgeDocumentVersionConflictException;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentTagMapper;
 import knowflow.sanjin.modules.knowledge.mapper.TagMapper;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
@@ -35,18 +33,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
-@DisplayName("KnowledgeService Manual Note Integration Tests")
+@DisplayName("KnowledgeDocumentService Manual Note Integration Tests")
 class KnowledgeServiceIT extends MySQLTestBase {
 
-  @Autowired private KnowledgeService service;
+  @Autowired private KnowledgeDocumentService service;
 
   @Autowired private KnowledgeBaseService knowledgeBaseService;
 
-  @Autowired private KnowledgeItemMapper itemMapper;
+  @Autowired private KnowledgeDocumentMapper itemMapper;
 
-  @Autowired private KnowledgeBaseItemMapper kbItemMapper;
-
-  @Autowired private KnowledgeItemTagMapper itemTagMapper;
+  @Autowired private KnowledgeDocumentTagMapper itemTagMapper;
 
   @Autowired private TagMapper tagMapper;
 
@@ -69,12 +65,12 @@ class KnowledgeServiceIT extends MySQLTestBase {
     kbId = kb.getId();
   }
 
-  private CreateManualNoteRequest createRequest() {
-    CreateManualNoteRequest req = new CreateManualNoteRequest();
+  private CreateDocumentRequest createRequest() {
+    CreateDocumentRequest req = new CreateDocumentRequest();
     req.setTitle("My Note");
     req.setSummary("A summary");
     req.setContent("# Heading\n\nSome body text here.");
-    req.setKnowledgeBaseIds(List.of(kbId.toString()));
+    req.setKnowledgeBaseId(kbId.toString());
     req.setTags(List.of("ai", " notes "));
     return req;
   }
@@ -82,17 +78,18 @@ class KnowledgeServiceIT extends MySQLTestBase {
   @Test
   @DisplayName("should create Manual Note with relations, tags and a PENDING index task")
   void shouldCreateManualNote() {
-    KnowledgeItem item = service.createManualNote(createRequest());
+    KnowledgeDocument item = service.createManualNote(createRequest());
 
     assertThat(item.getId()).isNotNull();
     assertThat(item.getSourceType()).isEqualTo("MANUAL_NOTE");
     assertThat(item.getContentVersion()).isEqualTo(1);
     assertThat(item.getIndexStatus()).isEqualTo("PENDING");
-    assertThat(item.getStatus()).isEqualTo("ACTIVE");
+    assertThat(item.getDeleted()).isFalse();
+    assertThat(item.getKbId()).isEqualTo(kbId);
     assertThat(item.getOwnerId()).isEqualTo(currentOwnerProvider.getCurrentOwnerId());
     assertThat(item.getTitle()).isEqualTo("My Note");
 
-    assertThat(service.getKnowledgeBaseIds(item.getId())).containsExactly(kbId);
+    assertThat(service.getKnowledgeBaseId(item.getId())).isEqualTo(kbId);
     assertThat(service.getTagNames(item.getId())).containsExactly("ai", "notes");
 
     ProcessingTask task =
@@ -101,25 +98,25 @@ class KnowledgeServiceIT extends MySQLTestBase {
                 .eq(ProcessingTask::getBusinessId, item.getId()));
     assertThat(task).isNotNull();
     assertThat(task.getTaskType()).isEqualTo(ProcessingConstants.TASK_TYPE_KNOWLEDGE_INDEX);
-    assertThat(task.getBusinessKey()).isEqualTo("KNOWLEDGE_ITEM:" + item.getId() + ":1");
+    assertThat(task.getBusinessKey()).isEqualTo("KNOWLEDGE_DOCUMENT:" + item.getId() + ":1");
     assertThat(task.getStatus()).isEqualTo(ProcessingConstants.STATUS_PENDING);
   }
 
   @Test
   @DisplayName("should derive title from first content line when title missing")
   void shouldDeriveTitleFromContent() {
-    CreateManualNoteRequest req = createRequest();
+    CreateDocumentRequest req = createRequest();
     req.setTitle(null);
     req.setContent("First line\n\nSecond line");
-    KnowledgeItem item = service.createManualNote(req);
+    KnowledgeDocument item = service.createManualNote(req);
     assertThat(item.getTitle()).isEqualTo("First line");
   }
 
   @Test
   @DisplayName("should reject creating a Manual Note with zero KnowledgeBase")
   void shouldRejectZeroKnowledgeBase() {
-    CreateManualNoteRequest req = createRequest();
-    req.setKnowledgeBaseIds(List.of());
+    CreateDocumentRequest req = createRequest();
+    req.setKnowledgeBaseId(null);
     assertThatThrownBy(() -> service.createManualNote(req))
         .isInstanceOf(IllegalArgumentException.class);
   }
@@ -127,45 +124,47 @@ class KnowledgeServiceIT extends MySQLTestBase {
   @Test
   @DisplayName("should bump contentVersion and create a new FULL task when content changes")
   void shouldCreateNewVersionOnContentEdit() {
-    KnowledgeItem created = service.createManualNote(createRequest());
+    KnowledgeDocument created = service.createManualNote(createRequest());
     assertThat(created.getContentVersion()).isEqualTo(1);
 
-    UpdateManualNoteRequest update = new UpdateManualNoteRequest();
+    UpdateDocumentRequest update = new UpdateDocumentRequest();
     update.setContent("## New\n\nUpdated body.");
-    update.setKnowledgeBaseIds(List.of(kbId.toString()));
+    update.setKnowledgeBaseId(kbId.toString());
     update.setRowVersion(created.getRowVersion());
 
-    KnowledgeItem updated = service.updateManualNote(created.getId(), update);
+    KnowledgeDocument updated = service.updateManualNote(created.getId(), update);
     assertThat(updated.getContentVersion()).isEqualTo(2);
     assertThat(updated.getIndexStatus()).isEqualTo("PENDING");
 
-    // 新版本 FULL 任务：businessKey = KNOWLEDGE_ITEM:<id>:2
+    // 新版本 FULL 任务：businessKey = KNOWLEDGE_DOCUMENT:<id>:2
     ProcessingTask task =
         processingTaskMapper.selectOne(
             new LambdaQueryWrapper<ProcessingTask>()
                 .eq(ProcessingTask::getBusinessId, created.getId())
-                .eq(ProcessingTask::getBusinessKey, "KNOWLEDGE_ITEM:" + created.getId() + ":2"));
+                .eq(
+                    ProcessingTask::getBusinessKey,
+                    "KNOWLEDGE_DOCUMENT:" + created.getId() + ":2"));
     assertThat(task).isNotNull();
     assertThat(task.getStatus()).isEqualTo(ProcessingConstants.STATUS_PENDING);
   }
 
   @Test
-  @DisplayName("should create a PAYLOAD task when only relations change")
+  @DisplayName("should create a PAYLOAD task when only the single KnowledgeBase changes")
   void shouldCreatePayloadTaskOnRelationChange() {
-    // 第二个 KB
+    // 第二个 KB：把文档从原 KB 迁移过去（单归属）
     CreateKnowledgeBaseRequest second = new CreateKnowledgeBaseRequest();
     second.setName("Second KB " + UUID.randomUUID());
     KnowledgeBase secondKb = knowledgeBaseService.create(second);
 
-    KnowledgeItem created = service.createManualNote(createRequest());
+    KnowledgeDocument created = service.createManualNote(createRequest());
 
-    UpdateManualNoteRequest update = new UpdateManualNoteRequest();
+    UpdateDocumentRequest update = new UpdateDocumentRequest();
     update.setContent(created.getContent()); // content unchanged
-    update.setKnowledgeBaseIds(List.of(kbId.toString(), secondKb.getId().toString()));
+    update.setKnowledgeBaseId(secondKb.getId().toString());
     update.setRowVersion(created.getRowVersion());
 
-    KnowledgeItem updated = service.updateManualNote(created.getId(), update);
-    // 仅关系变化：contentVersion 不递增
+    KnowledgeDocument updated = service.updateManualNote(created.getId(), update);
+    // 仅 KB 归属变化：contentVersion 不递增
     assertThat(updated.getContentVersion()).isEqualTo(1);
 
     ProcessingTask payloadTask =
@@ -174,30 +173,30 @@ class KnowledgeServiceIT extends MySQLTestBase {
                 .eq(ProcessingTask::getBusinessId, created.getId())
                 .eq(
                     ProcessingTask::getBusinessKey,
-                    "KNOWLEDGE_ITEM:" + created.getId() + ":1:PAYLOAD"));
+                    "KNOWLEDGE_DOCUMENT:" + created.getId() + ":1:PAYLOAD"));
     assertThat(payloadTask).isNotNull();
-    assertThat(service.getKnowledgeBaseIds(created.getId()))
-        .containsExactlyInAnyOrder(kbId, secondKb.getId());
+    // 单归属：文档现在只属于第二个 KB
+    assertThat(service.getKnowledgeBaseId(created.getId())).isEqualTo(secondKb.getId());
   }
 
   @Test
   @DisplayName("should throw version conflict when updating with stale rowVersion")
   void shouldThrowVersionConflict() {
-    KnowledgeItem created = service.createManualNote(createRequest());
+    KnowledgeDocument created = service.createManualNote(createRequest());
 
-    UpdateManualNoteRequest first = new UpdateManualNoteRequest();
+    UpdateDocumentRequest first = new UpdateDocumentRequest();
     first.setContent("v2 body");
-    first.setKnowledgeBaseIds(List.of(kbId.toString()));
+    first.setKnowledgeBaseId(kbId.toString());
     first.setRowVersion(created.getRowVersion());
     service.updateManualNote(created.getId(), first);
 
-    UpdateManualNoteRequest stale = new UpdateManualNoteRequest();
+    UpdateDocumentRequest stale = new UpdateDocumentRequest();
     stale.setContent("stale body");
-    stale.setKnowledgeBaseIds(List.of(kbId.toString()));
+    stale.setKnowledgeBaseId(kbId.toString());
     stale.setRowVersion(created.getRowVersion()); // old version
 
     assertThatThrownBy(() -> service.updateManualNote(created.getId(), stale))
-        .isInstanceOf(KnowledgeItemVersionConflictException.class);
+        .isInstanceOf(KnowledgeDocumentVersionConflictException.class);
   }
 
   @Test
@@ -209,72 +208,57 @@ class KnowledgeServiceIT extends MySQLTestBase {
     secondOwner.setStatus("ACTIVE");
     appUserMapper.insert(secondOwner);
 
-    KnowledgeItem other = new KnowledgeItem();
+    KnowledgeDocument other = new KnowledgeDocument();
     other.setOwnerId(secondOwner.getId());
+    other.setKbId(kbId);
     other.setSourceType("MANUAL_NOTE");
     other.setTitle("Other Owner Note");
     other.setContent("private");
     other.setContentVersion(1);
     other.setIndexStatus("PENDING");
-    other.setStatus("ACTIVE");
+    other.setDeleted(false);
     other.setRowVersion(0);
     itemMapper.insert(other);
 
     assertThatThrownBy(() -> service.getByIdAndOwner(other.getId()))
-        .isInstanceOf(KnowledgeItemNotFoundException.class);
+        .isInstanceOf(KnowledgeDocumentNotFoundException.class);
 
-    UpdateManualNoteRequest update = new UpdateManualNoteRequest();
+    UpdateDocumentRequest update = new UpdateDocumentRequest();
     update.setContent("hacked");
-    update.setKnowledgeBaseIds(List.of(kbId.toString()));
+    update.setKnowledgeBaseId(kbId.toString());
     update.setRowVersion(0);
     assertThatThrownBy(() -> service.updateManualNote(other.getId(), update))
-        .isInstanceOf(KnowledgeItemNotFoundException.class);
+        .isInstanceOf(KnowledgeDocumentNotFoundException.class);
   }
 
   @Test
-  @DisplayName("should restore a soft-deleted relation when re-linked")
-  void shouldRestoreSoftDeletedRelation() {
-    KnowledgeItem created = service.createManualNote(createRequest());
+  @DisplayName("should soft-delete a document and hide it from listForOwner")
+  void shouldSoftDeleteMarksDeletedAndExcludesFromList() {
+    KnowledgeDocument created = service.createManualNote(createRequest());
 
-    // 软删关系后重新关联，应恢复 deleted=0 而非插入重复
-    kbItemMapper.update(
-        null,
-        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<KnowledgeBaseItem>()
-            .eq(KnowledgeBaseItem::getKnowledgeItemId, created.getId())
-            .set(KnowledgeBaseItem::getDeleted, true));
+    service.softDelete(created.getId(), created.getRowVersion());
 
-    KnowledgeBaseItem rel =
-        kbItemMapper.selectOne(
-            new LambdaQueryWrapper<KnowledgeBaseItem>()
-                .eq(KnowledgeBaseItem::getKnowledgeItemId, created.getId()));
-    assertThat(rel.getDeleted()).isTrue();
+    KnowledgeDocument deletedRow = itemMapper.selectById(created.getId());
+    assertThat(deletedRow.getDeleted()).isTrue();
+    assertThat(service.listForOwner()).noneMatch(d -> d.getId().equals(created.getId()));
 
-    // 重新创建关联（同 contentVersion 的 PAYLOAD 任务幂等跳过，无需关心）
-    service.updateManualNote(
-        created.getId(), createUpdateWithSameContent(created, List.of(kbId.toString())));
-
-    KnowledgeBaseItem restored =
-        kbItemMapper.selectOne(
-            new LambdaQueryWrapper<KnowledgeBaseItem>()
-                .eq(KnowledgeBaseItem::getKnowledgeItemId, created.getId()));
-    assertThat(restored.getDeleted()).isFalse();
-  }
-
-  private UpdateManualNoteRequest createUpdateWithSameContent(
-      KnowledgeItem item, List<String> kbIds) {
-    UpdateManualNoteRequest update = new UpdateManualNoteRequest();
-    update.setContent(item.getContent());
-    update.setKnowledgeBaseIds(kbIds);
-    update.setRowVersion(item.getRowVersion());
-    return update;
+    // 软删触发 DELETE 任务（contentVersion=1）
+    ProcessingTask deleteTask =
+        processingTaskMapper.selectOne(
+            new LambdaQueryWrapper<ProcessingTask>()
+                .eq(ProcessingTask::getBusinessId, created.getId())
+                .eq(
+                    ProcessingTask::getBusinessKey,
+                    "KNOWLEDGE_DOCUMENT:" + created.getId() + ":1:DELETE"));
+    assertThat(deleteTask).isNotNull();
   }
 
   @Test
   @DisplayName("should deduplicate tags by normalized name")
   void shouldDeduplicateTags() {
-    CreateManualNoteRequest req = createRequest();
+    CreateDocumentRequest req = createRequest();
     req.setTags(List.of("AI", " ai ", "Notes", "notes"));
-    KnowledgeItem item = service.createManualNote(req);
+    KnowledgeDocument item = service.createManualNote(req);
     assertThat(service.getTagNames(item.getId())).containsExactlyInAnyOrder("ai", "notes");
   }
 }

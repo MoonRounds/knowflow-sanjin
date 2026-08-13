@@ -5,9 +5,8 @@ import java.util.List;
 /**
  * 提取 Structured Output Schema（与 ExtractionConstants.EXTRACTION_PROFILE_VERSION=1 绑定）。
  *
- * <p>字段与提取 Prompt 输出约定一致：{@code knowledgeBaseIds} 必须来自给定目录；{@code tags} 可空； 推荐数量受 {@code
- * ExtractionProperties} 的 maxKnowledgeBasesPerCandidate / maxTagsPerCandidate 约束（校验在 Consumer 内完成）。
- * Bean 需有默认构造与 setter 供 BeanOutputConverter 反序列化。
+ * <p>字段与提取 Prompt 输出约定一致：{@code knowledgeBaseId} 单归属，必须来自给定目录；{@code tags} 可空。 Bean 需有默认构造与 setter
+ * 供 BeanOutputConverter 反序列化。
  */
 public class ExtractionResult {
 
@@ -25,7 +24,7 @@ public class ExtractionResult {
     private String title;
     private String summary;
     private String content;
-    private List<String> knowledgeBaseIds;
+    private String knowledgeBaseId;
     private List<String> tags;
     private String reason;
 
@@ -53,12 +52,12 @@ public class ExtractionResult {
       this.content = content;
     }
 
-    public List<String> getKnowledgeBaseIds() {
-      return knowledgeBaseIds;
+    public String getKnowledgeBaseId() {
+      return knowledgeBaseId;
     }
 
-    public void setKnowledgeBaseIds(List<String> knowledgeBaseIds) {
-      this.knowledgeBaseIds = knowledgeBaseIds;
+    public void setKnowledgeBaseId(String knowledgeBaseId) {
+      this.knowledgeBaseId = knowledgeBaseId;
     }
 
     public List<String> getTags() {

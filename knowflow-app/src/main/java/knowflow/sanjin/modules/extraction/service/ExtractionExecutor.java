@@ -131,9 +131,7 @@ public class ExtractionExecutor {
           "你的上一次输出不符合要求。候选必须为 0～"
               + properties.getMaxCandidates()
               + " 个；每个候选必须有非空 title 与 content；"
-              + "knowledgeBaseIds 必须在给定目录 id 内且不超过 "
-              + properties.getMaxKnowledgeBasesPerCandidate()
-              + " 个；tags 不超过 "
+              + "knowledgeBaseId 必须为给定目录内合法 id（单归属）或为空；tags 不超过 "
               + properties.getMaxTagsPerCandidate()
               + " 个；不得包含目录之外的 id。请重新输出严格 JSON。\n\n"
               + converter.getFormat();
@@ -176,14 +174,14 @@ public class ExtractionExecutor {
       entity.setAiTitle(c.getTitle());
       entity.setAiSummary(c.getSummary());
       entity.setAiContent(c.getContent());
-      entity.setAiKnowledgeBaseIds(joinIds(c.getKnowledgeBaseIds()));
+      entity.setAiKnowledgeBaseId(c.getKnowledgeBaseId());
       entity.setAiTags(joinIds(c.getTags()));
       entity.setAiReason(c.getReason());
       // 草稿初始化复制 AI 原值（快照合并语义）
       entity.setDraftTitle(c.getTitle());
       entity.setDraftSummary(c.getSummary());
       entity.setDraftContent(c.getContent());
-      entity.setDraftKnowledgeBaseIds(joinIds(c.getKnowledgeBaseIds()));
+      entity.setDraftKnowledgeBaseId(c.getKnowledgeBaseId());
       entity.setDraftTags(joinIds(c.getTags()));
       entity.setRowVersion(0);
       candidateMapper.insert(entity);
@@ -219,25 +217,16 @@ public class ExtractionExecutor {
       if (c.getContent() == null || c.getContent().isBlank()) {
         return false;
       }
-      List<String> kbIds = c.getKnowledgeBaseIds();
-      if (kbIds != null) {
-        if (kbIds.size() > properties.getMaxKnowledgeBasesPerCandidate()) {
+      String kbId = c.getKnowledgeBaseId();
+      if (kbId != null && !kbId.isBlank()) {
+        Long id;
+        try {
+          id = Long.valueOf(kbId.trim());
+        } catch (NumberFormatException e) {
           return false;
         }
-        Set<Long> seen = new LinkedHashSet<>();
-        for (String raw : kbIds) {
-          Long id;
-          try {
-            id = Long.valueOf(raw);
-          } catch (NumberFormatException e) {
-            return false;
-          }
-          if (!catalogIds.contains(id)) {
-            return false;
-          }
-          if (!seen.add(id)) {
-            return false;
-          }
+        if (!catalogIds.contains(id)) {
+          return false;
         }
       }
       List<String> tags = c.getTags();
@@ -293,9 +282,7 @@ public class ExtractionExecutor {
         + "- title：简短标题（≤120 字符）。\n"
         + "- summary：一句话摘要。\n"
         + "- content：Markdown 正文，保留关键细节。\n"
-        + "- knowledgeBaseIds：只从给定目录选择最匹配的 0～"
-        + properties.getMaxKnowledgeBasesPerCandidate()
-        + " 个；不可创建新目录。\n"
+        + "- knowledgeBaseId：只从给定目录选择最匹配的 1 个（单归属）；不可创建新目录。\n"
         + "- tags：0～"
         + properties.getMaxTagsPerCandidate()
         + " 个标签。\n"

@@ -22,13 +22,13 @@ public final class CandidateAssembler {
     r.setAiTitle(c.getAiTitle());
     r.setAiSummary(c.getAiSummary());
     r.setAiContent(c.getAiContent());
-    r.setAiKnowledgeBaseIds(splitIds(c.getAiKnowledgeBaseIds()));
+    r.setAiKnowledgeBaseId(c.getAiKnowledgeBaseId());
     r.setAiTags(splitIds(c.getAiTags()));
     r.setAiReason(c.getAiReason());
     r.setDraftTitle(c.getDraftTitle());
     r.setDraftSummary(c.getDraftSummary());
     r.setDraftContent(c.getDraftContent());
-    r.setDraftKnowledgeBaseIds(splitIds(c.getDraftKnowledgeBaseIds()));
+    r.setDraftKnowledgeBaseId(c.getDraftKnowledgeBaseId());
     r.setDraftTags(splitIds(c.getDraftTags()));
     r.setRowVersion(c.getRowVersion());
     r.setConfirmedItemId(confirmService.findConfirmedItemId(c.getId()));

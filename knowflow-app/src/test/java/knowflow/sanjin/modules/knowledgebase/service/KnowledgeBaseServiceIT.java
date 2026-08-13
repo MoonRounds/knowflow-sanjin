@@ -3,9 +3,12 @@ package knowflow.sanjin.modules.knowledgebase.service;
 import static org.assertj.core.api.Assertions.*;
 
 import java.util.List;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.dto.UpdateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
+import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseInUseException;
 import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseNameConflictException;
 import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseNotFoundException;
 import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseVersionConflictException;
@@ -29,6 +32,8 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
   @Autowired private AppUserMapper appUserMapper;
 
   @Autowired private KnowledgeBaseMapper knowledgeBaseMapper;
+
+  @Autowired private KnowledgeDocumentMapper documentMapper;
 
   private Long createdId;
 
@@ -154,6 +159,38 @@ class KnowledgeBaseServiceIT extends MySQLTestBase {
     // 软删除后 getByIdAndOwner 应抛 not found
     assertThatThrownBy(() -> service.getByIdAndOwner(created.getId()))
         .isInstanceOf(KnowledgeBaseNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("should reject delete while the KnowledgeBase still owns active documents")
+  void shouldRejectDeleteWhenHasActiveDocuments() {
+    CreateKnowledgeBaseRequest req = new CreateKnowledgeBaseRequest();
+    req.setName("InUse KB " + System.nanoTime());
+    KnowledgeBase kb = service.create(req);
+
+    KnowledgeDocument doc = new KnowledgeDocument();
+    doc.setOwnerId(kb.getOwnerId());
+    doc.setKbId(kb.getId());
+    doc.setSourceType("MANUAL_NOTE");
+    doc.setTitle("owned note");
+    doc.setContent("body");
+    doc.setContentVersion(1);
+    doc.setIndexStatus("PENDING");
+    doc.setDeleted(false);
+    doc.setRowVersion(0);
+    documentMapper.insert(doc);
+
+    // 该 KB 下仍有未软删文档 → 阻止删除
+    assertThatThrownBy(() -> service.softDelete(kb.getId(), kb.getRowVersion()))
+        .isInstanceOf(KnowledgeBaseInUseException.class);
+
+    // 软删文档后 KB 可删除
+    documentMapper.update(
+        null,
+        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<KnowledgeDocument>()
+            .eq(KnowledgeDocument::getId, doc.getId())
+            .set(KnowledgeDocument::getDeleted, true));
+    service.softDelete(kb.getId(), kb.getRowVersion());
   }
 
   @Test

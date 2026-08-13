@@ -8,11 +8,6 @@ import knowflow.sanjin.modules.conversation.exception.ConversationExtractionInPr
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.MessageNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.NoDefaultModelConfigException;
-import knowflow.sanjin.modules.document.exception.FileMetadataNotFoundException;
-import knowflow.sanjin.modules.document.exception.FileTooLargeException;
-import knowflow.sanjin.modules.document.exception.FileUnsupportedTypeException;
-import knowflow.sanjin.modules.document.exception.InvalidFileContentException;
-import knowflow.sanjin.modules.document.exception.StoredFileMissingException;
 import knowflow.sanjin.modules.embeddingconfig.exception.EmbeddingConfigDimensionChangeException;
 import knowflow.sanjin.modules.extraction.exception.CandidateEmptyDraftException;
 import knowflow.sanjin.modules.extraction.exception.CandidateInvalidStateException;
@@ -22,10 +17,15 @@ import knowflow.sanjin.modules.extraction.exception.CandidateVersionConflictExce
 import knowflow.sanjin.modules.extraction.exception.ExtractionInputOverBudgetException;
 import knowflow.sanjin.modules.extraction.exception.ExtractionNoCompletedMessagesException;
 import knowflow.sanjin.modules.extraction.exception.ExtractionTaskNotFoundException;
+import knowflow.sanjin.modules.file.exception.FileMetadataNotFoundException;
+import knowflow.sanjin.modules.file.exception.FileTooLargeException;
+import knowflow.sanjin.modules.file.exception.FileUnsupportedTypeException;
+import knowflow.sanjin.modules.file.exception.InvalidFileContentException;
+import knowflow.sanjin.modules.file.exception.StoredFileMissingException;
 import knowflow.sanjin.modules.knowledge.exception.KnowledgeBaseRefNotFoundException;
+import knowflow.sanjin.modules.knowledge.exception.KnowledgeDocumentNotFoundException;
+import knowflow.sanjin.modules.knowledge.exception.KnowledgeDocumentVersionConflictException;
 import knowflow.sanjin.modules.knowledge.exception.KnowledgeIndexTaskConflictException;
-import knowflow.sanjin.modules.knowledge.exception.KnowledgeItemNotFoundException;
-import knowflow.sanjin.modules.knowledge.exception.KnowledgeItemVersionConflictException;
 import knowflow.sanjin.modules.knowledge.exception.RetryableIndexException;
 import knowflow.sanjin.modules.knowledge.exception.TerminalIndexException;
 import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseInUseException;
@@ -93,9 +93,9 @@ public class GlobalExceptionHandler {
     return problem(HttpStatus.CONFLICT, "知识库使用中", ex.getMessage(), ErrorCode.KNOWLEDGE_BASE_IN_USE);
   }
 
-  @ExceptionHandler(KnowledgeItemNotFoundException.class)
-  public ResponseEntity<ProblemDetail> handleKnowledgeItemNotFound(
-      KnowledgeItemNotFoundException ex) {
+  @ExceptionHandler(KnowledgeDocumentNotFoundException.class)
+  public ResponseEntity<ProblemDetail> handleKnowledgeDocumentNotFound(
+      KnowledgeDocumentNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND,
         "知识条目不存在",
@@ -113,9 +113,9 @@ public class GlobalExceptionHandler {
         ErrorCode.KNOWLEDGE_BASE_REF_NOT_FOUND);
   }
 
-  @ExceptionHandler(KnowledgeItemVersionConflictException.class)
-  public ResponseEntity<ProblemDetail> handleKnowledgeItemVersionConflict(
-      KnowledgeItemVersionConflictException ex) {
+  @ExceptionHandler(KnowledgeDocumentVersionConflictException.class)
+  public ResponseEntity<ProblemDetail> handleKnowledgeDocumentVersionConflict(
+      KnowledgeDocumentVersionConflictException ex) {
     return problem(
         HttpStatus.CONFLICT, "版本冲突", ex.getMessage(), ErrorCode.KNOWLEDGE_ITEM_VERSION_CONFLICT);
   }

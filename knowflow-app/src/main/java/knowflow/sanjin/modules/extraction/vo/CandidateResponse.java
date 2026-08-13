@@ -9,13 +9,13 @@ public class CandidateResponse {
   private String aiTitle;
   private String aiSummary;
   private String aiContent;
-  private String[] aiKnowledgeBaseIds;
+  private String aiKnowledgeBaseId;
   private String[] aiTags;
   private String aiReason;
   private String draftTitle;
   private String draftSummary;
   private String draftContent;
-  private String[] draftKnowledgeBaseIds;
+  private String draftKnowledgeBaseId;
   private String[] draftTags;
   private Integer rowVersion;
   private String confirmedItemId;
@@ -68,12 +68,12 @@ public class CandidateResponse {
     this.aiContent = aiContent;
   }
 
-  public String[] getAiKnowledgeBaseIds() {
-    return aiKnowledgeBaseIds;
+  public String getAiKnowledgeBaseId() {
+    return aiKnowledgeBaseId;
   }
 
-  public void setAiKnowledgeBaseIds(String[] aiKnowledgeBaseIds) {
-    this.aiKnowledgeBaseIds = aiKnowledgeBaseIds;
+  public void setAiKnowledgeBaseId(String aiKnowledgeBaseId) {
+    this.aiKnowledgeBaseId = aiKnowledgeBaseId;
   }
 
   public String[] getAiTags() {
@@ -116,12 +116,12 @@ public class CandidateResponse {
     this.draftContent = draftContent;
   }
 
-  public String[] getDraftKnowledgeBaseIds() {
-    return draftKnowledgeBaseIds;
+  public String getDraftKnowledgeBaseId() {
+    return draftKnowledgeBaseId;
   }
 
-  public void setDraftKnowledgeBaseIds(String[] draftKnowledgeBaseIds) {
-    this.draftKnowledgeBaseIds = draftKnowledgeBaseIds;
+  public void setDraftKnowledgeBaseId(String draftKnowledgeBaseId) {
+    this.draftKnowledgeBaseId = draftKnowledgeBaseId;
   }
 
   public String[] getDraftTags() {

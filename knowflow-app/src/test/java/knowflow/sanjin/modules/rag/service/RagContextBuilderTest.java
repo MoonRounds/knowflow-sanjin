@@ -53,8 +53,8 @@ class RagContextBuilderTest {
   private RetrievedSource source(int i) {
     RetrievedSource s = new RetrievedSource();
     s.setSourceId("chunk-" + i);
-    s.setItemId(Long.toString(i));
-    s.setItemTitle("Item " + i);
+    s.setDocumentId(Long.toString(i));
+    s.setDocumentTitle("Item " + i);
     s.setSnippet("snippet " + i);
     s.setScore(0.9f);
     return s;

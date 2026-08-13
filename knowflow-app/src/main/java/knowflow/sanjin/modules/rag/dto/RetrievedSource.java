@@ -5,10 +5,10 @@ public class RetrievedSource {
 
   private String sourceId;
 
-  /** KnowledgeItem id，序列化为字符串（DECISIONS §6：API 中 BIGINT ID 字符串化）。 */
-  private String itemId;
+  /** KnowledgeDocument id，序列化为字符串（DECISIONS §6：API 中 BIGINT ID 字符串化）。 */
+  private String documentId;
 
-  private String itemTitle;
+  private String documentTitle;
   private String sourceType;
   private Integer contentVersion;
   private Integer chunkIndex;
@@ -26,20 +26,20 @@ public class RetrievedSource {
     this.sourceId = sourceId;
   }
 
-  public String getItemId() {
-    return itemId;
+  public String getDocumentId() {
+    return documentId;
   }
 
-  public void setItemId(String itemId) {
-    this.itemId = itemId;
+  public void setDocumentId(String documentId) {
+    this.documentId = documentId;
   }
 
-  public String getItemTitle() {
-    return itemTitle;
+  public String getDocumentTitle() {
+    return documentTitle;
   }
 
-  public void setItemTitle(String itemTitle) {
-    this.itemTitle = itemTitle;
+  public void setDocumentTitle(String documentTitle) {
+    this.documentTitle = documentTitle;
   }
 
   public String getSourceType() {

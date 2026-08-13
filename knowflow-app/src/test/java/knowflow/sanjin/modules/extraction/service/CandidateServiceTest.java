@@ -113,7 +113,7 @@ class CandidateServiceTest {
         new knowflow.sanjin.modules.extraction.dto.UpdateCandidateDraftRequest();
     req.setTitle("t");
     req.setContent("c");
-    req.setKnowledgeBaseIds(java.util.List.of("1"));
+    req.setKnowledgeBaseId("1");
     req.setRowVersion(999);
 
     assertThatThrownBy(() -> service.updateDraft(1L, req))
@@ -128,7 +128,7 @@ class CandidateServiceTest {
         new knowflow.sanjin.modules.extraction.dto.UpdateCandidateDraftRequest();
     req.setTitle("t");
     req.setContent("c");
-    req.setKnowledgeBaseIds(java.util.List.of("1"));
+    req.setKnowledgeBaseId("1");
     req.setRowVersion(3);
 
     assertThatThrownBy(() -> service.updateDraft(1L, req))

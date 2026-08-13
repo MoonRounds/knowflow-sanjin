@@ -21,8 +21,8 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * V12 单归属重构迁移测试：不启动 Spring，直接驱动 Flyway，验证「干净库」与「存量库」双路径。
  *
- * <p>存量库路径：先 migrate 到 V11 → 插入 V1 存量形态数据（10 Item / 多 KB 关联 / candidate CSV 多值）→ migrate
- * 到最新 → 断言 kb_id 回填、status→deleted 映射、candidate 单值、关联表删除等（对应 v1.5-phase-01-plan.md G6/G7/G8/G11）。
+ * <p>存量库路径：先 migrate 到 V11 → 插入 V1 存量形态数据（10 Item / 多 KB 关联 / candidate CSV 多值）→ migrate 到最新 → 断言
+ * kb_id 回填、status→deleted 映射、candidate 单值、关联表删除等（对应 v1.5-phase-01-plan.md G6/G7/G8/G11）。
  */
 @Testcontainers(disabledWithoutDocker = true)
 @DisplayName("V12 knowledge_document 迁移（干净库 + 存量库）")
@@ -39,14 +39,16 @@ class MigrationV12IT {
 
   @BeforeEach
   void resetSchema() throws SQLException {
-    try (Connection c = connection(); Statement s = c.createStatement()) {
+    try (Connection c = connection();
+        Statement s = c.createStatement()) {
       s.execute("DROP DATABASE IF EXISTS " + DB);
       s.execute("CREATE DATABASE " + DB + " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     }
   }
 
   private Connection connection() throws SQLException {
-    return DriverManager.getConnection(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
+    return DriverManager.getConnection(
+        MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
   }
 
   private void migrateTo(String target) {
@@ -68,7 +70,8 @@ class MigrationV12IT {
   @DisplayName("干净库：V1–V12 全量迁移成功，新表结构就绪")
   void cleanDatabaseMigrates() throws Exception {
     migrateToLatest();
-    try (Connection c = connection(); Statement s = c.createStatement()) {
+    try (Connection c = connection();
+        Statement s = c.createStatement()) {
       assertThat(tableExists(s, "knowledge_document")).isTrue();
       assertThat(tableExists(s, "knowledge_document_chunk")).isTrue();
       assertThat(tableExists(s, "knowledge_document_tag")).isTrue();
@@ -96,41 +99,57 @@ class MigrationV12IT {
     seedLegacyData();
     migrateToLatest();
 
-    try (Connection c = connection(); Statement s = c.createStatement()) {
+    try (Connection c = connection();
+        Statement s = c.createStatement()) {
       // 所有文档都拿到 kb_id（无孤儿）
       assertThat(scalarLong(s, "SELECT COUNT(*) FROM knowledge_document WHERE kb_id IS NULL"))
           .isZero();
 
       // 多关联取最小 KB id（101 → 10，而不是 20）
-      assertThat(scalarLong(s, "SELECT kb_id FROM knowledge_document WHERE id = 101")).isEqualTo(10L);
+      assertThat(scalarLong(s, "SELECT kb_id FROM knowledge_document WHERE id = 101"))
+          .isEqualTo(10L);
       // 仅有关联已软删的兜底（102 → 20）
-      assertThat(scalarLong(s, "SELECT kb_id FROM knowledge_document WHERE id = 102")).isEqualTo(20L);
+      assertThat(scalarLong(s, "SELECT kb_id FROM knowledge_document WHERE id = 102"))
+          .isEqualTo(20L);
 
       // status → deleted 映射：ACTIVE→0，DELETED→1
       assertThat(scalarLong(s, "SELECT deleted FROM knowledge_document WHERE id = 100")).isZero();
-      assertThat(scalarLong(s, "SELECT deleted FROM knowledge_document WHERE id = 108")).isEqualTo(1L);
+      assertThat(scalarLong(s, "SELECT deleted FROM knowledge_document WHERE id = 108"))
+          .isEqualTo(1L);
 
       // chunk / tag 关联表的列已改名并保留数据
-      assertThat(scalarLong(s, "SELECT knowledge_document_id FROM knowledge_document_chunk WHERE id = 1000"))
+      assertThat(
+              scalarLong(
+                  s, "SELECT knowledge_document_id FROM knowledge_document_chunk WHERE id = 1000"))
           .isEqualTo(100L);
-      assertThat(scalarLong(s, "SELECT knowledge_document_id FROM knowledge_document_tag WHERE id = 1"))
+      assertThat(
+              scalarLong(
+                  s, "SELECT knowledge_document_id FROM knowledge_document_tag WHERE id = 1"))
           .isEqualTo(100L);
       // file_metadata 列已改名
       assertThat(scalarLong(s, "SELECT knowledge_document_id FROM file_metadata WHERE id = 1"))
           .isEqualTo(105L);
 
       // candidate CSV → 单值：取首元素；空串 → NULL
-      assertThat(scalarString(s, "SELECT ai_knowledge_base_id FROM knowledge_candidate WHERE id = 1"))
+      assertThat(
+              scalarString(s, "SELECT ai_knowledge_base_id FROM knowledge_candidate WHERE id = 1"))
           .isEqualTo("10");
-      assertThat(scalarString(s, "SELECT draft_knowledge_base_id FROM knowledge_candidate WHERE id = 1"))
+      assertThat(
+              scalarString(
+                  s, "SELECT draft_knowledge_base_id FROM knowledge_candidate WHERE id = 1"))
           .isEqualTo("10");
-      assertThat(scalarString(s, "SELECT ai_knowledge_base_id FROM knowledge_candidate WHERE id = 2"))
+      assertThat(
+              scalarString(s, "SELECT ai_knowledge_base_id FROM knowledge_candidate WHERE id = 2"))
           .isNull();
-      assertThat(scalarString(s, "SELECT draft_knowledge_base_id FROM knowledge_candidate WHERE id = 2"))
+      assertThat(
+              scalarString(
+                  s, "SELECT draft_knowledge_base_id FROM knowledge_candidate WHERE id = 2"))
           .isEqualTo("20");
 
       // tag 唯一约束：软删行与活动行同名可共存，两个活动同名行被拒绝
-      exec(s, "INSERT INTO tag (id, owner_id, name, normalized_name, deleted) VALUES (3, 1, '笔记二', '笔记', 1)");
+      exec(
+          s,
+          "INSERT INTO tag (id, owner_id, name, normalized_name, deleted) VALUES (3, 1, '笔记二', '笔记', 1)");
       assertThatThrownBy(
               () ->
                   exec(
@@ -141,10 +160,15 @@ class MigrationV12IT {
   }
 
   private void seedLegacyData() throws SQLException {
-    try (Connection c = connection(); Statement s = c.createStatement()) {
+    try (Connection c = connection();
+        Statement s = c.createStatement()) {
       // 知识库（2 个，测试多关联首值）
-      exec(s, "INSERT INTO knowledge_base (id, owner_id, display_name, normalized_name) VALUES (10, 1, 'KB-A', 'kb-a')");
-      exec(s, "INSERT INTO knowledge_base (id, owner_id, display_name, normalized_name) VALUES (20, 1, 'KB-B', 'kb-b')");
+      exec(
+          s,
+          "INSERT INTO knowledge_base (id, owner_id, display_name, normalized_name) VALUES (10, 1, 'KB-A', 'kb-a')");
+      exec(
+          s,
+          "INSERT INTO knowledge_base (id, owner_id, display_name, normalized_name) VALUES (20, 1, 'KB-B', 'kb-b')");
 
       // 10 个知识条目：8 ACTIVE + 2 DELETED
       for (int i = 0; i < 10; i++) {
@@ -165,13 +189,25 @@ class MigrationV12IT {
       }
 
       // 关联表：多对多（含一条多关联、一条仅软删关联）
-      exec(s, "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (10, 100, 1, 0)");
-      exec(s, "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (10, 101, 1, 0)");
-      exec(s, "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (20, 101, 1, 0)");
-      exec(s, "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (20, 102, 1, 1)");
+      exec(
+          s,
+          "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (10, 100, 1, 0)");
+      exec(
+          s,
+          "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (10, 101, 1, 0)");
+      exec(
+          s,
+          "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (20, 101, 1, 0)");
+      exec(
+          s,
+          "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (20, 102, 1, 1)");
       for (int i = 3; i < 10; i++) {
         long id = 100L + i;
-        exec(s, "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (10, " + id + ", 1, 0)");
+        exec(
+            s,
+            "INSERT INTO knowledge_base_item (knowledge_base_id, knowledge_item_id, owner_id, deleted) VALUES (10, "
+                + id
+                + ", 1, 0)");
       }
 
       // chunk
@@ -187,12 +223,12 @@ class MigrationV12IT {
       // tag + 关联
       exec(s, "INSERT INTO tag (id, owner_id, name, normalized_name) VALUES (1, 1, '笔记', '笔记')");
       exec(s, "INSERT INTO tag (id, owner_id, name, normalized_name) VALUES (2, 1, 'AI', 'ai')");
-      exec(s, "INSERT INTO knowledge_item_tag (id, knowledge_item_id, tag_id, owner_id, deleted) VALUES (1, 100, 1, 1, 0)");
-
-      // 候选：CSV 多值 / 空串
       exec(
           s,
-          "INSERT INTO conversation (id, owner_id, title) VALUES (1, 1, '新会话')");
+          "INSERT INTO knowledge_item_tag (id, knowledge_item_id, tag_id, owner_id, deleted) VALUES (1, 100, 1, 1, 0)");
+
+      // 候选：CSV 多值 / 空串
+      exec(s, "INSERT INTO conversation (id, owner_id, title) VALUES (1, 1, '新会话')");
       exec(
           s,
           "INSERT INTO chat_message (id, conversation_id, owner_id, role, sequence, content) VALUES (1, 1, 1, 'USER', 1, 'hi')");
@@ -251,7 +287,8 @@ class MigrationV12IT {
     }
   }
 
-  private boolean constraintExists(Statement s, String table, String constraint) throws SQLException {
+  private boolean constraintExists(Statement s, String table, String constraint)
+      throws SQLException {
     try (ResultSet rs =
         s.executeQuery(
             "SELECT 1 FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = '"
