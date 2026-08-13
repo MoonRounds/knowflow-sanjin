@@ -6,6 +6,7 @@ import {
   enterNewConversationViaUI,
   readActiveConversationId,
   createKnowledgeBaseViaUI,
+  openKnowledgeBaseDetailViaUI,
   getProcessingTask,
   sendMessage,
   waitForTaskForBusiness,
@@ -41,8 +42,10 @@ test.describe('受控失败与恢复', () => {
     request,
   }, testInfo) => {
     const suffix = `r${testInfo.retry}`
-    await createKnowledgeBaseViaUI(page, `Kf-故障恢复-${suffix}`)
+    const kb = await createKnowledgeBaseViaUI(page, `Kf-故障恢复-${suffix}`)
 
+    // ---- 库详情页新建 Manual Note（P2 入口迁移）----
+    await openKnowledgeBaseDetailViaUI(page, kb.name)
     await page.getByRole('button', { name: '新建笔记' }).click()
     const dialog = page.locator('.el-dialog').filter({ hasText: '新建笔记' })
     await dialog
@@ -53,7 +56,7 @@ test.describe('受控失败与恢复', () => {
       .fill(`Kf-故障-Embedding-${suffix}：用于验证自动重试耗尽、DLQ 与手动 Retry。`)
     await dialog.getByRole('button', { name: '创建' }).click()
 
-    await page.waitForURL(/knowledge-items\/\d+/)
+    await page.waitForURL(/documents\/\d+/)
     const itemId = page.url().split('/').pop()!
     const original = await waitForTaskForBusiness(request, 'KNOWLEDGE_INDEX', itemId)
     expect(await waitForTaskTerminal(request, original.id)).toBe('FAILED')
@@ -61,7 +64,7 @@ test.describe('受控失败与恢复', () => {
     expect(failed.failureCode).toBe('向量模型不可用')
     expect(failed.retryCount).toBe(failed.maxRetries)
 
-    const failedItemResponse = await request.get(`${API_BASE}/knowledge-items/${itemId}`)
+    const failedItemResponse = await request.get(`${API_BASE}/documents/${itemId}`)
     expect(await failedItemResponse.json()).toEqual(
       expect.objectContaining({ indexStatus: 'FAILED', indexErrorCode: '向量模型不可用' }),
     )
@@ -85,7 +88,7 @@ test.describe('受控失败与恢复', () => {
     await expect
       .poll(
         async () => {
-          const response = await request.get(`${API_BASE}/knowledge-items/${itemId}`)
+          const response = await request.get(`${API_BASE}/documents/${itemId}`)
           return (await response.json()).indexStatus
         },
         { timeout: 30_000 },

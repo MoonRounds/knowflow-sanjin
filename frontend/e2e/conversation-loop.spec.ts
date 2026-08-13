@@ -151,23 +151,23 @@ test.describe('对话沉淀闭环', () => {
     ).toBeTruthy()
     await expect(drawer.getByRole('button', { name: '编辑草稿' })).toBeVisible()
     await drawer.getByRole('button', { name: '确认' }).click()
-    await page.waitForURL(/knowledge-items\/\d+/)
+    await page.waitForURL(/documents\/\d+/)
 
     const itemId = page.url().split('/').pop()!
     expect(itemId).toBeTruthy()
     await expect(page.getByRole('heading', { name: editedTitle })).toBeVisible()
 
     // 重复 confirm 必须返回同一 Item，且不能增加 KnowledgeItem 数量。
-    const itemsBeforeResponse = await request.get(`${API_BASE}/knowledge-items`)
-    const itemIdsBefore = ((await itemsBeforeResponse.json()) as Array<{ id: string }>)
-      .map((item) => item.id)
+    const itemsBeforeResponse = await request.get(`${API_BASE}/documents`)
+    const itemIdsBefore = ((await itemsBeforeResponse.json()).items ?? [])
+      .map((item: { id: string }) => item.id)
       .sort()
     const repeatedConfirm = await request.post(`${API_BASE}/candidates/${candidate.id}/confirm`)
     expect(repeatedConfirm.ok()).toBeTruthy()
     expect((await repeatedConfirm.json()).confirmedItemId).toBe(itemId)
-    const itemsAfterResponse = await request.get(`${API_BASE}/knowledge-items`)
-    const itemIdsAfter = ((await itemsAfterResponse.json()) as Array<{ id: string }>)
-      .map((item) => item.id)
+    const itemsAfterResponse = await request.get(`${API_BASE}/documents`)
+    const itemIdsAfter = ((await itemsAfterResponse.json()).items ?? [])
+      .map((item: { id: string }) => item.id)
       .sort()
     expect(itemIdsAfter).toEqual(itemIdsBefore)
 

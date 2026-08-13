@@ -245,7 +245,7 @@ export async function waitForItemIndexed(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const res = await request.get(`${API_BASE}/knowledge-items/${itemId}`)
+    const res = await request.get(`${API_BASE}/documents/${itemId}`)
     expect(res.ok()).toBeTruthy()
     const item = await res.json()
     if (item.indexStatus === 'INDEXED') return
@@ -253,6 +253,14 @@ export async function waitForItemIndexed(
     await new Promise((r) => setTimeout(r, 1000))
   }
   throw new Error(`item ${itemId} not INDEXED within ${timeoutMs}ms`)
+}
+
+/** 从库列表页进入库详情：点击库名（P2 拆分后文档入口都在库详情页）。 */
+export async function openKnowledgeBaseDetailViaUI(page: Page, kbName: string): Promise<void> {
+  await page.goto('/knowledge-bases')
+  await page.getByRole('table').getByText(kbName, { exact: true }).click()
+  await expect(page.getByRole('heading', { name: kbName })).toBeVisible()
+  await expect(page.getByRole('button', { name: '上传文件' })).toBeVisible()
 }
 
 /** 在 Chat 页面进入「新对话」草稿态；首条消息发送后才会真正创建后端会话。 */
@@ -321,10 +329,11 @@ export async function cleanupAll(request: APIRequestContext): Promise<void> {
       await request.delete(`${API_BASE}/conversations/${c.id}`)
     }
   }
-  const items = await request.get(`${API_BASE}/knowledge-items`)
+  const items = await request.get(`${API_BASE}/documents`)
   if (items.ok()) {
-    for (const it of await items.json()) {
-      await request.delete(`${API_BASE}/knowledge-items/${it.id}`, {
+    const pageBody = await items.json()
+    for (const it of (pageBody.items ?? []) as Array<{ id: string; rowVersion?: number }>) {
+      await request.delete(`${API_BASE}/documents/${it.id}`, {
         headers: { 'If-Match': `"${it.rowVersion ?? 0}"` },
       })
     }

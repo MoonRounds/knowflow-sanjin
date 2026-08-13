@@ -5,6 +5,7 @@ import {
   configureModelViaUI,
   createKnowledgeBaseViaUI,
   enterNewConversationViaUI,
+  openKnowledgeBaseDetailViaUI,
   readActiveConversationId,
   sendMessage,
   waitForItemIndexed,
@@ -16,8 +17,8 @@ interface MessageView {
   role?: string
   ragStatus?: string
   sources?: Array<{
-    itemId?: string
-    itemTitle?: string
+    documentId?: string
+    documentTitle?: string
     sourceType?: string
     cited?: boolean
   }>
@@ -26,7 +27,7 @@ interface MessageView {
 /**
  * 闭环 2：个人笔记/上传闭环 E2E。
  *
- * 通过正式前端完成：创建 KB → Manual Note 或上传 Markdown → 形成 KnowledgeItem
+ * 通过正式前端完成：创建 KB → 库详情页新建 Manual Note 或上传 Markdown → 形成 KnowledgeDocument
  * → 异步索引成功 → 新会话 Router+RAG 检索个人笔记 → 前端追溯来源。
  */
 test.describe('个人笔记/上传闭环', () => {
@@ -39,7 +40,8 @@ test.describe('个人笔记/上传闭环', () => {
     await configureModelViaUI(page, `stub-chat-manual-${suffix}`)
     const kb = await createKnowledgeBaseViaUI(page, `Kf-个人知识管理-${suffix}`)
 
-    // ---- 正式 Knowledge 页面新建 Manual Note ----
+    // ---- 库详情页新建 Manual Note ----
+    await openKnowledgeBaseDetailViaUI(page, kb.name)
     await page.getByRole('button', { name: '新建笔记' }).click()
     const noteDialog = page.locator('.el-dialog').filter({ hasText: '新建笔记' })
     await noteDialog
@@ -50,20 +52,20 @@ test.describe('个人笔记/上传闭环', () => {
       .fill('我实践番茄工作法时固定使用 45 分钟工作 + 10 分钟休息。')
     await noteDialog.getByRole('button', { name: '创建' }).click()
 
-    await page.waitForURL(/knowledge-items\/\d+/)
+    await page.waitForURL(/documents\/\d+/)
     const itemId = page.url().split('/').pop()!
     expect(itemId).toBeTruthy()
     await expect(page.getByText('来源：MANUAL_NOTE')).toBeVisible()
 
     await waitForItemIndexed(request, itemId)
-    const itemResponse = await request.get(`${API_BASE}/knowledge-items/${itemId}`)
+    const itemResponse = await request.get(`${API_BASE}/documents/${itemId}`)
     expect(itemResponse.ok()).toBeTruthy()
     expect(await itemResponse.json()).toEqual(
       expect.objectContaining({
         id: itemId,
         sourceType: 'MANUAL_NOTE',
         indexStatus: 'INDEXED',
-        knowledgeBaseIds: [kb.id],
+        knowledgeBaseId: kb.id,
       }),
     )
 
@@ -87,7 +89,7 @@ test.describe('个人笔记/上传闭环', () => {
     expect(assistant.ragStatus).toBe('USED')
     expect(assistant.sources).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ itemId, sourceType: 'MANUAL_NOTE', cited: true }),
+        expect.objectContaining({ documentId: itemId, sourceType: 'MANUAL_NOTE', cited: true }),
       ]),
     )
   })
@@ -97,8 +99,8 @@ test.describe('个人笔记/上传闭环', () => {
     await configureModelViaUI(page, `stub-chat-upload-${suffix}`)
     const kb = await createKnowledgeBaseViaUI(page, `Kf-个人知识管理-${suffix}`)
 
-    // ---- 正式 Upload 入口上传 Markdown 文件 ----
-    await expect(page.locator('.el-table').first().locator('tbody tr').first()).toBeVisible()
+    // ---- 库详情页上传入口上传 Markdown 文件 ----
+    await openKnowledgeBaseDetailViaUI(page, kb.name)
     await page.getByRole('button', { name: '上传文件' }).click()
     const uploadDialog = page.locator('.el-dialog').filter({ hasText: '上传 Markdown / TXT 文件' })
     await uploadDialog.locator('input[type="file"]').setInputFiles({
@@ -115,7 +117,7 @@ test.describe('个人笔记/上传闭环', () => {
     await expect(uploadButton).toBeEnabled({ timeout: 10_000 })
     await uploadButton.click()
 
-    await page.waitForURL(/knowledge-items\/\d+/)
+    await page.waitForURL(/documents\/\d+/)
     const itemId = page.url().split('/').pop()!
     expect(itemId).toBeTruthy()
 
@@ -127,16 +129,16 @@ test.describe('个人笔记/上传闭环', () => {
     expect(await waitForTaskTerminal(request, indexTask.id)).toBe('SUCCEEDED')
     await waitForItemIndexed(request, itemId)
 
-    const itemResponse = await request.get(`${API_BASE}/knowledge-items/${itemId}`)
+    const itemResponse = await request.get(`${API_BASE}/documents/${itemId}`)
     expect(await itemResponse.json()).toEqual(
       expect.objectContaining({
         id: itemId,
         sourceType: 'UPLOAD_FILE',
         indexStatus: 'INDEXED',
-        knowledgeBaseIds: [kb.id],
+        knowledgeBaseId: kb.id,
       }),
     )
-    const fileResponse = await request.get(`${API_BASE}/knowledge-items/${itemId}/file`)
+    const fileResponse = await request.get(`${API_BASE}/documents/${itemId}/file`)
     expect(fileResponse.ok()).toBeTruthy()
     const file = await fileResponse.json()
     expect(file.originalFilename).toBe(`kf-dolphin-deploy-${suffix}.md`)
@@ -170,7 +172,7 @@ test.describe('个人笔记/上传闭环', () => {
     expect(assistant.ragStatus).toBe('USED')
     expect(assistant.sources).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ itemId, sourceType: 'UPLOAD_FILE', cited: true }),
+        expect.objectContaining({ documentId: itemId, sourceType: 'UPLOAD_FILE', cited: true }),
       ]),
     )
   })
