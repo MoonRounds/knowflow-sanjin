@@ -1,5 +1,6 @@
 package knowflow.sanjin.modules.knowledge.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -10,7 +11,9 @@ import knowflow.sanjin.modules.knowledge.dto.CreateDocumentRequest;
 import knowflow.sanjin.modules.knowledge.dto.UpdateDocumentRequest;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
 import knowflow.sanjin.modules.knowledge.service.KnowledgeDocumentService;
+import knowflow.sanjin.modules.knowledge.vo.DocumentPageResponse;
 import knowflow.sanjin.modules.knowledge.vo.KnowledgeDocumentResponse;
+import knowflow.sanjin.modules.knowledge.vo.KnowledgeDocumentSummaryResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,12 +39,34 @@ public class KnowledgeDocumentController {
   }
 
   @GetMapping("/documents")
-  public List<KnowledgeDocumentResponse> list() {
-    List<KnowledgeDocument> documents = service.listForOwner();
-    List<Long> documentIds = documents.stream().map(KnowledgeDocument::getId).toList();
+  public DocumentPageResponse list(
+      @RequestParam(required = false) String knowledgeBaseId,
+      @RequestParam(required = false) String sourceType,
+      @RequestParam(required = false) String tag,
+      @RequestParam(required = false) String indexStatus,
+      @RequestParam(defaultValue = "1") long page,
+      @RequestParam(defaultValue = "20") long size) {
+    Long kbId =
+        knowledgeBaseId == null || knowledgeBaseId.isBlank()
+            ? null
+            : ApiValueParser.positiveId(knowledgeBaseId, "knowledgeBaseId");
+    Page<KnowledgeDocument> result =
+        service.pageForOwner(
+            kbId, sourceType, tag, indexStatus, Math.max(1, page), clampSize(size));
+    List<Long> documentIds = result.getRecords().stream().map(KnowledgeDocument::getId).toList();
     Map<Long, Long> kbIds = service.batchKnowledgeBaseId(documentIds);
     Map<Long, List<String>> tags = service.batchTagNames(documentIds);
-    return KnowledgeDocumentAssembler.toResponseList(documents, kbIds, tags);
+    List<KnowledgeDocumentSummaryResponse> items =
+        KnowledgeDocumentAssembler.toSummaryList(result.getRecords(), kbIds, tags);
+    return new DocumentPageResponse(
+        result.getTotal(), result.getCurrent(), result.getSize(), items);
+  }
+
+  private static long clampSize(long size) {
+    if (size <= 0) {
+      return 20;
+    }
+    return Math.min(size, 100);
   }
 
   @GetMapping("/documents/{id}")

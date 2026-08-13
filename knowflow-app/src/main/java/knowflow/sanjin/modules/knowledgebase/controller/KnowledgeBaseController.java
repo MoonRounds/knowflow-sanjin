@@ -36,7 +36,8 @@ public class KnowledgeBaseController {
 
   @GetMapping("/knowledge-bases")
   public List<KnowledgeBaseResponse> list() {
-    return KnowledgeBaseAssembler.toResponseList(service.listForOwner());
+    return KnowledgeBaseAssembler.toResponseList(
+        service.listForOwner(), service.countActiveDocumentsByKb());
   }
 
   @GetMapping("/knowledge-bases/{id}")

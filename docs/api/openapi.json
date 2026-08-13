@@ -257,6 +257,29 @@
                 ],
                 "type": "object"
             },
+            "DocumentPageResponse": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/KnowledgeDocumentSummaryResponse"
+                        },
+                        "type": "array"
+                    },
+                    "page": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "size": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
+                    "total": {
+                        "format": "int64",
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
             "EmbeddingConfigResponse": {
                 "properties": {
                     "apiKeyMasked": {
@@ -422,6 +445,10 @@
                     "description": {
                         "type": "string"
                     },
+                    "documentCount": {
+                        "format": "int64",
+                        "type": "integer"
+                    },
                     "enabled": {
                         "type": "boolean"
                     },
@@ -525,6 +552,64 @@
                 },
                 "required": [
                     "content",
+                    "contentVersion",
+                    "createdAt",
+                    "id",
+                    "indexStatus",
+                    "knowledgeBaseId",
+                    "rowVersion",
+                    "sourceType",
+                    "tags",
+                    "title",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "KnowledgeDocumentSummaryResponse": {
+                "properties": {
+                    "contentVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "createdAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "indexStatus": {
+                        "type": "string"
+                    },
+                    "indexedVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "knowledgeBaseId": {
+                        "type": "string"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "sourceType": {
+                        "type": "string"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
                     "contentVersion",
                     "createdAt",
                     "id",
@@ -909,6 +994,21 @@
                 },
                 "type": "object"
             },
+            "TagResponse": {
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "type": "object"
+            },
             "TestEmbeddingConfigRequest": {
                 "properties": {
                     "apiKey": {
@@ -1182,7 +1282,7 @@
     "paths": {
         "/api/v1/candidates": {
             "get": {
-                "operationId": "list_5",
+                "operationId": "list_6",
                 "parameters": [
                     {
                         "in": "query",
@@ -1735,15 +1835,66 @@
         "/api/v1/documents": {
             "get": {
                 "operationId": "list_2",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "knowledgeBaseId",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "sourceType",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "tag",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "indexStatus",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "required": false,
+                        "schema": {
+                            "default": 1,
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "size",
+                        "required": false,
+                        "schema": {
+                            "default": 20,
+                            "format": "int64",
+                            "type": "integer"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "content": {
                             "*/*": {
                                 "schema": {
-                                    "items": {
-                                        "$ref": "#/components/schemas/KnowledgeDocumentResponse"
-                                    },
-                                    "type": "array"
+                                    "$ref": "#/components/schemas/DocumentPageResponse"
                                 }
                             }
                         },
@@ -2695,7 +2846,7 @@
         },
         "/api/v1/processing-tasks": {
             "get": {
-                "operationId": "list_4",
+                "operationId": "list_5",
                 "parameters": [
                     {
                         "in": "query",
@@ -2753,6 +2904,29 @@
                 },
                 "tags": [
                     "processing-task-controller"
+                ]
+            }
+        },
+        "/api/v1/tags": {
+            "get": {
+                "operationId": "list_4",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/TagResponse"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "tag-controller"
                 ]
             }
         }

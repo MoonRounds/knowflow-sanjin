@@ -3,6 +3,8 @@ package knowflow.sanjin.modules.knowledgebase.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
 import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
@@ -72,6 +74,17 @@ public class KnowledgeBaseService {
             .eq(KnowledgeBase::getOwnerId, ownerId)
             .eq(KnowledgeBase::getDeleted, false)
             .orderByDesc(KnowledgeBase::getCreatedAt));
+  }
+
+  /** 每知识库活跃文档数（deleted=0），供库列表页展示 documentCount（G24）。 */
+  @Transactional(readOnly = true)
+  public Map<Long, Long> countActiveDocumentsByKb() {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    return documentMapper.selectActiveDocumentCountByKb(ownerId).stream()
+        .collect(
+            Collectors.toMap(
+                KnowledgeDocumentMapper.KbDocumentCount::kbId,
+                KnowledgeDocumentMapper.KbDocumentCount::documentCount));
   }
 
   @Transactional(readOnly = true)

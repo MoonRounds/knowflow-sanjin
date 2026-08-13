@@ -17,6 +17,9 @@ public class KnowledgeBaseResponse {
   @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
   private boolean enabled;
 
+  /** 该库活跃文档数（deleted=0）；列表接口填充，单实体接口不保证有值。 */
+  private Long documentCount;
+
   @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
   private int rowVersion;
 
@@ -56,6 +59,14 @@ public class KnowledgeBaseResponse {
 
   public void setEnabled(boolean enabled) {
     this.enabled = enabled;
+  }
+
+  public Long getDocumentCount() {
+    return documentCount;
+  }
+
+  public void setDocumentCount(Long documentCount) {
+    this.documentCount = documentCount;
   }
 
   public int getRowVersion() {

@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.knowledge.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -157,6 +158,90 @@ public class KnowledgeDocumentService {
             .eq(KnowledgeDocument::getOwnerId, ownerId)
             .eq(KnowledgeDocument::getDeleted, false)
             .orderByDesc(KnowledgeDocument::getCreatedAt));
+  }
+
+  /**
+   * 按库 + 过滤条件分页查询文档（G22）：owner 过滤；kbId/sourceType/indexStatus 精确匹配，tag 按规范化名称匹配关联。沿用 candidate
+   * 分页先例（手写 LIMIT/OFFSET + selectCount，不依赖分页插件）。Tag 不存在时返回空页（无该标签文档）。
+   */
+  @Transactional(readOnly = true)
+  public Page<KnowledgeDocument> pageForOwner(
+      Long kbId, String sourceType, String tag, String indexStatus, long page, long size) {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    LambdaQueryWrapper<KnowledgeDocument> countWrapper =
+        buildListFilter(ownerId, kbId, sourceType, indexStatus);
+    LambdaQueryWrapper<KnowledgeDocument> pageWrapper =
+        buildListFilter(ownerId, kbId, sourceType, indexStatus);
+    if (tag != null && !tag.isBlank()) {
+      List<Long> tagFilteredIds = documentIdsByTag(ownerId, tag);
+      if (tagFilteredIds.isEmpty()) {
+        Page<KnowledgeDocument> empty = new Page<>(page, size);
+        empty.setTotal(0);
+        return empty;
+      }
+      countWrapper.in(KnowledgeDocument::getId, tagFilteredIds);
+      pageWrapper.in(KnowledgeDocument::getId, tagFilteredIds);
+    }
+    long total = documentMapper.selectCount(countWrapper);
+    pageWrapper
+        .orderByDesc(KnowledgeDocument::getCreatedAt)
+        .last("LIMIT " + size + " OFFSET " + (page - 1) * size);
+    List<KnowledgeDocument> records = documentMapper.selectList(pageWrapper);
+    Page<KnowledgeDocument> result = new Page<>(page, size);
+    result.setTotal(total);
+    result.setRecords(records);
+    return result;
+  }
+
+  /** Owner 级全部未删标签，按名称排序，供 Tag 过滤下拉使用（G23）。 */
+  @Transactional(readOnly = true)
+  public List<Tag> listTagsForOwner() {
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    return tagMapper.selectList(
+        new LambdaQueryWrapper<Tag>()
+            .eq(Tag::getOwnerId, ownerId)
+            .eq(Tag::getDeleted, false)
+            .orderByAsc(Tag::getName));
+  }
+
+  private static LambdaQueryWrapper<KnowledgeDocument> buildListFilter(
+      long ownerId, Long kbId, String sourceType, String indexStatus) {
+    LambdaQueryWrapper<KnowledgeDocument> wrapper =
+        new LambdaQueryWrapper<KnowledgeDocument>()
+            .eq(KnowledgeDocument::getOwnerId, ownerId)
+            .eq(KnowledgeDocument::getDeleted, false);
+    if (kbId != null) {
+      wrapper.eq(KnowledgeDocument::getKbId, kbId);
+    }
+    if (sourceType != null && !sourceType.isBlank()) {
+      wrapper.eq(KnowledgeDocument::getSourceType, sourceType);
+    }
+    if (indexStatus != null && !indexStatus.isBlank()) {
+      wrapper.eq(KnowledgeDocument::getIndexStatus, indexStatus);
+    }
+    return wrapper;
+  }
+
+  /** 按规范化标签名解析活跃关联的 documentId 集合：标签不存在或未关联任何文档时返回空集。 */
+  private List<Long> documentIdsByTag(long ownerId, String tag) {
+    Tag tagEntity =
+        tagMapper.selectOne(
+            new LambdaQueryWrapper<Tag>()
+                .eq(Tag::getOwnerId, ownerId)
+                .eq(Tag::getNormalizedName, tag)
+                .eq(Tag::getDeleted, false));
+    if (tagEntity == null) {
+      return List.of();
+    }
+    return documentTagMapper
+        .selectList(
+            new LambdaQueryWrapper<KnowledgeDocumentTag>()
+                .eq(KnowledgeDocumentTag::getOwnerId, ownerId)
+                .eq(KnowledgeDocumentTag::getTagId, tagEntity.getId())
+                .eq(KnowledgeDocumentTag::getDeleted, false))
+        .stream()
+        .map(KnowledgeDocumentTag::getKnowledgeDocumentId)
+        .toList();
   }
 
   @Transactional(readOnly = true)
