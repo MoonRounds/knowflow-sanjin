@@ -29,11 +29,8 @@
                     "aiContent": {
                         "type": "string"
                     },
-                    "aiKnowledgeBaseIds": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array"
+                    "aiKnowledgeBaseId": {
+                        "type": "string"
                     },
                     "aiReason": {
                         "type": "string"
@@ -56,11 +53,8 @@
                     "draftContent": {
                         "type": "string"
                     },
-                    "draftKnowledgeBaseIds": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array"
+                    "draftKnowledgeBaseId": {
+                        "type": "string"
                     },
                     "draftSummary": {
                         "type": "string"
@@ -164,39 +158,17 @@
                 },
                 "type": "object"
             },
-            "CreateKnowledgeBaseRequest": {
-                "properties": {
-                    "description": {
-                        "maxLength": 2000,
-                        "minLength": 0,
-                        "type": "string"
-                    },
-                    "name": {
-                        "maxLength": 200,
-                        "minLength": 0,
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "name"
-                ],
-                "type": "object"
-            },
-            "CreateManualNoteRequest": {
+            "CreateDocumentRequest": {
                 "properties": {
                     "content": {
                         "maxLength": 200000,
                         "minLength": 0,
                         "type": "string"
                     },
-                    "knowledgeBaseIds": {
-                        "items": {
-                            "maxLength": 200,
-                            "minLength": 0,
-                            "type": "string"
-                        },
-                        "minItems": 1,
-                        "type": "array"
+                    "knowledgeBaseId": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
                     },
                     "summary": {
                         "maxLength": 2000,
@@ -215,7 +187,25 @@
                 },
                 "required": [
                     "content",
-                    "knowledgeBaseIds"
+                    "knowledgeBaseId"
+                ],
+                "type": "object"
+            },
+            "CreateKnowledgeBaseRequest": {
+                "properties": {
+                    "description": {
+                        "maxLength": 2000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "name": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
                 ],
                 "type": "object"
             },
@@ -264,6 +254,67 @@
                     "displayName",
                     "modelName",
                     "providerName"
+                ],
+                "type": "object"
+            },
+            "EmbeddingConfigResponse": {
+                "properties": {
+                    "apiKeyMasked": {
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "type": "string"
+                    },
+                    "configured": {
+                        "type": "boolean"
+                    },
+                    "dimension": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "modelName": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "apiKeyMasked",
+                    "baseUrl",
+                    "configured",
+                    "dimension",
+                    "modelName",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "EmbeddingVectorizeTestResult": {
+                "properties": {
+                    "dimension": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "testedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "message",
+                    "modelName",
+                    "success",
+                    "testedAt"
                 ],
                 "type": "object"
             },
@@ -324,7 +375,7 @@
                     "id": {
                         "type": "string"
                     },
-                    "knowledgeItemId": {
+                    "knowledgeDocumentId": {
                         "type": "string"
                     },
                     "originalFilename": {
@@ -357,7 +408,7 @@
                         "$ref": "#/components/schemas/FileMetadataResponse"
                     },
                     "item": {
-                        "$ref": "#/components/schemas/KnowledgeItemForFileResponse"
+                        "$ref": "#/components/schemas/KnowledgeDocumentForFileResponse"
                     }
                 },
                 "type": "object"
@@ -399,7 +450,7 @@
                 ],
                 "type": "object"
             },
-            "KnowledgeItemForFileResponse": {
+            "KnowledgeDocumentForFileResponse": {
                 "properties": {
                     "id": {
                         "type": "string"
@@ -416,7 +467,7 @@
                 },
                 "type": "object"
             },
-            "KnowledgeItemResponse": {
+            "KnowledgeDocumentResponse": {
                 "properties": {
                     "content": {
                         "type": "string"
@@ -445,11 +496,8 @@
                         "format": "int32",
                         "type": "integer"
                     },
-                    "knowledgeBaseIds": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array"
+                    "knowledgeBaseId": {
+                        "type": "string"
                     },
                     "rowVersion": {
                         "format": "int32",
@@ -481,7 +529,7 @@
                     "createdAt",
                     "id",
                     "indexStatus",
-                    "knowledgeBaseIds",
+                    "knowledgeBaseId",
                     "rowVersion",
                     "sourceType",
                     "tags",
@@ -760,10 +808,10 @@
                         "format": "int32",
                         "type": "integer"
                     },
-                    "itemId": {
+                    "documentId": {
                         "type": "string"
                     },
-                    "itemTitle": {
+                    "documentTitle": {
                         "type": "string"
                     },
                     "score": {
@@ -861,6 +909,31 @@
                 },
                 "type": "object"
             },
+            "TestEmbeddingConfigRequest": {
+                "properties": {
+                    "apiKey": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "apiKey",
+                    "baseUrl",
+                    "modelName"
+                ],
+                "type": "object"
+            },
             "TokenUsage": {
                 "properties": {
                     "completionTokens": {
@@ -884,12 +957,9 @@
                         "minLength": 1,
                         "type": "string"
                     },
-                    "knowledgeBaseIds": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "minItems": 1,
-                        "type": "array"
+                    "knowledgeBaseId": {
+                        "minLength": 1,
+                        "type": "string"
                     },
                     "rowVersion": {
                         "format": "int32",
@@ -911,7 +981,7 @@
                 },
                 "required": [
                     "content",
-                    "knowledgeBaseIds",
+                    "knowledgeBaseId",
                     "title"
                 ],
                 "type": "object"
@@ -931,6 +1001,67 @@
                         "type": "string"
                     }
                 },
+                "type": "object"
+            },
+            "UpdateDocumentRequest": {
+                "properties": {
+                    "content": {
+                        "maxLength": 200000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "knowledgeBaseId": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "rowVersion": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "summary": {
+                        "maxLength": 2000,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "tags": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "knowledgeBaseId",
+                    "rowVersion"
+                ],
+                "type": "object"
+            },
+            "UpdateEmbeddingConfigRequest": {
+                "properties": {
+                    "apiKey": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "baseUrl",
+                    "modelName"
+                ],
                 "type": "object"
             },
             "UpdateKnowledgeBaseRequest": {
@@ -954,47 +1085,6 @@
                     }
                 },
                 "required": [
-                    "rowVersion"
-                ],
-                "type": "object"
-            },
-            "UpdateManualNoteRequest": {
-                "properties": {
-                    "content": {
-                        "maxLength": 200000,
-                        "minLength": 0,
-                        "type": "string"
-                    },
-                    "knowledgeBaseIds": {
-                        "items": {
-                            "maxLength": 200,
-                            "minLength": 0,
-                            "type": "string"
-                        },
-                        "minItems": 1,
-                        "type": "array"
-                    },
-                    "rowVersion": {
-                        "format": "int32",
-                        "type": "integer"
-                    },
-                    "summary": {
-                        "maxLength": 2000,
-                        "minLength": 0,
-                        "type": "string"
-                    },
-                    "tags": {
-                        "items": {
-                            "type": "string"
-                        },
-                        "type": "array"
-                    },
-                    "title": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "knowledgeBaseIds",
                     "rowVersion"
                 ],
                 "type": "object"
@@ -1079,115 +1169,6 @@
                     "routerSchemaValid",
                     "success",
                     "testedAt"
-                ],
-                "type": "object"
-            },
-            "EmbeddingConfigResponse": {
-                "properties": {
-                    "apiKeyMasked": {
-                        "type": "string"
-                    },
-                    "baseUrl": {
-                        "type": "string"
-                    },
-                    "configured": {
-                        "type": "boolean"
-                    },
-                    "dimension": {
-                        "format": "int32",
-                        "type": "integer"
-                    },
-                    "modelName": {
-                        "type": "string"
-                    },
-                    "updatedAt": {
-                        "format": "date-time",
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "apiKeyMasked",
-                    "baseUrl",
-                    "configured",
-                    "dimension",
-                    "modelName",
-                    "updatedAt"
-                ],
-                "type": "object"
-            },
-            "EmbeddingVectorizeTestResult": {
-                "properties": {
-                    "dimension": {
-                        "format": "int32",
-                        "type": "integer"
-                    },
-                    "message": {
-                        "type": "string"
-                    },
-                    "modelName": {
-                        "type": "string"
-                    },
-                    "success": {
-                        "type": "boolean"
-                    },
-                    "testedAt": {
-                        "format": "date-time",
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "message",
-                    "modelName",
-                    "success",
-                    "testedAt"
-                ],
-                "type": "object"
-            },
-            "UpdateEmbeddingConfigRequest": {
-                "properties": {
-                    "apiKey": {
-                        "maxLength": 500,
-                        "type": "string"
-                    },
-                    "baseUrl": {
-                        "maxLength": 500,
-                        "minLength": 0,
-                        "type": "string"
-                    },
-                    "modelName": {
-                        "maxLength": 200,
-                        "minLength": 0,
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "baseUrl",
-                    "modelName"
-                ],
-                "type": "object"
-            },
-            "TestEmbeddingConfigRequest": {
-                "properties": {
-                    "apiKey": {
-                        "maxLength": 500,
-                        "minLength": 0,
-                        "type": "string"
-                    },
-                    "baseUrl": {
-                        "maxLength": 500,
-                        "minLength": 0,
-                        "type": "string"
-                    },
-                    "modelName": {
-                        "maxLength": 200,
-                        "minLength": 0,
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "apiKey",
-                    "baseUrl",
-                    "modelName"
                 ],
                 "type": "object"
             }
@@ -1751,13 +1732,269 @@
                 ]
             }
         },
+        "/api/v1/documents": {
+            "get": {
+                "operationId": "list_2",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/KnowledgeDocumentResponse"
+                                    },
+                                    "type": "array"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-document-controller"
+                ]
+            },
+            "post": {
+                "operationId": "createManualNote",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateDocumentRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeDocumentResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-document-controller"
+                ]
+            }
+        },
+        "/api/v1/documents/{documentId}/file": {
+            "get": {
+                "operationId": "getByDocument",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "documentId",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FileMetadataResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "file-controller"
+                ]
+            }
+        },
+        "/api/v1/documents/{id}": {
+            "delete": {
+                "operationId": "delete_2",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "If-Match",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-document-controller"
+                ]
+            },
+            "get": {
+                "operationId": "get_2",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeDocumentResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-document-controller"
+                ]
+            },
+            "put": {
+                "operationId": "update_2",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateDocumentRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KnowledgeDocumentResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "knowledge-document-controller"
+                ]
+            }
+        },
+        "/api/v1/embedding-config": {
+            "get": {
+                "operationId": "getEmbeddingConfig",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmbeddingConfigResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "embedding-config-controller"
+                ]
+            },
+            "put": {
+                "operationId": "updateEmbeddingConfig",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateEmbeddingConfigRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmbeddingConfigResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "embedding-config-controller"
+                ]
+            }
+        },
+        "/api/v1/embedding-config/test": {
+            "post": {
+                "operationId": "testEmbeddingConfig",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TestEmbeddingConfigRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmbeddingVectorizeTestResult"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "embedding-config-controller"
+                ]
+            }
+        },
         "/api/v1/files": {
             "post": {
                 "operationId": "upload",
                 "parameters": [
                     {
                         "in": "query",
-                        "name": "knowledgeBaseIds",
+                        "name": "knowledgeBaseId",
                         "required": false,
                         "schema": {
                             "type": "string"
@@ -1795,7 +2032,7 @@
                     }
                 },
                 "tags": [
-                    "document-controller"
+                    "file-controller"
                 ]
             }
         },
@@ -1825,7 +2062,7 @@
                     }
                 },
                 "tags": [
-                    "document-controller"
+                    "file-controller"
                 ]
             }
         },
@@ -1856,7 +2093,7 @@
                     }
                 },
                 "tags": [
-                    "document-controller"
+                    "file-controller"
                 ]
             }
         },
@@ -1883,7 +2120,7 @@
         },
         "/api/v1/knowledge-bases": {
             "get": {
-                "operationId": "list_2",
+                "operationId": "list_1",
                 "responses": {
                     "200": {
                         "content": {
@@ -1934,7 +2171,7 @@
         },
         "/api/v1/knowledge-bases/{id}": {
             "delete": {
-                "operationId": "delete_2",
+                "operationId": "delete_1",
                 "parameters": [
                     {
                         "in": "path",
@@ -1963,7 +2200,7 @@
                 ]
             },
             "get": {
-                "operationId": "get_2",
+                "operationId": "get_1",
                 "parameters": [
                     {
                         "in": "path",
@@ -1991,7 +2228,7 @@
                 ]
             },
             "put": {
-                "operationId": "update_2",
+                "operationId": "update_1",
                 "parameters": [
                     {
                         "in": "path",
@@ -2088,184 +2325,6 @@
                 },
                 "tags": [
                     "knowledge-base-controller"
-                ]
-            }
-        },
-        "/api/v1/knowledge-items": {
-            "get": {
-                "operationId": "list_1",
-                "responses": {
-                    "200": {
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "items": {
-                                        "$ref": "#/components/schemas/KnowledgeItemResponse"
-                                    },
-                                    "type": "array"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "knowledge-item-controller"
-                ]
-            },
-            "post": {
-                "operationId": "createManualNote",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/CreateManualNoteRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/KnowledgeItemResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "knowledge-item-controller"
-                ]
-            }
-        },
-        "/api/v1/knowledge-items/{id}": {
-            "delete": {
-                "operationId": "delete_1",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "header",
-                        "name": "If-Match",
-                        "required": false,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "knowledge-item-controller"
-                ]
-            },
-            "get": {
-                "operationId": "get_1",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/KnowledgeItemResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "knowledge-item-controller"
-                ]
-            },
-            "put": {
-                "operationId": "update_1",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "id",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/UpdateManualNoteRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/KnowledgeItemResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "knowledge-item-controller"
-                ]
-            }
-        },
-        "/api/v1/knowledge-items/{itemId}/file": {
-            "get": {
-                "operationId": "getByItem",
-                "parameters": [
-                    {
-                        "in": "path",
-                        "name": "itemId",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/FileMetadataResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "document-controller"
                 ]
             }
         },
@@ -2694,84 +2753,6 @@
                 },
                 "tags": [
                     "processing-task-controller"
-                ]
-            }
-        },
-        "/api/v1/embedding-config": {
-            "get": {
-                "operationId": "getEmbeddingConfig",
-                "responses": {
-                    "200": {
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/EmbeddingConfigResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "embedding-config-controller"
-                ]
-            },
-            "put": {
-                "operationId": "updateEmbeddingConfig",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/UpdateEmbeddingConfigRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/EmbeddingConfigResponse"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "embedding-config-controller"
-                ]
-            }
-        },
-        "/api/v1/embedding-config/test": {
-            "post": {
-                "operationId": "testEmbeddingConfig",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/TestEmbeddingConfigRequest"
-                            }
-                        }
-                    },
-                    "required": true
-                },
-                "responses": {
-                    "200": {
-                        "content": {
-                            "*/*": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/EmbeddingVectorizeTestResult"
-                                }
-                            }
-                        },
-                        "description": "OK"
-                    }
-                },
-                "tags": [
-                    "embedding-config-controller"
                 ]
             }
         }

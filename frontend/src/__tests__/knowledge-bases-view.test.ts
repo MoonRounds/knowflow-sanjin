@@ -4,7 +4,7 @@ import ElementPlus from 'element-plus'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import KnowledgeBasesView from '../views/KnowledgeBasesView.vue'
 import * as api from '../api/knowledge-bases'
-import * as itemsApi from '../api/knowledge-items'
+import * as itemsApi from '../api/documents'
 import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 
 function mountView() {
@@ -31,7 +31,7 @@ describe('KnowledgeBasesView', () => {
 
   it('renders an empty state when there are no knowledge bases', async () => {
     vi.spyOn(api, 'listKnowledgeBases').mockResolvedValue([])
-    vi.spyOn(itemsApi, 'listKnowledgeItems').mockResolvedValue([])
+    vi.spyOn(itemsApi, 'listDocuments').mockResolvedValue([])
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.classes()).toContain('kf-list-page')
@@ -46,7 +46,7 @@ describe('KnowledgeBasesView', () => {
 
   it('renders the list from the API', async () => {
     vi.spyOn(api, 'listKnowledgeBases').mockResolvedValue(rows)
-    vi.spyOn(itemsApi, 'listKnowledgeItems').mockResolvedValue([])
+    vi.spyOn(itemsApi, 'listDocuments').mockResolvedValue([])
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.text()).toContain('Java')
@@ -56,7 +56,7 @@ describe('KnowledgeBasesView', () => {
   it('opens create dialog and creates a knowledge base', async () => {
     const listMock = vi.spyOn(api, 'listKnowledgeBases').mockResolvedValue([])
     const createMock = vi.spyOn(api, 'createKnowledgeBase').mockResolvedValue(rows[0])
-    vi.spyOn(itemsApi, 'listKnowledgeItems').mockResolvedValue([])
+    vi.spyOn(itemsApi, 'listDocuments').mockResolvedValue([])
 
     const wrapper = mountView()
     await flushPromises()

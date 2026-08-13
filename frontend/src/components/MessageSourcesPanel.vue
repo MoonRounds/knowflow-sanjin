@@ -28,9 +28,9 @@ const summaryText = computed(() => {
   return statusText.value
 })
 
-function openItem(itemId?: string) {
-  if (itemId) {
-    void router.push(`/knowledge-items/${itemId}`)
+function openDocument(documentId?: string) {
+  if (documentId) {
+    void router.push(`/knowledge-items/${documentId}`)
   }
 }
 </script>
@@ -53,8 +53,8 @@ function openItem(itemId?: string) {
       <div v-for="(s, i) in sources" :key="s.sourceId" class="source-item">
         <div class="source-head">
           <span class="source-idx">[S{{ i + 1 }}]</span>
-          <button type="button" class="source-title" @click="openItem(s.itemId)">
-            {{ s.itemTitle }}
+          <button type="button" class="source-title" @click="openDocument(s.documentId)">
+            {{ s.documentTitle }}
           </button>
           <el-tag v-if="s.cited" size="small" type="success">已引用</el-tag>
           <el-tag v-else size="small" type="info">检索</el-tag>

@@ -16,8 +16,8 @@ import type {
   KnowledgeBaseResponse,
   UpdateKnowledgeBaseRequest,
 } from '../api/types/knowledge-base'
-import { createKnowledgeItem, listKnowledgeItems } from '../api/knowledge-items'
-import type { KnowledgeItemResponse } from '../api/types/knowledge-item'
+import { createDocument, listDocuments } from '../api/documents'
+import type { KnowledgeDocumentResponse } from '../api/types/document'
 import { uploadFile } from '../api/files'
 import { errorText } from '../utils/errorText'
 import KfEmptyState from '../components/KfEmptyState.vue'
@@ -26,7 +26,7 @@ const router = useRouter()
 
 const loading = ref(false)
 const items = ref<KnowledgeBaseResponse[]>([])
-const notes = ref<KnowledgeItemResponse[]>([])
+const notes = ref<KnowledgeDocumentResponse[]>([])
 
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
@@ -40,13 +40,13 @@ const noteForm = reactive<{
   title: string
   summary: string
   content: string
-  knowledgeBaseIds: string[]
+  knowledgeBaseId: string
   tags: string
-}>({ title: '', summary: '', content: '', knowledgeBaseIds: [], tags: '' })
+}>({ title: '', summary: '', content: '', knowledgeBaseId: '', tags: '' })
 
 const uploadDialogVisible = ref(false)
 const uploadFileRaw = ref<File | null>(null)
-const uploadKbIds = ref<string[]>([])
+const uploadKbId = ref('')
 const uploading = ref(false)
 const uploadProgress = ref(0)
 
@@ -60,7 +60,7 @@ async function load() {
     items.value = await listKnowledgeBases()
     emptyState.value = items.value.length === 0
     try {
-      notes.value = await listKnowledgeItems()
+      notes.value = await listDocuments()
     } catch {
       notes.value = []
     }
@@ -156,13 +156,13 @@ function openCreateNote() {
   noteForm.content = ''
   noteForm.tags = ''
   // 默认选中第一个知识库，避免提交时为空被后端拒绝
-  noteForm.knowledgeBaseIds = items.value.length ? [items.value[0].id] : []
+  noteForm.knowledgeBaseId = items.value.length ? items.value[0].id : ''
   noteDialogVisible.value = true
 }
 
 function openUpload() {
   uploadFileRaw.value = null
-  uploadKbIds.value = items.value.length ? [items.value[0].id] : []
+  uploadKbId.value = items.value.length ? items.value[0].id : ''
   uploadProgress.value = 0
   uploadDialogVisible.value = true
 }
@@ -190,14 +190,14 @@ async function submitUpload() {
     ElMessage.warning('请选择文件')
     return
   }
-  if (!uploadKbIds.value.length) {
-    ElMessage.warning('请至少选择一个知识库')
+  if (!uploadKbId.value) {
+    ElMessage.warning('请选择一个知识库')
     return
   }
   uploading.value = true
   uploadProgress.value = 10
   try {
-    const result = await uploadFile(uploadFileRaw.value, uploadKbIds.value)
+    const result = await uploadFile(uploadFileRaw.value, uploadKbId.value)
     uploadProgress.value = 100
     uploadDialogVisible.value = false
     await load()
@@ -218,16 +218,16 @@ async function submitUpload() {
 }
 
 async function submitNote() {
-  if (!noteForm.knowledgeBaseIds.length) {
-    ElMessage.warning('请至少选择一个知识库')
+  if (!noteForm.knowledgeBaseId) {
+    ElMessage.warning('请选择一个知识库')
     return
   }
   try {
-    const created = await createKnowledgeItem({
+    const created = await createDocument({
       title: noteForm.title.trim() || undefined,
       summary: noteForm.summary,
       content: noteForm.content,
-      knowledgeBaseIds: noteForm.knowledgeBaseIds,
+      knowledgeBaseId: noteForm.knowledgeBaseId,
       tags: noteForm.tags
         .split(',')
         .map((t) => t.trim())
@@ -401,12 +401,7 @@ onMounted(load)
           </el-upload>
         </el-form-item>
         <el-form-item label="知识库" required>
-          <el-select
-            v-model="uploadKbIds"
-            multiple
-            placeholder="选择知识库（至少一个）"
-            style="width: 100%"
-          >
+          <el-select v-model="uploadKbId" placeholder="选择知识库" style="width: 100%">
             <el-option v-for="kb in items" :key="kb.id" :label="kb.name" :value="kb.id" />
           </el-select>
         </el-form-item>
@@ -419,7 +414,7 @@ onMounted(load)
         <el-button
           type="primary"
           :loading="uploading"
-          :disabled="!uploadFileRaw || !uploadKbIds.length"
+          :disabled="!uploadFileRaw || !uploadKbId"
           @click="submitUpload"
         >
           上传
@@ -445,9 +440,8 @@ onMounted(load)
         </el-form-item>
         <el-form-item label="知识库" required>
           <el-select
-            v-model="noteForm.knowledgeBaseIds"
-            multiple
-            placeholder="选择知识库（至少一个）"
+            v-model="noteForm.knowledgeBaseId"
+            placeholder="选择知识库"
             style="width: 100%"
           >
             <el-option v-for="kb in items" :key="kb.id" :label="kb.name" :value="kb.id" />

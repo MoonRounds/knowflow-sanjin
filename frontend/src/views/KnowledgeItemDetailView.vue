@@ -1,13 +1,13 @@
 <script setup lang="ts">
-// KnowledgeItem 详情页：展示标题/摘要/正文/来源/知识库/标签/版本/索引状态；Manual Note 可编辑。
+// Document 详情页：展示标题/摘要/正文/来源/知识库/标签/版本/索引状态；Manual Note 可编辑。
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { deleteKnowledgeItem, getKnowledgeItem, updateKnowledgeItem } from '../api/knowledge-items'
+import { deleteDocument, getDocument, updateDocument } from '../api/documents'
 import { listKnowledgeBases } from '../api/knowledge-bases'
 import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
-import type { KnowledgeItemResponse } from '../api/types/knowledge-item'
-import { getFileMetadataByItem, downloadFileUrl } from '../api/files'
+import type { KnowledgeDocumentResponse } from '../api/types/document'
+import { getFileMetadataByDocument, downloadFileUrl } from '../api/files'
 import type { FileMetadataResponse } from '../api/files'
 import { renderMarkdown } from '../utils/markdown'
 import { useCodeBlockCopy } from '../composables/useCodeBlockCopy'
@@ -20,7 +20,7 @@ const router = useRouter()
 const itemId = String(route.params.id)
 const loading = ref(true)
 const saving = ref(false)
-const item = ref<KnowledgeItemResponse | null>(null)
+const item = ref<KnowledgeDocumentResponse | null>(null)
 const knowledgeBases = ref<KnowledgeBaseResponse[]>([])
 const fileMeta = ref<FileMetadataResponse | null>(null)
 
@@ -36,9 +36,9 @@ const form = reactive<{
   title: string
   summary: string
   content: string
-  knowledgeBaseIds: string[]
+  knowledgeBaseId: string
   tags: string
-}>({ title: '', summary: '', content: '', knowledgeBaseIds: [], tags: '' })
+}>({ title: '', summary: '', content: '', knowledgeBaseId: '', tags: '' })
 
 let pollTimer: number | undefined
 
@@ -52,9 +52,9 @@ const isPending = computed(
 async function load() {
   loading.value = true
   try {
-    item.value = await getKnowledgeItem(itemId)
+    item.value = await getDocument(itemId)
     try {
-      fileMeta.value = await getFileMetadataByItem(itemId)
+      fileMeta.value = await getFileMetadataByDocument(itemId)
     } catch {
       fileMeta.value = null
     }
@@ -75,8 +75,8 @@ function startPolling() {
   pollTimer = setInterval(async () => {
     try {
       const [latest, latestFile] = await Promise.all([
-        getKnowledgeItem(itemId),
-        isUpload.value ? getFileMetadataByItem(itemId) : Promise.resolve(null),
+        getDocument(itemId),
+        isUpload.value ? getFileMetadataByDocument(itemId) : Promise.resolve(null),
       ])
       item.value = latest
       if (latestFile) fileMeta.value = latestFile
@@ -104,7 +104,7 @@ function enterEdit() {
   form.title = item.value.title
   form.summary = item.value.summary ?? ''
   form.content = item.value.content
-  form.knowledgeBaseIds = [...item.value.knowledgeBaseIds]
+  form.knowledgeBaseId = item.value.knowledgeBaseId
   form.tags = item.value.tags.join(', ')
 }
 
@@ -116,14 +116,14 @@ async function save() {
       title: form.title.trim(),
       summary: form.summary,
       content: form.content,
-      knowledgeBaseIds: form.knowledgeBaseIds,
+      knowledgeBaseId: form.knowledgeBaseId,
       tags: form.tags
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
       rowVersion: item.value.rowVersion,
     }
-    const updated = await updateKnowledgeItem(itemId, payload)
+    const updated = await updateDocument(itemId, payload)
     item.value = updated
     editMode.value = false
     ElMessage.success('笔记已保存')
@@ -145,7 +145,7 @@ async function confirmDelete() {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
     })
-    await deleteKnowledgeItem(itemId, item.value.rowVersion)
+    await deleteDocument(itemId, item.value.rowVersion)
     ElMessage.success('笔记已删除')
     router.push('/knowledge-bases')
   } catch (e) {
@@ -259,10 +259,10 @@ onBeforeUnmount(stopPolling)
         <el-divider />
         <div class="relations">
           <span class="label">知识库：</span>
-          <el-tag v-for="kb in item.knowledgeBaseIds" :key="kb" size="small" type="primary">
-            {{ kb }}
+          <el-tag v-if="item.knowledgeBaseId" size="small" type="primary">
+            {{ item.knowledgeBaseId }}
           </el-tag>
-          <span v-if="!item.knowledgeBaseIds.length" class="muted">无</span>
+          <span v-if="!item.knowledgeBaseId" class="muted">无</span>
         </div>
         <div class="relations">
           <span class="label">标签：</span>
@@ -288,12 +288,7 @@ onBeforeUnmount(stopPolling)
             />
           </el-form-item>
           <el-form-item label="知识库" required>
-            <el-select
-              v-model="form.knowledgeBaseIds"
-              multiple
-              placeholder="选择知识库（至少一个）"
-              style="width: 100%"
-            >
+            <el-select v-model="form.knowledgeBaseId" placeholder="选择知识库" style="width: 100%">
               <el-option
                 v-for="kb in knowledgeBases"
                 :key="kb.id"

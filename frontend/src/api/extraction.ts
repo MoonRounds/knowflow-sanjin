@@ -37,7 +37,7 @@ export function updateCandidateDraft(
     title: string
     summary?: string
     content: string
-    knowledgeBaseIds: string[]
+    knowledgeBaseId: string
     tags?: string[]
   },
   ifMatch: string,

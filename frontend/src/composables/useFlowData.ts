@@ -3,7 +3,7 @@
  *
  * 对应关系：
  *   - hero 指标   → 候选数（GET /candidates?status=PENDING）、知识库数（GET /knowledge-bases）、
- *                   已沉淀笔记数（GET /knowledge-items）、任务数（GET /processing-tasks）
+ *                   已沉淀笔记数（GET /documents）、任务数（GET /processing-tasks）
  *   - 流程卡      → 由最近一个 PROCESSING 类任务（INDEXING/EXTRACTION/PARSING）推导"知识正在流动"
  *   - 候选卡      → GET /candidates?status=PENDING 最新一条
  *   - 知识域      → GET /knowledge-bases 列表（无 itemCount 时按有无数据展示，不再伪造数量）
@@ -12,7 +12,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { listCandidates } from '../api/extraction'
 import { listConversations } from '../api/conversations'
 import { listKnowledgeBases } from '../api/knowledge-bases'
-import { listKnowledgeItems } from '../api/knowledge-items'
+import { listDocuments } from '../api/documents'
 import { listProcessingTasks } from '../api/processing-tasks'
 import type { FlowData, FlowRecentItem } from '../mocks/mock-data'
 import type { ProcessingTaskResponse } from '../api/types/processing-task'
@@ -110,7 +110,7 @@ export function useFlowData() {
       const [candidates, kbs, items, tasks, conversations] = await Promise.all([
         listCandidates({ status: 'PENDING' }),
         listKnowledgeBases(),
-        listKnowledgeItems(),
+        listDocuments(),
         listProcessingTasks(),
         listConversations(),
       ])

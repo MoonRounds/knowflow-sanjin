@@ -18,15 +18,15 @@ describe('MessageSourcesPanel', () => {
     const sources = [
       {
         sourceId: 'source-1',
-        itemId: '1',
-        itemTitle: '并发笔记',
+        documentId: '1',
+        documentTitle: '并发笔记',
         snippet: '摘要',
         cited: true,
       },
       {
         sourceId: 'source-2',
-        itemId: '2',
-        itemTitle: '线程笔记',
+        documentId: '2',
+        documentTitle: '线程笔记',
         snippet: '摘要',
         cited: false,
       },

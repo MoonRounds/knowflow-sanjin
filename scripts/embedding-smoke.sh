@@ -59,7 +59,7 @@ echo "3) Upserting a smoke point ..."
 VECTOR=$(printf '%s' "$EMBED_JSON" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["data"][0]["embedding"]))')
 curl -fsS -X PUT "${QDRANT_URL}/collections/${COLLECTION}/points" \
   -H "Content-Type: application/json" \
-  -d "{\"points\":[{\"id\":\"00000000-0000-0000-0000-000000000000\",\"vector\":${VECTOR},\"payload\":{\"user_id\":0,\"knowledge_item_id\":0,\"chunk_id\":\"smoke\",\"chunk_index\":0,\"content_version\":0,\"source_type\":\"MANUAL_NOTE\",\"knowledge_base_ids\":[],\"tags\":[]}}]}" >/dev/null
+  -d "{\"points\":[{\"id\":\"00000000-0000-0000-0000-000000000000\",\"vector\":${VECTOR},\"payload\":{\"user_id\":0,\"knowledge_document_id\":0,\"chunk_id\":\"smoke\",\"chunk_index\":0,\"content_version\":0,\"source_type\":\"MANUAL_NOTE\",\"knowledge_base_id\":null,\"tags\":[]}}]}" >/dev/null
 echo "   smoke point upserted"
 
 echo "4) Verifying point count ..."

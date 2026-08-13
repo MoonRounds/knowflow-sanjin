@@ -32,7 +32,7 @@ const current = ref<CandidateResponse | null>(null)
 const draftTitle = ref('')
 const draftSummary = ref('')
 const draftContent = ref('')
-const draftKbIds = ref<string[]>([])
+const draftKbId = ref('')
 const draftTags = ref<string[]>([])
 const tagsInput = ref('')
 const savingDraft = ref(false)
@@ -65,7 +65,7 @@ function openDrawer(candidate: CandidateResponse) {
   draftTitle.value = candidate.draftTitle ?? ''
   draftSummary.value = candidate.draftSummary ?? ''
   draftContent.value = candidate.draftContent ?? ''
-  draftKbIds.value = [...(candidate.draftKnowledgeBaseIds ?? [])]
+  draftKbId.value = candidate.draftKnowledgeBaseId ?? ''
   draftTags.value = [...(candidate.draftTags ?? [])]
   tagsInput.value = draftTags.value.join(', ')
   drawerOpen.value = true
@@ -90,7 +90,7 @@ async function saveDraft() {
         title: draftTitle.value,
         summary: draftSummary.value,
         content: draftContent.value,
-        knowledgeBaseIds: draftKbIds.value,
+        knowledgeBaseId: draftKbId.value,
         tags,
       },
       `"${current.value.rowVersion ?? 0}"`,
@@ -283,8 +283,8 @@ onMounted(async () => {
           <div class="ai-row ai-content">{{ current.aiContent }}</div>
           <div class="ai-row">
             <b>知识库：</b>
-            <el-tag v-for="kb in current.aiKnowledgeBaseIds" :key="kb" size="small">
-              {{ kb }}
+            <el-tag v-if="current.aiKnowledgeBaseId" size="small">
+              {{ current.aiKnowledgeBaseId }}
             </el-tag>
             <el-tag v-for="t in current.aiTags" :key="t" size="small" type="info">{{ t }}</el-tag>
           </div>
@@ -308,7 +308,7 @@ onMounted(async () => {
             />
           </el-form-item>
           <el-form-item label="知识库">
-            <el-select v-model="draftKbIds" multiple placeholder="选择知识库" style="width: 100%">
+            <el-select v-model="draftKbId" placeholder="选择知识库" style="width: 100%">
               <el-option
                 v-for="kb in knowledgeBases"
                 :key="kb.id"

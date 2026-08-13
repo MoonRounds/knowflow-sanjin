@@ -196,6 +196,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_2"];
+        put?: never;
+        post: operations["createManualNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{documentId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getByDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_2"];
+        put: operations["update_2"];
+        post?: never;
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/embedding-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEmbeddingConfig"];
+        put: operations["updateEmbeddingConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/embedding-config/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["testEmbeddingConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/files": {
         parameters: {
             query?: never;
@@ -267,7 +347,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_1"];
         put?: never;
         post: operations["create_1"];
         delete?: never;
@@ -283,10 +363,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_2"];
-        put: operations["update_2"];
+        get: operations["get_1"];
+        put: operations["update_1"];
         post?: never;
-        delete: operations["delete_2"];
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -317,54 +397,6 @@ export interface paths {
         };
         get?: never;
         put: operations["enable_1"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/knowledge-items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_1"];
-        put?: never;
-        post: operations["createManualNote"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/knowledge-items/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_1"];
-        put: operations["update_1"];
-        post?: never;
-        delete: operations["delete_1"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/knowledge-items/{itemId}/file": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getByItem"];
-        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -548,38 +580,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/embedding-config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getEmbeddingConfig"];
-        put: operations["updateEmbeddingConfig"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/embedding-config/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["testEmbeddingConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -595,14 +595,14 @@ export interface components {
         };
         CandidateResponse: {
             aiContent?: string;
-            aiKnowledgeBaseIds?: string[];
+            aiKnowledgeBaseId?: string;
             aiReason?: string;
             aiSummary?: string;
             aiTags?: string[];
             aiTitle?: string;
             confirmedItemId?: string;
             draftContent?: string;
-            draftKnowledgeBaseIds?: string[];
+            draftKnowledgeBaseId?: string;
             draftSummary?: string;
             draftTags?: string[];
             draftTitle?: string;
@@ -637,16 +637,16 @@ export interface components {
         CreateConversationRequest: {
             title?: string;
         };
-        CreateKnowledgeBaseRequest: {
-            description?: string;
-            name: string;
-        };
-        CreateManualNoteRequest: {
+        CreateDocumentRequest: {
             content: string;
-            knowledgeBaseIds: string[];
+            knowledgeBaseId: string;
             summary?: string;
             tags?: string[];
             title?: string;
+        };
+        CreateKnowledgeBaseRequest: {
+            description?: string;
+            name: string;
         };
         CreateModelConfigRequest: {
             apiKey: string;
@@ -658,6 +658,25 @@ export interface components {
             providerName: string;
             /** Format: double */
             temperature?: number;
+        };
+        EmbeddingConfigResponse: {
+            apiKeyMasked: string;
+            baseUrl: string;
+            configured: boolean;
+            /** Format: int32 */
+            dimension: number;
+            modelName: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        EmbeddingVectorizeTestResult: {
+            /** Format: int32 */
+            dimension?: number;
+            message: string;
+            modelName: string;
+            success: boolean;
+            /** Format: date-time */
+            testedAt: string;
         };
         ExtractionTaskResponse: {
             /** Format: int32 */
@@ -682,7 +701,7 @@ export interface components {
             createdAt?: string;
             detectedMimeType?: string;
             id?: string;
-            knowledgeItemId?: string;
+            knowledgeDocumentId?: string;
             originalFilename?: string;
             parseErrorCode?: string;
             parseErrorMessage?: string;
@@ -693,7 +712,7 @@ export interface components {
         FileUploadResponse: {
             duplicate?: boolean;
             file?: components["schemas"]["FileMetadataResponse"];
-            item?: components["schemas"]["KnowledgeItemForFileResponse"];
+            item?: components["schemas"]["KnowledgeDocumentForFileResponse"];
         };
         KnowledgeBaseResponse: {
             /** Format: date-time */
@@ -707,13 +726,13 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        KnowledgeItemForFileResponse: {
+        KnowledgeDocumentForFileResponse: {
             id?: string;
             indexStatus?: string;
             sourceType?: string;
             title?: string;
         };
-        KnowledgeItemResponse: {
+        KnowledgeDocumentResponse: {
             content: string;
             /** Format: int32 */
             contentVersion: number;
@@ -725,7 +744,7 @@ export interface components {
             indexStatus: string;
             /** Format: int32 */
             indexedVersion?: number;
-            knowledgeBaseIds: string[];
+            knowledgeBaseId: string;
             /** Format: int32 */
             rowVersion: number;
             sourceType: string;
@@ -826,8 +845,8 @@ export interface components {
             cited?: boolean;
             /** Format: int32 */
             contentVersion?: number;
-            itemId?: string;
-            itemTitle?: string;
+            documentId?: string;
+            documentTitle?: string;
             /** Format: float */
             score?: number;
             snippet?: string;
@@ -859,6 +878,11 @@ export interface components {
             /** Format: int64 */
             timeout?: number;
         };
+        TestEmbeddingConfigRequest: {
+            apiKey: string;
+            baseUrl: string;
+            modelName: string;
+        };
         TokenUsage: {
             /** Format: int32 */
             completionTokens?: number;
@@ -869,7 +893,7 @@ export interface components {
         };
         UpdateCandidateDraftRequest: {
             content: string;
-            knowledgeBaseIds: string[];
+            knowledgeBaseId: string;
             /** Format: int32 */
             rowVersion?: number;
             summary?: string;
@@ -882,21 +906,26 @@ export interface components {
             rowVersion?: number;
             title?: string;
         };
+        UpdateDocumentRequest: {
+            content?: string;
+            knowledgeBaseId: string;
+            /** Format: int32 */
+            rowVersion: number;
+            summary?: string;
+            tags?: string[];
+            title?: string;
+        };
+        UpdateEmbeddingConfigRequest: {
+            apiKey?: string;
+            baseUrl: string;
+            modelName: string;
+        };
         UpdateKnowledgeBaseRequest: {
             description?: string;
             enabled?: boolean;
             name?: string;
             /** Format: int32 */
             rowVersion: number;
-        };
-        UpdateManualNoteRequest: {
-            content?: string;
-            knowledgeBaseIds: string[];
-            /** Format: int32 */
-            rowVersion: number;
-            summary?: string;
-            tags?: string[];
-            title?: string;
         };
         UpdateModelConfigRequest: {
             apiKey?: string;
@@ -920,35 +949,6 @@ export interface components {
             success: boolean;
             /** Format: date-time */
             testedAt: string;
-        };
-        EmbeddingConfigResponse: {
-            apiKeyMasked: string;
-            baseUrl: string;
-            configured: boolean;
-            /** Format: int32 */
-            dimension: number;
-            modelName: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        EmbeddingVectorizeTestResult: {
-            /** Format: int32 */
-            dimension?: number;
-            message: string;
-            modelName: string;
-            success: boolean;
-            /** Format: date-time */
-            testedAt: string;
-        };
-        UpdateEmbeddingConfigRequest: {
-            apiKey?: string;
-            baseUrl: string;
-            modelName: string;
-        };
-        TestEmbeddingConfigRequest: {
-            apiKey: string;
-            baseUrl: string;
-            modelName: string;
         };
     };
     responses: never;
@@ -1334,10 +1334,214 @@ export interface operations {
             };
         };
     };
+    list_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KnowledgeDocumentResponse"][];
+                };
+            };
+        };
+    };
+    createManualNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KnowledgeDocumentResponse"];
+                };
+            };
+        };
+    };
+    getByDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FileMetadataResponse"];
+                };
+            };
+        };
+    };
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KnowledgeDocumentResponse"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDocumentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["KnowledgeDocumentResponse"];
+                };
+            };
+        };
+    };
+    delete_2: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getEmbeddingConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EmbeddingConfigResponse"];
+                };
+            };
+        };
+    };
+    updateEmbeddingConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEmbeddingConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EmbeddingConfigResponse"];
+                };
+            };
+        };
+    };
+    testEmbeddingConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestEmbeddingConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EmbeddingVectorizeTestResult"];
+                };
+            };
+        };
+    };
     upload: {
         parameters: {
             query?: {
-                knowledgeBaseIds?: string;
+                knowledgeBaseId?: string;
             };
             header?: never;
             path?: never;
@@ -1429,7 +1633,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1473,7 +1677,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1495,7 +1699,7 @@ export interface operations {
             };
         };
     };
-    update_2: {
+    update_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1521,7 +1725,7 @@ export interface operations {
             };
         };
     };
-    delete_2: {
+    delete_1: {
         parameters: {
             query?: never;
             header?: {
@@ -1584,142 +1788,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    list_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["KnowledgeItemResponse"][];
-                };
-            };
-        };
-    };
-    createManualNote: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateManualNoteRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["KnowledgeItemResponse"];
-                };
-            };
-        };
-    };
-    get_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["KnowledgeItemResponse"];
-                };
-            };
-        };
-    };
-    update_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateManualNoteRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["KnowledgeItemResponse"];
-                };
-            };
-        };
-    };
-    delete_1: {
-        parameters: {
-            query?: never;
-            header?: {
-                "If-Match"?: string;
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getByItem: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                itemId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["FileMetadataResponse"];
-                };
             };
         };
     };
@@ -2048,74 +2116,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ProcessingTaskResponse"];
-                };
-            };
-        };
-    };
-    getEmbeddingConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["EmbeddingConfigResponse"];
-                };
-            };
-        };
-    };
-    updateEmbeddingConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateEmbeddingConfigRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["EmbeddingConfigResponse"];
-                };
-            };
-        };
-    };
-    testEmbeddingConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TestEmbeddingConfigRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["EmbeddingVectorizeTestResult"];
                 };
             };
         };
