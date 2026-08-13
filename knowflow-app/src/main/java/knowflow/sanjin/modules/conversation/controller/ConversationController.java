@@ -68,7 +68,7 @@ public class ConversationController {
   @DeleteMapping("/conversations/{id}")
   public ResponseEntity<Void> delete(@PathVariable String id) {
     long conversationId = ApiValueParser.positiveId(id, "id");
-    service.softDelete(conversationId);
+    service.hardDelete(conversationId);
     // 删除事务提交后清理 Memory 投影（容错：Redis 故障不阻塞删除）
     memoryService.clear(conversationId);
     return ResponseEntity.noContent().build();

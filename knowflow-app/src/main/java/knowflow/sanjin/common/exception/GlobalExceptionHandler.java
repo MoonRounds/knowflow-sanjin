@@ -4,6 +4,7 @@ import java.util.UUID;
 import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.common.filter.CorrelationIdFilter;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
+import knowflow.sanjin.modules.conversation.exception.ConversationExtractionInProgressException;
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.MessageNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.NoDefaultModelConfigException;
@@ -223,6 +224,16 @@ public class GlobalExceptionHandler {
       ActiveGenerationExistsException ex) {
     return problem(
         HttpStatus.CONFLICT, "存在进行中的生成", ex.getMessage(), ErrorCode.ACTIVE_GENERATION_EXISTS);
+  }
+
+  @ExceptionHandler(ConversationExtractionInProgressException.class)
+  public ResponseEntity<ProblemDetail> handleConversationExtractionInProgress(
+      ConversationExtractionInProgressException ex) {
+    return problem(
+        HttpStatus.CONFLICT,
+        "会话正在提取知识中",
+        ex.getMessage(),
+        ErrorCode.CONVERSATION_EXTRACTION_IN_PROGRESS);
   }
 
   @ExceptionHandler(NoDefaultModelConfigException.class)

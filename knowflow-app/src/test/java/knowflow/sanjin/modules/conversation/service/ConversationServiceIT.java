@@ -2,29 +2,52 @@ package knowflow.sanjin.modules.conversation.service;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.util.List;
 import knowflow.sanjin.modules.conversation.dto.CreateConversationRequest;
 import knowflow.sanjin.modules.conversation.dto.UpdateConversationRequest;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.entity.Conversation;
+import knowflow.sanjin.modules.conversation.entity.GenerationTrace;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
+import knowflow.sanjin.modules.conversation.exception.ConversationExtractionInProgressException;
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
+import knowflow.sanjin.modules.conversation.mapper.ChatMessageMapper;
+import knowflow.sanjin.modules.conversation.mapper.ConversationMapper;
+import knowflow.sanjin.modules.conversation.mapper.GenerationTraceMapper;
+import knowflow.sanjin.modules.extraction.ExtractionConstants;
+import knowflow.sanjin.modules.extraction.entity.KnowledgeCandidate;
+import knowflow.sanjin.modules.extraction.entity.KnowledgeExtractionTask;
+import knowflow.sanjin.modules.extraction.mapper.KnowledgeCandidateMapper;
+import knowflow.sanjin.modules.extraction.mapper.KnowledgeExtractionTaskMapper;
+import knowflow.sanjin.modules.knowledge.entity.KnowledgeItem;
+import knowflow.sanjin.modules.knowledge.mapper.KnowledgeItemMapper;
 import knowflow.sanjin.modules.modelconfig.dto.CreateModelConfigRequest;
 import knowflow.sanjin.modules.modelconfig.entity.ModelConfig;
 import knowflow.sanjin.modules.modelconfig.service.ModelConfigService;
+import knowflow.sanjin.modules.processing.ProcessingConstants;
+import knowflow.sanjin.modules.processing.entity.ProcessingTask;
+import knowflow.sanjin.modules.processing.mapper.ProcessingTaskMapper;
 import knowflow.sanjin.testinfra.MySQLTestBase;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DuplicateKeyException;
 
-/** Conversation/Message 集成测试：迁移、CRUD、软删除守卫、sequence 游标与 Owner 隔离。 */
+/** Conversation/Message 集成测试：迁移、CRUD、硬删除级联、sequence 游标与 Owner 隔离。 */
 @SpringBootTest
 @DisplayName("Conversation Integration Tests")
 class ConversationServiceIT extends MySQLTestBase {
 
   @Autowired private ConversationService service;
   @Autowired private ModelConfigService modelConfigService;
+  @Autowired private ChatMessageMapper chatMessageMapper;
+  @Autowired private ConversationMapper conversationMapper;
+  @Autowired private GenerationTraceMapper generationTraceMapper;
+  @Autowired private KnowledgeExtractionTaskMapper extractionTaskMapper;
+  @Autowired private KnowledgeCandidateMapper candidateMapper;
+  @Autowired private ProcessingTaskMapper processingTaskMapper;
+  @Autowired private KnowledgeItemMapper knowledgeItemMapper;
 
   private Conversation createConversation(String title) {
     CreateConversationRequest req = new CreateConversationRequest();
@@ -57,6 +80,91 @@ class ConversationServiceIT extends MySQLTestBase {
     return m;
   }
 
+  /** 一条 User + 一条 COMPLETED Assistant 的完整轮次，并返回 assistant 消息。 */
+  private ChatMessage completedTurn(Conversation c, long seq) {
+    ChatMessage user = userMessage(c, seq, "问题 " + seq);
+    service.insertMessage(user);
+    ChatMessage assistant =
+        assistantMessage(c, seq + 1, user.getId(), "回答 " + seq, ChatMessage.COMPLETED, true);
+    service.insertMessage(assistant);
+    return assistant;
+  }
+
+  private ProcessingTask processingTask(String status) {
+    ProcessingTask t = new ProcessingTask();
+    t.setOwnerId(1L);
+    t.setTaskType(ExtractionConstants.TASK_TYPE_EXTRACTION);
+    t.setBusinessKey(ExtractionConstants.BUSINESS_KEY_PREFIX + System.nanoTime());
+    t.setBusinessId(1L);
+    t.setStatus(status);
+    t.setRetryCount(0);
+    t.setMaxRetries(2);
+    processingTaskMapper.insert(t);
+    return t;
+  }
+
+  private KnowledgeExtractionTask extractionTask(
+      Conversation c, Long cutoffMessageId, Long processingTaskId) {
+    KnowledgeExtractionTask t = new KnowledgeExtractionTask();
+    t.setOwnerId(1L);
+    t.setConversationId(c.getId());
+    t.setCutoffMessageId(cutoffMessageId);
+    t.setExtractionProfile(ExtractionConstants.EXTRACTION_PROFILE);
+    t.setProfileVersion(ExtractionConstants.EXTRACTION_PROFILE_VERSION);
+    t.setUtilityRevisionId(1L);
+    t.setProcessingTaskId(processingTaskId);
+    t.setInputCharCount(10);
+    extractionTaskMapper.insert(t);
+    return t;
+  }
+
+  private KnowledgeCandidate candidate(KnowledgeExtractionTask task, String status) {
+    KnowledgeCandidate c = new KnowledgeCandidate();
+    c.setOwnerId(1L);
+    c.setExtractionTaskId(task.getId());
+    c.setStatus(status);
+    c.setAiTitle("候选标题");
+    c.setAiContent("候选内容");
+    c.setAiKnowledgeBaseIds("[]");
+    c.setAiTags("[]");
+    c.setDraftTitle("候选标题");
+    c.setDraftContent("候选内容");
+    c.setDraftKnowledgeBaseIds("[]");
+    c.setDraftTags("[]");
+    candidateMapper.insert(c);
+    return c;
+  }
+
+  private GenerationTrace trace(Conversation c, ChatMessage assistant) {
+    GenerationTrace t = new GenerationTrace();
+    t.setAssistantMessageId(assistant.getId());
+    t.setConversationId(c.getId());
+    t.setOwnerId(1L);
+    t.setRagStatus("ROUTED");
+    generationTraceMapper.insert(t);
+    return t;
+  }
+
+  private KnowledgeItem itemFromCandidate(KnowledgeCandidate candidate) {
+    KnowledgeItem i = new KnowledgeItem();
+    i.setOwnerId(1L);
+    i.setSourceType(ExtractionConstants.SOURCE_AI_CONVERSATION);
+    i.setTitle(candidate.getAiTitle());
+    i.setContent(candidate.getAiContent());
+    i.setContentVersion(1);
+    i.setIndexStatus("PENDING");
+    i.setStatus("ACTIVE");
+    i.setRowVersion(0);
+    i.setCandidateId(candidate.getId());
+    knowledgeItemMapper.insert(i);
+    return i;
+  }
+
+  private long countChatMessages(Long conversationId) {
+    return chatMessageMapper.selectCount(
+        new LambdaQueryWrapper<ChatMessage>().eq(ChatMessage::getConversationId, conversationId));
+  }
+
   @Test
   @DisplayName("should create conversation and persist with owner id 1")
   void shouldCreateAndPersist() {
@@ -78,12 +186,78 @@ class ConversationServiceIT extends MySQLTestBase {
   }
 
   @Test
-  @DisplayName("should soft delete conversation")
-  void shouldSoftDelete() {
+  @DisplayName("should hard delete conversation")
+  void shouldHardDelete() {
     Conversation c = createConversation("to-delete");
-    service.softDelete(c.getId());
+    service.hardDelete(c.getId());
     assertThatThrownBy(() -> service.getByIdAndOwner(c.getId()))
         .isInstanceOf(ConversationNotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("should cascade delete messages, traces, extraction tasks and candidates")
+  void shouldCascadeDeleteAllConversationData() {
+    Conversation c = createConversation("cascade");
+    ChatMessage assistant = completedTurn(c, 1L);
+    trace(c, assistant);
+
+    ProcessingTask pt = processingTask(ProcessingConstants.STATUS_SUCCEEDED);
+    KnowledgeExtractionTask et = extractionTask(c, assistant.getId(), pt.getId());
+    candidate(et, ExtractionConstants.CANDIDATE_PENDING);
+
+    service.hardDelete(c.getId());
+
+    assertThat(countChatMessages(c.getId())).isZero();
+    assertThat(
+            generationTraceMapper.selectCount(
+                new LambdaQueryWrapper<GenerationTrace>()
+                    .eq(GenerationTrace::getConversationId, c.getId())))
+        .isZero();
+    assertThat(
+            candidateMapper.selectCount(
+                new LambdaQueryWrapper<KnowledgeCandidate>()
+                    .eq(KnowledgeCandidate::getExtractionTaskId, et.getId())))
+        .isZero();
+    assertThat(
+            extractionTaskMapper.selectCount(
+                new LambdaQueryWrapper<KnowledgeExtractionTask>()
+                    .eq(KnowledgeExtractionTask::getConversationId, c.getId())))
+        .isZero();
+    assertThat(
+            conversationMapper.selectCount(
+                new LambdaQueryWrapper<Conversation>().eq(Conversation::getId, c.getId())))
+        .isZero();
+  }
+
+  @Test
+  @DisplayName("should keep confirmed knowledge item and clear its candidate link on delete")
+  void shouldKeepConfirmedItemAfterHardDelete() {
+    Conversation c = createConversation("confirmed");
+    ChatMessage assistant = completedTurn(c, 1L);
+    ProcessingTask pt = processingTask(ProcessingConstants.STATUS_SUCCEEDED);
+    KnowledgeExtractionTask et = extractionTask(c, assistant.getId(), pt.getId());
+    KnowledgeCandidate confirmed = candidate(et, ExtractionConstants.CANDIDATE_CONFIRMED);
+    KnowledgeItem item = itemFromCandidate(confirmed);
+
+    service.hardDelete(c.getId());
+
+    KnowledgeItem kept = knowledgeItemMapper.selectById(item.getId());
+    assertThat(kept).isNotNull();
+    assertThat(kept.getCandidateId()).isNull();
+  }
+
+  @Test
+  @DisplayName("should reject hard delete when extraction task is still in progress")
+  void shouldRejectHardDeleteWhenExtractionInProgress() {
+    Conversation c = createConversation("extracting");
+    ChatMessage assistant = completedTurn(c, 1L);
+    ProcessingTask pt = processingTask(ProcessingConstants.STATUS_PROCESSING);
+    extractionTask(c, assistant.getId(), pt.getId());
+
+    assertThatThrownBy(() -> service.hardDelete(c.getId()))
+        .isInstanceOf(ConversationExtractionInProgressException.class);
+    // 删除被拒绝后会话仍然可用
+    assertThat(service.getByIdAndOwner(c.getId())).isNotNull();
   }
 
   @Test
@@ -97,7 +271,7 @@ class ConversationServiceIT extends MySQLTestBase {
             service.tryClaimActiveGeneration(
                 c.getId(), msg.getId(), java.time.Duration.ofMinutes(5)))
         .isTrue();
-    assertThatThrownBy(() -> service.softDelete(c.getId()))
+    assertThatThrownBy(() -> service.hardDelete(c.getId()))
         .isInstanceOf(ActiveGenerationExistsException.class);
   }
 
@@ -118,7 +292,7 @@ class ConversationServiceIT extends MySQLTestBase {
     service.cancelOrphanedGeneration(c.getId(), msg.getId());
     ChatMessage cancelled = service.getMessage(c.getId(), msg.getId());
     assertThat(cancelled.getGenerationStatus()).isEqualTo(ChatMessage.CANCELLED);
-    service.softDelete(c.getId());
+    service.hardDelete(c.getId());
 
     assertThatThrownBy(() -> service.getByIdAndOwner(c.getId()))
         .isInstanceOf(ConversationNotFoundException.class);

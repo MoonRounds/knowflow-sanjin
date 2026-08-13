@@ -32,6 +32,7 @@ public final class ErrorCode {
   public static final String CONVERSATION_NOT_FOUND = "会话不存在";
   public static final String MESSAGE_NOT_FOUND = "消息不存在";
   public static final String ACTIVE_GENERATION_EXISTS = "存在进行中的生成";
+  public static final String CONVERSATION_EXTRACTION_IN_PROGRESS = "会话正在提取知识中";
   public static final String NO_DEFAULT_MODEL_CONFIG = "未配置默认模型";
   public static final String GENERATION_CANCELLED = "生成已取消";
 

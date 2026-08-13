@@ -880,10 +880,10 @@ function replaceConversation(updated: ConversationResponse) {
   box-sizing: border-box;
   display: grid;
   place-items: center;
-  flex: 0 0 35px;
-  width: 35px;
-  height: 35px;
-  min-height: 35px;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
   padding: 0;
   border: 1px solid var(--kf-ink);
   border-radius: 13px;
@@ -914,8 +914,8 @@ function replaceConversation(updated: ConversationResponse) {
 }
 .history-launcher svg,
 .history-close svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
 }
 .history-launcher:focus-visible {
   outline: 2px solid var(--kf-red);
@@ -928,9 +928,9 @@ function replaceConversation(updated: ConversationResponse) {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 35px;
-  height: 35px;
-  min-height: 35px;
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
   padding: 0;
   border: 1px solid var(--kf-ink);
   border-radius: 12px;

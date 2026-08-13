@@ -226,7 +226,7 @@ class ChatMemoryE2EIT extends RedisMemoryTestBase {
   }
 
   @Test
-  @DisplayName("soft delete clears the conversation memory")
+  @DisplayName("hard delete clears the conversation memory")
   void shouldClearMemoryOnDelete() throws Exception {
     setUpConversation();
     stubChatModel();
@@ -236,7 +236,7 @@ class ChatMemoryE2EIT extends RedisMemoryTestBase {
 
     assertThat(memoryService.loadWindow(conversation.getId())).hasSize(2);
 
-    conversationService.softDelete(conversation.getId());
+    conversationService.hardDelete(conversation.getId());
     // 删除事务提交后清理投影（Controller 层调用；此处直接触发同一路径）
     memoryService.clear(conversation.getId());
     assertThat(memoryService.loadWindow(conversation.getId())).isEmpty();

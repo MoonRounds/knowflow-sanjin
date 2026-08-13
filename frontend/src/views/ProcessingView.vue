@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Processing 轻量页面：展示 PROCESSING 与 FAILED 任务，FAILED 显示错误摘要并可手动 Retry。
+// Processing 轻量页面：展示全部/处理中/失败任务，FAILED 显示错误摘要并可手动 Retry。
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -12,7 +12,7 @@ const router = useRouter()
 
 const loading = ref(false)
 const items = ref<ProcessingTaskResponse[]>([])
-const filter = ref<'PROCESSING' | 'FAILED'>('PROCESSING')
+const filter = ref<'ALL' | 'PROCESSING' | 'FAILED'>('PROCESSING')
 let timer: number | undefined
 /** 行级重试守卫：避免重复提交。 */
 const retryingId = ref<string | null>(null)
@@ -20,7 +20,7 @@ const retryingId = ref<string | null>(null)
 async function load() {
   loading.value = true
   try {
-    items.value = await listProcessingTasks(filter.value)
+    items.value = await listProcessingTasks(filter.value === 'ALL' ? undefined : filter.value)
   } catch (e) {
     ElMessage.error(errorText(e, '加载任务失败'))
   } finally {
@@ -83,6 +83,7 @@ onBeforeUnmount(stopAutoRefresh)
       <h2>处理任务</h2>
       <div class="header-controls kf-list-page-actions">
         <el-radio-group v-model="filter" @change="onFilterChange">
+          <el-radio-button value="ALL">全部</el-radio-button>
           <el-radio-button value="PROCESSING">处理中</el-radio-button>
           <el-radio-button value="FAILED">失败</el-radio-button>
         </el-radio-group>
@@ -134,7 +135,13 @@ onBeforeUnmount(stopAutoRefresh)
 
     <KfEmptyState
       v-if="!loading && items.length === 0"
-      :title="filter === 'PROCESSING' ? '此刻没有正在处理的内容' : '没有需要恢复的失败任务'"
+      :title="
+        filter === 'PROCESSING'
+          ? '此刻没有正在处理的内容'
+          : filter === 'FAILED'
+            ? '没有需要恢复的失败任务'
+            : '还没有任何处理任务'
+      "
       description="从知识库创建笔记或上传文件后，解析与索引进度会在这里持续更新。"
       action-label="查看知识库"
       wide

@@ -124,7 +124,7 @@ SSE 最小事件：
 - failed/cancelled/abandoned Turn 不进入 Memory 或 Extraction。
 - 已提交 Message 默认不可编辑、不支持会话分支；覆盖式重新生成是唯一原位改写已提交 assistant 消息的路径，旧内容在 prepare 阶段清空，失败/取消不再保留旧回答（见 ADR 0005）。
 - active Generation 存在时禁止删除 Conversation。
-- Conversation 软删除，不级联删除已沉淀知识。
+- Conversation 硬删除，单事务级联清理消息、GenerationTrace、提取任务与候选；已确认沉淀的 KnowledgeItem 保留（`candidate_id` 置空），不级联删除已沉淀知识（见 ADR 0006）。
 - 会话标题由 AI 在首轮回答结束后异步生成（首轮完整对话为来源，一句话、中文 10～20 字）；生成失败静默回退为首条 User Message 安全截断，可手动改名（见 ADR 0004）。
 - 新建会话采用「空白态 / 已开始才新建」语义：未发送首条消息时点击 ➕ 不新建会话（侧栏同一时刻最多一个「新对话」占位项，发首条消息才真正落库）；会话内已存在至少一条用户消息后点击 ➕ 才创建新会话。不引入时间窗口频率限流或前端 debounce，状态机语义即防连点堆叠（见 ADR 0004）。
 - `clientMessageId` 防止网络重试重复创建消息。

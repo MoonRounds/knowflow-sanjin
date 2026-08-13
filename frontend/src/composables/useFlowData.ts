@@ -151,7 +151,8 @@ export function useFlowData() {
 
       const kbCount = domains.length
       const itemsCount = (items ?? []).length
-      const taskCount = (tasks ?? []).length
+      // 只数运行中（PENDING/PROCESSING）任务；终态历史任务不计入指标。
+      const taskCount = runningTasks.length
       const idx = indexCounts(items ?? [])
 
       data.value = {

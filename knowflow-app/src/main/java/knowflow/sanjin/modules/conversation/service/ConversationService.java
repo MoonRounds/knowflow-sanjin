@@ -12,9 +12,11 @@ import knowflow.sanjin.modules.conversation.dto.UpdateConversationRequest;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.entity.Conversation;
 import knowflow.sanjin.modules.conversation.exception.ActiveGenerationExistsException;
+import knowflow.sanjin.modules.conversation.exception.ConversationExtractionInProgressException;
 import knowflow.sanjin.modules.conversation.exception.ConversationNotFoundException;
 import knowflow.sanjin.modules.conversation.exception.MessageNotFoundException;
 import knowflow.sanjin.modules.conversation.mapper.ChatMessageMapper;
+import knowflow.sanjin.modules.conversation.mapper.ConversationCascadeMapper;
 import knowflow.sanjin.modules.conversation.mapper.ConversationMapper;
 import knowflow.sanjin.modules.owner.service.CurrentOwnerProvider;
 import org.springframework.dao.DuplicateKeyException;
@@ -37,14 +39,17 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
   private final CurrentOwnerProvider currentOwnerProvider;
   private final ChatMessageMapper chatMessageMapper;
   private final ConversationMapper conversationMapper;
+  private final ConversationCascadeMapper cascadeMapper;
 
   public ConversationService(
       CurrentOwnerProvider currentOwnerProvider,
       ChatMessageMapper chatMessageMapper,
-      ConversationMapper conversationMapper) {
+      ConversationMapper conversationMapper,
+      ConversationCascadeMapper cascadeMapper) {
     this.currentOwnerProvider = currentOwnerProvider;
     this.chatMessageMapper = chatMessageMapper;
     this.conversationMapper = conversationMapper;
+    this.cascadeMapper = cascadeMapper;
   }
 
   @Transactional
@@ -140,14 +145,27 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
         == 1;
   }
 
+  /**
+   * 硬删除会话并级联清理：删除消息、GenerationTrace、提取任务与候选，最后删除会话本身。
+   *
+   * <p>单事务内完成；顺序依赖外键：先删 trace（引用消息/会话）→ 候选（引用提取任务）→ 提取任务（引用会话与消息）→ 消息（自引用 reply_to 由 V10 迁移的 ON
+   * DELETE CASCADE 兜底）→ 会话。已确认候选沉淀的 KnowledgeItem 依赖 V10 迁移的 ON DELETE SET NULL 保留，仅解除 candidate_id
+   * 关联。删除前守卫：active 生成与 非终态提取任务 存在时拒绝，避免与生成/消费端并发竞态。
+   */
   @Transactional
-  public void softDelete(Long id) {
+  public void hardDelete(Long id) {
     Conversation c = getByIdAndOwnerInternal(id);
     if (c.getActiveGenerationMessageId() != null) {
       throw new ActiveGenerationExistsException(id);
     }
-    c.setDeleted(true);
-    updateById(c);
+    if (cascadeMapper.countActiveExtractionTasks(id) > 0) {
+      throw new ConversationExtractionInProgressException(id);
+    }
+    cascadeMapper.deleteTraces(id);
+    cascadeMapper.deleteCandidates(id);
+    cascadeMapper.deleteExtractionTasks(id);
+    cascadeMapper.deleteMessages(id);
+    cascadeMapper.deleteConversation(id);
   }
 
   /** 消息历史游标分页：before 是会话内 sequence；先倒序取 limit 条，再反转为 sequence 正序。 */
