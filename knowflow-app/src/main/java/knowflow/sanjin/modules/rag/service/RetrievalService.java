@@ -43,6 +43,8 @@ public class RetrievalService {
   private final KnowledgeChunkMapper chunkMapper;
   private final KnowledgeItemMapper itemMapper;
   private final KnowledgeBaseItemMapper kbItemMapper;
+  private final knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService
+      embeddingConfigService;
 
   public RetrievalService(
       RagProperties properties,
@@ -52,7 +54,9 @@ public class RetrievalService {
       QdrantProperties qdrantProperties,
       KnowledgeChunkMapper chunkMapper,
       KnowledgeItemMapper itemMapper,
-      KnowledgeBaseItemMapper kbItemMapper) {
+      KnowledgeBaseItemMapper kbItemMapper,
+      knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService
+          embeddingConfigService) {
     this.properties = properties;
     this.currentOwnerProvider = currentOwnerProvider;
     this.embeddingClient = embeddingClient;
@@ -61,6 +65,7 @@ public class RetrievalService {
     this.chunkMapper = chunkMapper;
     this.itemMapper = itemMapper;
     this.kbItemMapper = kbItemMapper;
+    this.embeddingConfigService = embeddingConfigService;
   }
 
   /**
@@ -100,7 +105,8 @@ public class RetrievalService {
 
   private float[] embedQuery(String query, long ownerId) {
     try {
-      List<float[]> vectors = embeddingClient.embed(List.of(query));
+      List<float[]> vectors =
+          embeddingClient.embed(List.of(query), embeddingConfigService.getCurrentSnapshot());
       if (vectors.isEmpty()) {
         throw new knowflow.sanjin.modules.knowledge.exception.RetryableIndexException(
             knowflow.sanjin.common.error.ErrorCode.EMBEDDING_UNAVAILABLE,

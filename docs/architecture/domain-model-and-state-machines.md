@@ -9,7 +9,7 @@ System Owner (id=1)
 |      User Message 1--N Assistant Generation Attempt
 |      Conversation 1--N Extraction Snapshot 1--N Candidate
 |                                      Candidate 0..1 -> KnowledgeItem
-|-- KnowledgeBase N--N KnowledgeItem N--N Tag
+|-- KnowledgeBase 1--N KnowledgeItem N--N Tag
 |                         |-- 1--N KnowledgeChunk
 |                         `-- 0..1 FileMetadata
 `-- ProcessingTask (businessId/businessKey 指向 Extraction/File/Item)

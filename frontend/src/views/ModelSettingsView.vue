@@ -15,18 +15,33 @@ import {
   updateModelConfig,
   updateOwnerAiSettings,
 } from '../api/model-configs'
+import {
+  getEmbeddingConfig,
+  testEmbeddingConfig,
+  updateEmbeddingConfig,
+} from '../api/embedding-configs'
 import type {
   CreateModelConfigRequest,
   ModelConfigResponse,
   OwnerAiSettingsResponse,
   UpdateModelConfigRequest,
 } from '../api/types/model-config'
+import type {
+  EmbeddingConfigResponse,
+  UpdateEmbeddingConfigRequest,
+} from '../api/types/embedding-config'
 import { errorText } from '../utils/errorText'
 import KfEmptyState from '../components/KfEmptyState.vue'
 
 const loading = ref(false)
 const items = ref<ModelConfigResponse[]>([])
 const settings = ref<OwnerAiSettingsResponse | null>(null)
+
+const embedding = ref<EmbeddingConfigResponse | null>(null)
+const embeddingForm = reactive({ baseUrl: '', modelName: '', apiKey: '' })
+const embeddingTesting = ref(false)
+const embeddingSaving = ref(false)
+const embeddingTestDimension = ref<number | null>(null)
 
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
@@ -238,7 +253,65 @@ function isUtility(id: string): boolean {
   return settings.value?.utilityModelConfigId === id
 }
 
-onMounted(load)
+async function loadEmbedding() {
+  try {
+    embedding.value = await getEmbeddingConfig()
+    embeddingForm.baseUrl = embedding.value?.baseUrl ?? ''
+    embeddingForm.modelName = embedding.value?.modelName ?? ''
+    // API Key 只回显掩码，不放入表单；留空表示保存时沿用现有 Key
+    embeddingForm.apiKey = ''
+  } catch (e) {
+    ElMessage.error(errorText(e, '加载向量模型配置失败'))
+  }
+}
+
+/** 保存前预检：用表单中的候选配置真实调用一次向量化。已保存配置直接点保存即可重测。 */
+async function runEmbeddingTest() {
+  embeddingTesting.value = true
+  try {
+    const result = await testEmbeddingConfig({
+      baseUrl: embeddingForm.baseUrl.trim(),
+      modelName: embeddingForm.modelName.trim(),
+      apiKey: embeddingForm.apiKey.trim(),
+    })
+    embeddingTestDimension.value = result.success ? (result.dimension ?? null) : null
+    if (result.success) {
+      ElMessage.success(`向量化测试通过，探测到维度 ${result.dimension}`)
+    } else {
+      // result.message 已含「向量化测试失败」前缀，避免重复提示
+      ElMessage.error(result.message)
+    }
+  } catch (e) {
+    embeddingTestDimension.value = null
+    ElMessage.error(errorText(e, '向量化测试失败'))
+  } finally {
+    embeddingTesting.value = false
+  }
+}
+
+/** 保存：服务端重跑真实向量化测试并自动探测维度；维度与已索引不一致会返回错误。 */
+async function saveEmbedding() {
+  embeddingSaving.value = true
+  try {
+    const payload: UpdateEmbeddingConfigRequest = {
+      baseUrl: embeddingForm.baseUrl.trim(),
+      modelName: embeddingForm.modelName.trim(),
+    }
+    if (embeddingForm.apiKey.trim()) payload.apiKey = embeddingForm.apiKey.trim()
+    await updateEmbeddingConfig(payload)
+    ElMessage.success('向量模型配置已保存')
+    await loadEmbedding()
+  } catch (e) {
+    ElMessage.error(errorText(e, '保存向量模型配置失败'))
+  } finally {
+    embeddingSaving.value = false
+  }
+}
+
+onMounted(() => {
+  load()
+  loadEmbedding()
+})
 </script>
 
 <template>
@@ -348,6 +421,77 @@ onMounted(load)
           </div>
         </footer>
       </article>
+    </section>
+
+    <section v-loading="loading" class="embedding-section" aria-label="Embedding 向量模型配置">
+      <header class="embedding-head">
+        <div class="embedding-identity">
+          <span class="embedding-kicker">SYSTEM · VECTOR</span>
+          <h3>Embedding 向量模型</h3>
+        </div>
+        <el-tag :type="embedding?.configured ? 'success' : 'info'" round>
+          {{ embedding?.configured ? '已配置' : '未配置' }}
+        </el-tag>
+      </header>
+      <p class="embedding-desc">
+        用于把知识切块向量化并做语义检索。保存时会自动测试连接与向量化；切换不同维度需先重建索引。
+      </p>
+      <div class="embedding-grid">
+        <div class="embedding-field">
+          <label>Base URL</label>
+          <el-input
+            v-model="embeddingForm.baseUrl"
+            maxlength="500"
+            placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
+          />
+        </div>
+        <div class="embedding-field">
+          <label>Model Name</label>
+          <el-input
+            v-model="embeddingForm.modelName"
+            maxlength="200"
+            placeholder="text-embedding-v4"
+          />
+        </div>
+        <div class="embedding-field">
+          <label>API Key</label>
+          <el-input
+            v-model="embeddingForm.apiKey"
+            type="password"
+            show-password
+            :placeholder="
+              embedding?.configured ? `留空保持不变（${embedding?.apiKeyMasked ?? ''}）` : 'sk-...'
+            "
+          />
+        </div>
+        <div class="embedding-field">
+          <label>向量维度</label>
+          <div class="embedding-dim">
+            {{ embeddingTestDimension ?? embedding?.dimension ?? '—' }}
+          </div>
+        </div>
+      </div>
+      <footer class="embedding-actions">
+        <el-button
+          :loading="embeddingTesting"
+          :disabled="
+            !embeddingForm.baseUrl?.trim() ||
+            !embeddingForm.modelName?.trim() ||
+            !embeddingForm.apiKey?.trim()
+          "
+          @click="runEmbeddingTest"
+        >
+          测试连接与向量化
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="embeddingSaving"
+          :disabled="!embeddingForm.baseUrl?.trim() || !embeddingForm.modelName?.trim()"
+          @click="saveEmbedding"
+        >
+          保存
+        </el-button>
+      </footer>
     </section>
 
     <el-dialog
@@ -543,6 +687,71 @@ onMounted(load)
 .config-delete {
   padding-inline: 10px;
 }
+.embedding-section {
+  margin-top: 32px;
+  border: 1px solid var(--kf-ink);
+  border-radius: 20px;
+  background: var(--kf-white);
+  box-shadow: 5px 5px 0 rgba(25, 24, 21, 0.12);
+  padding: 22px 24px 20px;
+}
+.embedding-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.embedding-kicker {
+  color: var(--kf-hot);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.embedding-identity h3 {
+  margin: 5px 0 0;
+  font-size: 21px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+.embedding-desc {
+  margin: 12px 0 18px;
+  font-size: 12px;
+  color: var(--kf-muted);
+  font-weight: 600;
+  line-height: 1.6;
+}
+.embedding-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.4fr 0.6fr;
+  gap: 14px;
+}
+.embedding-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--kf-muted);
+}
+.embedding-dim {
+  min-height: 32px;
+  line-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--kf-line);
+  border-radius: 10px;
+  background: var(--kf-paper-2);
+  font-family: var(--kf-font-mono);
+  font-size: 14px;
+  font-weight: 800;
+}
+.embedding-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  border-top: 1px dashed var(--kf-line-dashed);
+  padding-top: 16px;
+}
 .hint {
   font-size: 12px;
   color: #999;
@@ -695,6 +904,16 @@ onMounted(load)
 .kf-btn:focus-visible {
   outline: var(--kf-focus-ring);
   outline-offset: 2px;
+}
+@media (max-width: 920px) {
+  .embedding-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .embedding-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
 

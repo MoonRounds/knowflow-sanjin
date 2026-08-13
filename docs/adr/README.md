@@ -11,3 +11,5 @@
 | [0004](./0004-auto-generated-conversation-title-and-create-state.md) | 已接受 | AI 自动生成会话标题 + 「➕ 空白态 / 已开始才新建」创建语义 |
 | [0005](./0005-overwrite-regenerate.md) | 已接受 | 覆盖式重新生成：同 id 原位替换最新 assistant 消息，失败不保留旧回答 |
 | [0006](./0006-conversation-hard-delete-cascade.md) | 已接受 | Conversation 硬删除级联清理消息/提取产物，已确认沉淀的 KnowledgeItem 保留 |
+| [0007](./0007-knowledge-item-single-ownership.md) | 已接受 | KnowledgeItem 单归属：多对多改为一对多，跨主题由 Tag 表达，软删统一 `deleted` |
+| [0008](./0008-embedding-config-and-test.md) | 已接受 | Embedding 配置进系统设置：单一当前配置、保存前必测、维度变化阻止保存 |

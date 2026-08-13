@@ -70,6 +70,7 @@ public final class ErrorCode {
   public static final String QDRANT_UNAVAILABLE = "Qdrant 不可用";
   public static final String INDEX_SCHEMA_FAILURE = "索引数据校验失败";
   public static final String INDEX_UNKNOWN_FAILURE = "索引未知错误";
+  public static final String EMBEDDING_DIMENSION_CHANGE_REQUIRES_REINDEX = "向量模型维度变更需先重建索引";
 
   // ---- Document Upload ----
   public static final String FILE_INVALID_CONTENT = "文件内容非法";

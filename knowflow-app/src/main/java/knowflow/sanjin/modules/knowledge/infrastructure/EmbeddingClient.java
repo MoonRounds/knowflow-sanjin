@@ -20,8 +20,9 @@ import okhttp3.Response;
 /**
  * 薄 Embedding 客户端：调 OpenAI 兼容 {@code /embeddings} 端点，返回 dense vector。
  *
- * <p>与 ChatModel 完全分离（DECISIONS §12），复用 BaseUrlValidator 做 SSRF 防护。错误分类：网络/5xx/429 → {@link
- * RetryableIndexException}；401/403/维度不匹配 → {@link TerminalIndexException}。
+ * <p>与 ChatModel 完全分离（DECISIONS §12），复用 BaseUrlValidator 做 SSRF 防护。配置来自调用方传入的 {@link
+ * EmbeddingConfigSnapshot}（运行时为 DB 当前配置，测试为候选配置），超时仍取 {@link EmbeddingProperties}。错误分类：网络/5xx/429 →
+ * {@link RetryableIndexException}；401/403/维度不匹配 → {@link TerminalIndexException}。
  */
 public class EmbeddingClient {
 
@@ -46,18 +47,18 @@ public class EmbeddingClient {
             .build();
   }
 
-  /** 批量 Embedding：输入是 title + heading path + chunk body。 */
-  public List<float[]> embed(List<String> texts) {
+  /** 批量 Embedding：输入是 title + heading path + chunk body。config 携带端点、Key、模型与期望维度。 */
+  public List<float[]> embed(List<String> texts, EmbeddingConfigSnapshot config) {
     if (texts.isEmpty()) {
       return List.of();
     }
-    baseUrlValidator.validate(properties.getBaseUrl());
-    String endpoint = properties.getBaseUrl().replaceAll("/+$", "") + "/embeddings";
+    baseUrlValidator.validate(config.baseUrl());
+    String endpoint = config.baseUrl().replaceAll("/+$", "") + "/embeddings";
     String payload;
     try {
       payload =
           objectMapper.writeValueAsString(
-              java.util.Map.of("model", properties.getModel(), "input", texts));
+              java.util.Map.of("model", config.modelName(), "input", texts));
     } catch (IOException e) {
       throw new IllegalStateException("Could not serialize embedding request", e);
     }
@@ -65,7 +66,7 @@ public class EmbeddingClient {
     Request request =
         new Request.Builder()
             .url(endpoint)
-            .header("Authorization", "Bearer " + properties.getApiKey())
+            .header("Authorization", "Bearer " + config.apiKey())
             .post(RequestBody.create(payload, JSON))
             .build();
 
@@ -88,7 +89,7 @@ public class EmbeddingClient {
             ErrorCode.EMBEDDING_AUTH_FAILURE, "Embedding unexpected status " + code);
       }
       String body = response.body() != null ? response.body().string() : "{}";
-      return parseEmbeddings(body);
+      return parseEmbeddings(body, config);
     } catch (TerminalIndexException | RetryableIndexException e) {
       throw e;
     } catch (IOException e) {
@@ -96,7 +97,7 @@ public class EmbeddingClient {
     }
   }
 
-  private List<float[]> parseEmbeddings(String body) {
+  private List<float[]> parseEmbeddings(String body, EmbeddingConfigSnapshot config) {
     try {
       JsonNode root = objectMapper.readTree(body);
       JsonNode data = root.path("data");
@@ -108,11 +109,12 @@ public class EmbeddingClient {
         for (int i = 0; i < values.size(); i++) {
           vector[i] = values.get(i).floatValue();
         }
-        if (vector.length != properties.getDimensions()) {
+        // dimension=0 表示探测场景（未知期望维度），跳过校验
+        if (config.dimension() > 0 && vector.length != config.dimension()) {
           throw new TerminalIndexException(
               ErrorCode.INDEX_SCHEMA_FAILURE,
               "Embedding dimension mismatch: expected "
-                  + properties.getDimensions()
+                  + config.dimension()
                   + " but got "
                   + vector.length);
         }

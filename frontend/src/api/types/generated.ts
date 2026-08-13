@@ -548,6 +548,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/embedding-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEmbeddingConfig"];
+        put: operations["updateEmbeddingConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/embedding-config/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["testEmbeddingConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -888,6 +920,35 @@ export interface components {
             success: boolean;
             /** Format: date-time */
             testedAt: string;
+        };
+        EmbeddingConfigResponse: {
+            apiKeyMasked: string;
+            baseUrl: string;
+            configured: boolean;
+            /** Format: int32 */
+            dimension: number;
+            modelName: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        EmbeddingVectorizeTestResult: {
+            /** Format: int32 */
+            dimension?: number;
+            message: string;
+            modelName: string;
+            success: boolean;
+            /** Format: date-time */
+            testedAt: string;
+        };
+        UpdateEmbeddingConfigRequest: {
+            apiKey?: string;
+            baseUrl: string;
+            modelName: string;
+        };
+        TestEmbeddingConfigRequest: {
+            apiKey: string;
+            baseUrl: string;
+            modelName: string;
         };
     };
     responses: never;
@@ -1987,6 +2048,74 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ProcessingTaskResponse"];
+                };
+            };
+        };
+    };
+    getEmbeddingConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EmbeddingConfigResponse"];
+                };
+            };
+        };
+    };
+    updateEmbeddingConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEmbeddingConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EmbeddingConfigResponse"];
+                };
+            };
+        };
+    };
+    testEmbeddingConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestEmbeddingConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EmbeddingVectorizeTestResult"];
                 };
             };
         };

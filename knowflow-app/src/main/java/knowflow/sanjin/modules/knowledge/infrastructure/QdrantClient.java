@@ -89,6 +89,31 @@ public class QdrantClient {
     }
   }
 
+  /** 读取当前 collection 的向量维度；collection 不存在返回 empty，查询失败抛可重试异常。 */
+  public java.util.Optional<Integer> collectionDimension(String collectionName) {
+    String base = baseUrl();
+    Request get = new Request.Builder().url(base + "/collections/" + collectionName).get().build();
+    try (Response response = httpClient.newCall(get).execute()) {
+      if (response.isSuccessful()) {
+        JsonNode root = objectMapper.readTree(response.body().string());
+        int size =
+            root.path("result")
+                .path("config")
+                .path("params")
+                .path("vectors")
+                .path("size")
+                .asInt(-1);
+        return size > 0 ? java.util.Optional.of(size) : java.util.Optional.empty();
+      }
+      if (response.code() == 404) {
+        return java.util.Optional.empty();
+      }
+      throw retryable("Qdrant collection check failed: " + response.code());
+    } catch (IOException e) {
+      throw retryable("Qdrant collection check failed", e);
+    }
+  }
+
   /** Upsert 一批 Point；Point ID 由调用方确定性生成。 */
   public void upsertPoints(String collectionName, List<Point> points) {
     if (points.isEmpty()) {

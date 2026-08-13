@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import knowflow.sanjin.common.config.EmbeddingProperties;
 import knowflow.sanjin.common.config.QdrantProperties;
 import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
@@ -54,7 +53,8 @@ public class KnowledgeIndexingService implements IndexingService {
   private final TextChunker textChunker;
   private final EmbeddingClient embeddingClient;
   private final QdrantClient qdrantClient;
-  private final EmbeddingProperties embeddingProperties;
+  private final knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService
+      embeddingConfigService;
   private final QdrantProperties qdrantProperties;
   private final ObjectMapper objectMapper;
 
@@ -67,7 +67,7 @@ public class KnowledgeIndexingService implements IndexingService {
       TextChunker textChunker,
       EmbeddingClient embeddingClient,
       QdrantClient qdrantClient,
-      EmbeddingProperties embeddingProperties,
+      knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService embeddingConfigService,
       QdrantProperties qdrantProperties) {
     this.itemMapper = itemMapper;
     this.chunkMapper = chunkMapper;
@@ -77,7 +77,7 @@ public class KnowledgeIndexingService implements IndexingService {
     this.textChunker = textChunker;
     this.embeddingClient = embeddingClient;
     this.qdrantClient = qdrantClient;
-    this.embeddingProperties = embeddingProperties;
+    this.embeddingConfigService = embeddingConfigService;
     this.qdrantProperties = qdrantProperties;
     this.objectMapper = new ObjectMapper();
   }
@@ -120,7 +120,8 @@ public class KnowledgeIndexingService implements IndexingService {
     if (payloadOnly) {
       String collection = qdrantProperties.getCollectionName();
       log.info("Ensuring Qdrant collection {}", collection);
-      qdrantClient.ensureCollection(collection, embeddingProperties.getDimensions());
+      qdrantClient.ensureCollection(
+          collection, embeddingConfigService.getCurrentSnapshot().dimension());
       updatePayloadOnly(item);
       return;
     }
@@ -137,7 +138,8 @@ public class KnowledgeIndexingService implements IndexingService {
     }
     String collection = qdrantProperties.getCollectionName();
     log.info("Ensuring Qdrant collection {}", collection);
-    qdrantClient.ensureCollection(collection, embeddingProperties.getDimensions());
+    qdrantClient.ensureCollection(
+        collection, embeddingConfigService.getCurrentSnapshot().dimension());
     log.info("Indexing item {} contentVersion {}", itemId, version);
     indexVersion(item, version, collection);
   }
@@ -227,7 +229,8 @@ public class KnowledgeIndexingService implements IndexingService {
         "Saved {} chunks to MySQL, embedding {} texts", savedChunks.size(), embeddingTexts.size());
 
     // 批量 Embedding
-    List<float[]> vectors = embeddingClient.embed(embeddingTexts);
+    List<float[]> vectors =
+        embeddingClient.embed(embeddingTexts, embeddingConfigService.getCurrentSnapshot());
     log.info("Embedded {} vectors", vectors.size());
 
     // Qdrant Upsert

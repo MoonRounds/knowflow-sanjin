@@ -146,9 +146,9 @@ SSE 最小事件：
 - KnowledgeBase 是逻辑知识域，不对应物理数据库或 Collection。
 - 同一 Owner 下 KnowledgeBase 规范化名称唯一。
 - KnowledgeBase 可禁用；禁用不删除 Item 或向量，但不进入 Router。
-- 删除 KnowledgeBase 不级联删除 Item；若删除会导致 Item 零归属则阻止。
-- KnowledgeItem 必须关联 1～N 个 KnowledgeBase 才能进入索引生命周期。
-- KnowledgeItem 与 KnowledgeBase 多对多。
+- 删除 KnowledgeBase 不级联删除 Item；KnowledgeBase 下仍有活动 Item 时阻止删除（见 ADR 0007）。
+- KnowledgeItem 必须归属于且仅归属于一个 KnowledgeBase（kb_id 必填）才能进入索引生命周期。
+- KnowledgeItem 与 KnowledgeBase 一对多（单归属）；跨主题语义由 Tag 表达（见 ADR 0007）。
 - Tag 是 Owner 级轻量实体，与 Item 多对多；Tag 可选并规范化去重。
 - SourceType：`AI_CONVERSATION / MANUAL_NOTE / UPLOAD_FILE`。
 - 规范正文统一保存 UTF-8 Markdown。
@@ -180,12 +180,12 @@ SSE 最小事件：
 ## 12. Embedding、Chunk 与 Qdrant
 
 - ChatModel 与 EmbeddingModel 完全分离。
-- Embedding 是单一系统级云端配置，不进入用户 ModelConfig 页面。
+- Embedding 是系统级配置，在系统设置中配置与测试（单一当前配置，独立于 Chat ModelConfig，见 ADR 0008）。
 - 首选 Spike：Qwen `text-embedding-v4`、1024 维、dense vector。
 - Embedding Profile 与 Chunking Profile 有显式版本。
-- V1 不在线切换 EmbeddingModel；更换需要未来全量重建流程。
+- 支持在系统设置中修改 Embedding 配置；维度变化需先全量重建，重建完成前保持旧配置生效；重建流程在 V1 后跟进（见 ADR 0008）。
 - Qdrant 使用按 Embedding Profile 划分的共享 Collection，不按 Owner/KnowledgeBase 建 Collection。
-- Point metadata 至少包含 ownerId、itemId、chunkId、knowledgeBaseIds、content/index version、chunkIndex、sourceType、Tags、profile versions。
+- Point metadata 至少包含 ownerId、itemId、chunkId、knowledgeBaseId、content/index version、chunkIndex、sourceType、Tags、profile versions。
 - Qdrant 不保存完整 Chunk 正文；命中后从 MySQL 批量回表。
 - MySQL `knowledge_chunk` 保存规范 Chunk 正文和关系。
 - Point ID 由 Owner、Item、contentVersion、chunkIndex 确定性生成 UUID。

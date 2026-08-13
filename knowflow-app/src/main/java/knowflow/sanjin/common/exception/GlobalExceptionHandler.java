@@ -13,6 +13,7 @@ import knowflow.sanjin.modules.document.exception.FileTooLargeException;
 import knowflow.sanjin.modules.document.exception.FileUnsupportedTypeException;
 import knowflow.sanjin.modules.document.exception.InvalidFileContentException;
 import knowflow.sanjin.modules.document.exception.StoredFileMissingException;
+import knowflow.sanjin.modules.embeddingconfig.exception.EmbeddingConfigDimensionChangeException;
 import knowflow.sanjin.modules.extraction.exception.CandidateEmptyDraftException;
 import knowflow.sanjin.modules.extraction.exception.CandidateInvalidStateException;
 import knowflow.sanjin.modules.extraction.exception.CandidateNoKnowledgeBaseException;
@@ -25,6 +26,8 @@ import knowflow.sanjin.modules.knowledge.exception.KnowledgeBaseRefNotFoundExcep
 import knowflow.sanjin.modules.knowledge.exception.KnowledgeIndexTaskConflictException;
 import knowflow.sanjin.modules.knowledge.exception.KnowledgeItemNotFoundException;
 import knowflow.sanjin.modules.knowledge.exception.KnowledgeItemVersionConflictException;
+import knowflow.sanjin.modules.knowledge.exception.RetryableIndexException;
+import knowflow.sanjin.modules.knowledge.exception.TerminalIndexException;
 import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseInUseException;
 import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseNameConflictException;
 import knowflow.sanjin.modules.knowledgebase.exception.KnowledgeBaseNotFoundException;
@@ -122,6 +125,23 @@ public class GlobalExceptionHandler {
       KnowledgeIndexTaskConflictException ex) {
     return problem(
         HttpStatus.CONFLICT, "索引任务冲突", ex.getMessage(), ErrorCode.KNOWLEDGE_INDEX_TASK_CONFLICT);
+  }
+
+  @ExceptionHandler(RetryableIndexException.class)
+  public ResponseEntity<ProblemDetail> handleRetryableIndex(RetryableIndexException ex) {
+    return problem(HttpStatus.SERVICE_UNAVAILABLE, "索引依赖不可用", ex.getMessage(), ex.getFailureCode());
+  }
+
+  @ExceptionHandler(TerminalIndexException.class)
+  public ResponseEntity<ProblemDetail> handleTerminalIndex(TerminalIndexException ex) {
+    return problem(
+        HttpStatus.UNPROCESSABLE_ENTITY, "索引数据校验失败", ex.getMessage(), ex.getFailureCode());
+  }
+
+  @ExceptionHandler(EmbeddingConfigDimensionChangeException.class)
+  public ResponseEntity<ProblemDetail> handleEmbeddingDimensionChange(
+      EmbeddingConfigDimensionChangeException ex) {
+    return problem(HttpStatus.CONFLICT, "需要先重建索引", ex.getMessage(), ex.getErrorCode());
   }
 
   @ExceptionHandler(ProcessingTaskNotFoundException.class)

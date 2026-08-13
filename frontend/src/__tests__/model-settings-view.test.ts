@@ -3,10 +3,38 @@ import ElementPlus from 'element-plus'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import ModelSettingsView from '../views/ModelSettingsView.vue'
 import * as api from '../api/model-configs'
+import * as embeddingApi from '../api/embedding-configs'
 import type { ModelConfigResponse, OwnerAiSettingsResponse } from '../api/types/model-config'
 
 function mountView() {
   return mount(ModelSettingsView, { global: { plugins: [ElementPlus] } })
+}
+
+/** 补齐 Embedding 区块 API 的桩，避免 onMounted 真实请求与后续交互命中外层按钮。 */
+function stubEmbeddingApi() {
+  vi.spyOn(embeddingApi, 'getEmbeddingConfig').mockResolvedValue({
+    configured: true,
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    modelName: 'text-embedding-v4',
+    apiKeyMasked: 'sk-a******',
+    dimension: 1024,
+    updatedAt: '2026-08-09T00:00:00Z',
+  })
+  vi.spyOn(embeddingApi, 'testEmbeddingConfig').mockResolvedValue({
+    success: true,
+    message: '向量化测试通过',
+    modelName: 'text-embedding-v4',
+    dimension: 1024,
+    testedAt: '2026-08-09T00:00:00Z',
+  })
+  vi.spyOn(embeddingApi, 'updateEmbeddingConfig').mockResolvedValue({
+    configured: true,
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    modelName: 'text-embedding-v4',
+    apiKeyMasked: 'sk-a******',
+    dimension: 1024,
+    updatedAt: '2026-08-09T00:00:00Z',
+  })
 }
 
 const config: ModelConfigResponse = {
@@ -48,6 +76,7 @@ describe('ModelSettingsView', () => {
     vi.spyOn(api, 'getOwnerAiSettings').mockResolvedValue({
       updatedAt: '2026-08-09T00:00:00Z',
     } as OwnerAiSettingsResponse)
+    stubEmbeddingApi()
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.text()).toContain('先接入一个可以对话的模型')
@@ -59,6 +88,7 @@ describe('ModelSettingsView', () => {
   it('renders config list with masked key and roles', async () => {
     vi.spyOn(api, 'listModelConfigs').mockResolvedValue([config])
     vi.spyOn(api, 'getOwnerAiSettings').mockResolvedValue(settings)
+    stubEmbeddingApi()
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.text()).toContain('DeepSeek')
@@ -76,13 +106,15 @@ describe('ModelSettingsView', () => {
       updatedAt: '2026-08-09T00:00:00Z',
     } as OwnerAiSettingsResponse)
     const createMock = vi.spyOn(api, 'createModelConfig').mockResolvedValue(config)
+    stubEmbeddingApi()
 
     const wrapper = mountView()
     await flushPromises()
     await wrapper.find('button').trigger('click')
     expect(wrapper.text()).toContain('新建模型配置')
 
-    const inputs = wrapper.findAll('input')
+    // 限定在弹窗表单内取输入框，避免命中外层 Embedding 区块的输入
+    const inputs = wrapper.find('.kf-dialog-form').findAll('input')
     await inputs[0].setValue('Qwen')
     await inputs[1].setValue('Qwen')
     await inputs[2].setValue('https://dashscope.aliyuncs.com/compatible-mode/v1')
@@ -91,10 +123,11 @@ describe('ModelSettingsView', () => {
     const last = inputs[inputs.length - 1]
     await last.setValue('sk-real-secret')
 
-    await wrapper
+    const saveBtn = wrapper
+      .find('.kf-dialog-actions')
       .findAll('button')
       .find((b) => b.text() === '保存')!
-      .trigger('click')
+    await saveBtn.trigger('click')
     await flushPromises()
 
     expect(createMock).toHaveBeenCalledWith(
@@ -111,6 +144,7 @@ describe('ModelSettingsView', () => {
   it('tests connection and shows result', async () => {
     vi.spyOn(api, 'listModelConfigs').mockResolvedValue([config])
     vi.spyOn(api, 'getOwnerAiSettings').mockResolvedValue(settings)
+    stubEmbeddingApi()
     const testMock = vi.spyOn(api, 'testConnection').mockResolvedValue({
       success: true,
       message: 'Connection OK, got text reply',

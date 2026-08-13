@@ -256,9 +256,7 @@ Chat History
 - Spring Boot
 - Redis
 
-因此目前倾向：
-
-KnowledgeItem 和 KnowledgeBase 使用多对多关系。
+后续决策已反转（见 ADR 0007）：KnowledgeItem 单归属（kb_id 必填），跨主题由 Tag 表达。
 
 例如：
 
@@ -266,20 +264,20 @@ KnowledgeItem：
 
 > Spring Boot 集成 Redis
 
-所属 KnowledgeBase：
+所属 KnowledgeBase（主归属，唯一）：
 
 - Spring Boot
+
+Tags（跨主题 / 细粒度）：
+
 - Redis
-
-Tags：
-
 - RedisTemplate
 - Lettuce
 - Spring Data Redis
 
 也就是说：
 
-**KnowledgeBase 是大知识域，Tag 是更细粒度标签。**
+**KnowledgeBase 是主主题分类，Tag 是跨主题标签。**
 
 ------
 
@@ -356,7 +354,7 @@ V1 我倾向先考虑基于 LLM Structured Output 的 Router，不需要第一�
 Metadata 至少应该能够隔离：
 
 - userId
-- knowledgeBaseIds
+- knowledgeBaseId（点内单值；多库检索用 OR 合并）
 
 后续可能还有：
 
@@ -407,7 +405,7 @@ AI 提取出来的信息可能包括：
 - title
 - summary
 - content
-- knowledgeBaseIds
+- knowledgeBaseId（AI 建议主归属，用户确认时必选）
 - tags
 - source information
 

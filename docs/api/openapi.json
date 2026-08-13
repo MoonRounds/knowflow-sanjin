@@ -1081,6 +1081,115 @@
                     "testedAt"
                 ],
                 "type": "object"
+            },
+            "EmbeddingConfigResponse": {
+                "properties": {
+                    "apiKeyMasked": {
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "type": "string"
+                    },
+                    "configured": {
+                        "type": "boolean"
+                    },
+                    "dimension": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "modelName": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "apiKeyMasked",
+                    "baseUrl",
+                    "configured",
+                    "dimension",
+                    "modelName",
+                    "updatedAt"
+                ],
+                "type": "object"
+            },
+            "EmbeddingVectorizeTestResult": {
+                "properties": {
+                    "dimension": {
+                        "format": "int32",
+                        "type": "integer"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "type": "string"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    },
+                    "testedAt": {
+                        "format": "date-time",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "message",
+                    "modelName",
+                    "success",
+                    "testedAt"
+                ],
+                "type": "object"
+            },
+            "UpdateEmbeddingConfigRequest": {
+                "properties": {
+                    "apiKey": {
+                        "maxLength": 500,
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "baseUrl",
+                    "modelName"
+                ],
+                "type": "object"
+            },
+            "TestEmbeddingConfigRequest": {
+                "properties": {
+                    "apiKey": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "baseUrl": {
+                        "maxLength": 500,
+                        "minLength": 0,
+                        "type": "string"
+                    },
+                    "modelName": {
+                        "maxLength": 200,
+                        "minLength": 0,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "apiKey",
+                    "baseUrl",
+                    "modelName"
+                ],
+                "type": "object"
             }
         }
     },
@@ -2585,6 +2694,84 @@
                 },
                 "tags": [
                     "processing-task-controller"
+                ]
+            }
+        },
+        "/api/v1/embedding-config": {
+            "get": {
+                "operationId": "getEmbeddingConfig",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmbeddingConfigResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "embedding-config-controller"
+                ]
+            },
+            "put": {
+                "operationId": "updateEmbeddingConfig",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateEmbeddingConfigRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmbeddingConfigResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "embedding-config-controller"
+                ]
+            }
+        },
+        "/api/v1/embedding-config/test": {
+            "post": {
+                "operationId": "testEmbeddingConfig",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TestEmbeddingConfigRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmbeddingVectorizeTestResult"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "tags": [
+                    "embedding-config-controller"
                 ]
             }
         }

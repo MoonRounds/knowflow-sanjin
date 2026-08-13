@@ -48,13 +48,19 @@ class RetrievalServiceTest {
     CurrentOwnerProvider ownerProvider = mock(CurrentOwnerProvider.class);
     when(ownerProvider.getCurrentOwnerId()).thenReturn(OWNER_ID);
     embeddingClient = mock(EmbeddingClient.class);
-    when(embeddingClient.embed(any())).thenReturn(List.of(new float[] {1f, 0f}));
+    when(embeddingClient.embed(any(), any())).thenReturn(List.of(new float[] {1f, 0f}));
     qdrantClient = mock(QdrantClient.class);
     when(qdrantClient.search(any(), any(float[].class), anyInt(), any())).thenReturn(List.of());
     chunkMapper = mock(KnowledgeChunkMapper.class);
     itemMapper = mock(KnowledgeItemMapper.class);
     kbItemMapper = mock(KnowledgeBaseItemMapper.class);
     QdrantProperties qp = new QdrantProperties();
+    knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService embeddingConfigService =
+        mock(knowflow.sanjin.modules.embeddingconfig.service.EmbeddingConfigService.class);
+    when(embeddingConfigService.getCurrentSnapshot())
+        .thenReturn(
+            new knowflow.sanjin.modules.knowledge.infrastructure.EmbeddingConfigSnapshot(
+                "https://example.com/v1", "key", "model", 2));
 
     retrievalService =
         new RetrievalService(
@@ -65,7 +71,8 @@ class RetrievalServiceTest {
             qp,
             chunkMapper,
             itemMapper,
-            kbItemMapper);
+            kbItemMapper,
+            embeddingConfigService);
   }
 
   private QdrantClient.ScoredPoint scored(
@@ -258,7 +265,7 @@ class RetrievalServiceTest {
   @Test
   @DisplayName("should propagate embedding failure for the caller to degrade")
   void shouldPropagateEmbeddingFailure() {
-    when(embeddingClient.embed(any()))
+    when(embeddingClient.embed(any(), any()))
         .thenThrow(
             new knowflow.sanjin.modules.knowledge.exception.RetryableIndexException(
                 knowflow.sanjin.common.error.ErrorCode.EMBEDDING_UNAVAILABLE, "down", null));
