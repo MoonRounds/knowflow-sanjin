@@ -74,12 +74,9 @@ public class RouterService {
   /**
    * 执行一次路由。返回带 {@code needRag} 与选中 KB 的 {@link RouterResult}。目录为空或 Utility 不可用 / Router 失败时 {@code
    * result} 为 null，由调用方标记 {@code NOT_AVAILABLE} 或 {@code DEGRADED} 并跳过检索。
+   *
+   * <p>手动绑定非空时只向 Router 暴露该范围；空集合保持原 AUTO 行为。
    */
-  public RouterOutcome route(Long conversationId, String userQuestion) {
-    return route(conversationId, userQuestion, List.of());
-  }
-
-  /** 手动绑定非空时只向 Router 暴露该范围；空集合保持原 AUTO 行为。 */
   public RouterOutcome route(
       Long conversationId, String userQuestion, List<Long> boundKnowledgeBaseIds) {
     boolean manual = boundKnowledgeBaseIds != null && !boundKnowledgeBaseIds.isEmpty();
@@ -166,6 +163,7 @@ public class RouterService {
     if (enabled.isEmpty()) {
       return List.of();
     }
+    // manual 范围的服务层契约：即使查询返回范围外行（如单测 stub 不按 .in 过滤），也只暴露绑定集合内的库
     if (allowedIds != null) {
       enabled = enabled.stream().filter(kb -> allowedIds.contains(kb.getId())).toList();
     }

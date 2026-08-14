@@ -130,6 +130,11 @@ const unavailableBindingIds = computed(() =>
   activeKnowledgeBaseIds.value.filter((id) => !knowledgeBaseById.value.get(id)?.enabled),
 )
 
+/** 编辑弹层草稿中的失效绑定（已停用/已删除），与保存动作一致，避免编辑中与已保存状态不一致。 */
+const draftUnavailableBindingIds = computed(() =>
+  draftKnowledgeBaseIds.value.filter((id) => !knowledgeBaseById.value.get(id)?.enabled),
+)
+
 /** Owner 设置的默认聊天模型 id（无则 undefined）。 */
 const defaultChatModelId = computed(() => ownerSettings.value?.defaultChatModelConfigId)
 
@@ -411,14 +416,15 @@ function clearBindingDraft() {
   draftKnowledgeBaseIds.value = []
 }
 
+/** 显式移除某个失效绑定（已停用/已删除），而不是保存时静默清除。 */
+function removeDraftBinding(id: string) {
+  draftKnowledgeBaseIds.value = draftKnowledgeBaseIds.value.filter((x) => x !== id)
+}
+
 async function saveKnowledgeBaseBinding() {
   if (!knowledgeBasesLoaded.value) return
-  // 保存时移除已禁用或已删除 ID；后端再次执行 Owner/启用校验。
-  const validIds = draftKnowledgeBaseIds.value.filter(
-    (id) => knowledgeBaseById.value.get(id)?.enabled,
-  )
+  // 失效绑定保留在草稿中随保存提交（ADR 0009「不自动清理」）；后端对「新增」ID 执行存在/启用校验，对既有失效 ID 放行。
   if (isNewChat.value) {
-    draftKnowledgeBaseIds.value = [...validIds]
     bindingPopoverOpen.value = false
     return
   }
@@ -428,11 +434,10 @@ async function saveKnowledgeBaseBinding() {
   try {
     replaceConversation(
       await updateConversation(conv.id, {
-        knowledgeBaseIds: validIds,
+        knowledgeBaseIds: draftKnowledgeBaseIds.value,
         rowVersion: conv.rowVersion,
       }),
     )
-    draftKnowledgeBaseIds.value = [...validIds]
     bindingPopoverOpen.value = false
     ElMessage.success('知识库范围已保存，将从下一轮问答生效')
   } catch (e) {
@@ -886,13 +891,25 @@ function replaceConversation(updated: ConversationResponse) {
                     :image-size="48"
                   />
                 </el-scrollbar>
-                <div v-if="unavailableBindingIds.length > 0" class="binding-unavailable">
-                  <span v-for="id in unavailableBindingIds" :key="id">
+                <div v-if="draftUnavailableBindingIds.length > 0" class="binding-unavailable">
+                  <span
+                    v-for="id in draftUnavailableBindingIds"
+                    :key="id"
+                    class="binding-stale-chip"
+                  >
                     {{
                       knowledgeBaseById.get(id)
                         ? `${knowledgeBaseById.get(id)?.name}（已停用）`
                         : `不可用知识库 #${id}`
                     }}
+                    <button
+                      type="button"
+                      class="binding-chip-remove"
+                      :aria-label="`移除知识库 ${id}`"
+                      @click="removeDraftBinding(id)"
+                    >
+                      ×
+                    </button>
                   </span>
                 </div>
                 <div class="binding-editor-actions">
@@ -1454,6 +1471,23 @@ function replaceConversation(updated: ConversationResponse) {
   color: #8a4300;
   background: #fff6e8;
   font-size: 11px;
+}
+.binding-stale-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.binding-chip-remove {
+  border: none;
+  background: transparent;
+  color: #8a4300;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+}
+.binding-chip-remove:hover {
+  color: #d9534f;
 }
 .binding-editor-actions {
   justify-content: flex-end;

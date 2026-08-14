@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.rag.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -144,7 +145,7 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     RouterTrace trace = new RouterTrace();
     trace.setRouterCalled(true);
     trace.setResult(result);
-    when(routerService.route(any(), any()))
+    when(routerService.route(any(), any(), anyList()))
         .thenReturn(new RouterService.RouterOutcome(result, trace));
   }
 
@@ -239,7 +240,7 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     RouterTrace trace = new RouterTrace();
     trace.setRouterCalled(true);
     trace.setResult(result);
-    when(routerService.route(any(), any()))
+    when(routerService.route(any(), any(), anyList()))
         .thenReturn(new RouterService.RouterOutcome(result, trace));
 
     stubChatModel("你好！有什么可以帮你？");

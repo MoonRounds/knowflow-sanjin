@@ -34,32 +34,21 @@ public class RagContextBuilder {
     this.properties = properties;
   }
 
-  /** 构造 RAG 上下文（流式前同步调用）。失败不抛异常，只降级标记。 */
-  public RagContext build(Long conversationId, String userQuestion) {
-    return buildInternal(conversationId, userQuestion, List.of(), false);
-  }
-
-  /** 使用 Generation Tx1 冻结的绑定构造本轮 RAG 上下文。 */
+  /** 使用 Generation Tx1 冻结的绑定构造本轮 RAG 上下文（空集合 = AUTO）。失败不抛异常，只降级标记。 */
   public RagContext build(
       Long conversationId, String userQuestion, List<Long> boundKnowledgeBaseIds) {
-    return buildInternal(conversationId, userQuestion, boundKnowledgeBaseIds, true);
+    return buildInternal(conversationId, userQuestion, boundKnowledgeBaseIds);
   }
 
   private RagContext buildInternal(
-      Long conversationId,
-      String userQuestion,
-      List<Long> boundKnowledgeBaseIds,
-      boolean explicitSnapshot) {
+      Long conversationId, String userQuestion, List<Long> boundKnowledgeBaseIds) {
     String mode =
         boundKnowledgeBaseIds != null && !boundKnowledgeBaseIds.isEmpty()
             ? RouterService.MODE_MANUAL
             : RouterService.MODE_AUTO;
     RouterService.RouterOutcome outcome;
     try {
-      outcome =
-          explicitSnapshot
-              ? routerService.route(conversationId, userQuestion, boundKnowledgeBaseIds)
-              : routerService.route(conversationId, userQuestion);
+      outcome = routerService.route(conversationId, userQuestion, boundKnowledgeBaseIds);
     } catch (RuntimeException e) {
       // Router 异常（Utility 超时/建客户端失败等）必须降级为普通生成，不能逃逸导致 slot 泄漏
       log.warn("Router failed for conversation {}, degrading: {}", conversationId, e.getMessage());

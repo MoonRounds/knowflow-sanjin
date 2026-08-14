@@ -3,6 +3,8 @@ package knowflow.sanjin.modules.conversation.service;
 import static org.assertj.core.api.Assertions.*;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import java.time.Instant;
 import java.util.List;
 import knowflow.sanjin.modules.conversation.dto.CreateConversationRequest;
 import knowflow.sanjin.modules.conversation.dto.UpdateConversationRequest;
@@ -386,6 +388,79 @@ class ConversationServiceIT extends MySQLTestBase {
     request.setKnowledgeBaseIds(List.of(kb.getId().toString()));
     assertThatThrownBy(() -> service.create(request))
         .isInstanceOf(ConversationKnowledgeBaseDisabledException.class);
+  }
+
+  @Test
+  @DisplayName("should preserve a previously bound now-disabled knowledge base on update")
+  void shouldPreserveDisabledKnowledgeBaseInExistingBindingOnUpdate() {
+    CreateKnowledgeBaseRequest firstRequest = new CreateKnowledgeBaseRequest();
+    firstRequest.setName("Stale Binding A " + System.nanoTime());
+    var first = knowledgeBaseService.create(firstRequest);
+    CreateKnowledgeBaseRequest secondRequest = new CreateKnowledgeBaseRequest();
+    secondRequest.setName("Stale Binding B " + System.nanoTime());
+    var second = knowledgeBaseService.create(secondRequest);
+
+    CreateConversationRequest create = new CreateConversationRequest();
+    create.setKnowledgeBaseIds(List.of(first.getId().toString()));
+    Conversation conversation = service.create(create);
+
+    knowledgeBaseService.disable(first.getId(), first.getRowVersion());
+
+    // 重新保存绑定集合：先前有效、现被禁用的 first 必须保留（ADR 0009「不自动清理」），新增 second 仍受启用校验
+    UpdateConversationRequest reSave = new UpdateConversationRequest();
+    reSave.setKnowledgeBaseIds(List.of(second.getId().toString(), first.getId().toString()));
+    reSave.setRowVersion(conversation.getRowVersion().longValue());
+    Conversation updated = service.update(conversation.getId(), reSave);
+
+    assertThat(ConversationKnowledgeBaseIds.decode(updated.getKnowledgeBaseIdsJson()))
+        .containsExactly(first.getId(), second.getId());
+  }
+
+  @Test
+  @DisplayName(
+      "should reject a newly bound disabled knowledge base even when stale ids are present")
+  void shouldRejectNewlyDisabledKnowledgeBaseOnUpdate() {
+    CreateKnowledgeBaseRequest firstRequest = new CreateKnowledgeBaseRequest();
+    firstRequest.setName("Stale Reject A " + System.nanoTime());
+    var first = knowledgeBaseService.create(firstRequest);
+    CreateKnowledgeBaseRequest badRequest = new CreateKnowledgeBaseRequest();
+    badRequest.setName("Stale Reject C " + System.nanoTime());
+    var bad = knowledgeBaseService.create(badRequest);
+
+    CreateConversationRequest create = new CreateConversationRequest();
+    create.setKnowledgeBaseIds(List.of(first.getId().toString()));
+    Conversation conversation = service.create(create);
+
+    knowledgeBaseService.disable(bad.getId(), bad.getRowVersion());
+
+    UpdateConversationRequest reSave = new UpdateConversationRequest();
+    reSave.setKnowledgeBaseIds(List.of(first.getId().toString(), bad.getId().toString()));
+    reSave.setRowVersion(conversation.getRowVersion().longValue());
+    assertThatThrownBy(() -> service.update(conversation.getId(), reSave))
+        .isInstanceOf(ConversationKnowledgeBaseDisabledException.class);
+  }
+
+  @Test
+  @DisplayName("binding update should refresh updatedAt")
+  void shouldRefreshUpdatedAtWhenUpdatingBindings() {
+    Conversation c = createConversation("updated-at");
+    Instant past = Instant.parse("2020-01-01T00:00:00Z");
+    conversationMapper.update(
+        null,
+        new LambdaUpdateWrapper<Conversation>()
+            .eq(Conversation::getId, c.getId())
+            .set(Conversation::getUpdatedAt, past));
+
+    CreateKnowledgeBaseRequest kbRequest = new CreateKnowledgeBaseRequest();
+    kbRequest.setName("UpdatedAt Binding " + System.nanoTime());
+    var kb = knowledgeBaseService.create(kbRequest);
+
+    UpdateConversationRequest bind = new UpdateConversationRequest();
+    bind.setKnowledgeBaseIds(List.of(kb.getId().toString()));
+    bind.setRowVersion(c.getRowVersion().longValue());
+    Conversation updated = service.update(c.getId(), bind);
+
+    assertThat(updated.getUpdatedAt()).isAfter(past);
   }
 
   private CreateModelConfigRequest modelConfigRequest(String name) {

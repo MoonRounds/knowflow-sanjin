@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.common.util.ApiValueParser;
 import knowflow.sanjin.modules.conversation.dto.CreateConversationRequest;
@@ -72,7 +74,7 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
     c.setRowVersion(0);
     if (request.getKnowledgeBaseIds() != null) {
       List<Long> ids = ConversationKnowledgeBaseIds.normalizeApiIds(request.getKnowledgeBaseIds());
-      validateKnowledgeBaseIds(ownerId, ids);
+      validateKnowledgeBaseIds(ownerId, ids, Set.of());
       c.setKnowledgeBaseIdsJson(ConversationKnowledgeBaseIds.encode(ids));
     }
     save(c);
@@ -120,7 +122,10 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
         throw new ConversationVersionConflictException();
       }
       List<Long> ids = ConversationKnowledgeBaseIds.normalizeApiIds(request.getKnowledgeBaseIds());
-      validateKnowledgeBaseIds(c.getOwnerId(), ids);
+      validateKnowledgeBaseIds(
+          c.getOwnerId(),
+          ids,
+          new HashSet<>(ConversationKnowledgeBaseIds.decode(c.getKnowledgeBaseIdsJson())));
       LambdaUpdateWrapper<Conversation> update =
           new LambdaUpdateWrapper<Conversation>()
               .eq(Conversation::getId, id)
@@ -173,8 +178,16 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
     return c;
   }
 
-  private void validateKnowledgeBaseIds(long ownerId, List<Long> ids) {
+  /**
+   * 校验绑定集合。已存在于会话当前绑定中的 ID（{@code alreadyBound}）即使随后被禁用/删除也保持原样（ADR 0009「失效 ID 不自动清理」）； 仅对新增 ID
+   * 要求「存在、未删除、启用」。
+   */
+  private void validateKnowledgeBaseIds(long ownerId, List<Long> ids, Set<Long> alreadyBound) {
     if (ids.isEmpty()) {
+      return;
+    }
+    List<Long> fresh = ids.stream().filter(id -> !alreadyBound.contains(id)).toList();
+    if (fresh.isEmpty()) {
       return;
     }
     List<KnowledgeBase> found =
@@ -182,10 +195,10 @@ public class ConversationService extends ServiceImpl<ConversationMapper, Convers
             new LambdaQueryWrapper<KnowledgeBase>()
                 .eq(KnowledgeBase::getOwnerId, ownerId)
                 .eq(KnowledgeBase::getDeleted, false)
-                .in(KnowledgeBase::getId, ids));
+                .in(KnowledgeBase::getId, fresh));
     java.util.Map<Long, KnowledgeBase> byId =
         found.stream().collect(java.util.stream.Collectors.toMap(KnowledgeBase::getId, kb -> kb));
-    for (Long id : ids) {
+    for (Long id : fresh) {
       KnowledgeBase kb = byId.get(id);
       if (kb == null) {
         throw new KnowledgeBaseRefNotFoundException(id);

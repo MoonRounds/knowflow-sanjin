@@ -70,7 +70,8 @@ test.describe('个人笔记/上传闭环', () => {
       }),
     )
 
-    // 额外准备一个启用但暂无文档的库，验证会话可持久化多库范围，而 Router 只看到其中可检索的库。
+    // 额外准备一个启用但暂无文档的库，验证会话可持久化多库范围；空库因无已索引文档不会进入 Router 目录（该约束由
+    // RouterService 单测确定性覆盖），此处断言检索来源仍只命中 Manual Note 所在库、rag_status=USED。
     const emptyKb = await createKnowledgeBase(request, `Kf-空知识库-${suffix}`)
 
     // ---- N-Q1：新会话手动绑定两个库，再检索 Manual Note ----

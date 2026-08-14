@@ -54,8 +54,6 @@ class GenerationServiceIT extends MySQLTestBase {
   @BeforeEach
   void setUp() {
     // 默认无 RAG：每个 generation 都是 NOT_AVAILABLE（普通生成）
-    when(ragContextBuilder.build(any(), any()))
-        .thenReturn(RagContext.simple(RagStatus.NOT_AVAILABLE));
     when(ragContextBuilder.build(any(), any(), anyList()))
         .thenReturn(RagContext.simple(RagStatus.NOT_AVAILABLE));
 
@@ -188,6 +186,39 @@ class GenerationServiceIT extends MySQLTestBase {
 
     verify(ragContextBuilder, timeout(3000))
         .build(conversation.getId(), "snapshot-question", List.of(first.getId()));
+    awaitSlotReleased();
+  }
+
+  @Test
+  @DisplayName("regenerate freezes manual knowledge base bindings at its own prepare time")
+  void shouldFreezeKnowledgeBaseBindingsForRegenerate() throws Exception {
+    CreateKnowledgeBaseRequest firstRequest = new CreateKnowledgeBaseRequest();
+    firstRequest.setName("regenerate-snapshot-a-" + System.nanoTime());
+    var first = knowledgeBaseService.create(firstRequest);
+    CreateKnowledgeBaseRequest secondRequest = new CreateKnowledgeBaseRequest();
+    secondRequest.setName("regenerate-snapshot-b-" + System.nanoTime());
+    var second = knowledgeBaseService.create(secondRequest);
+
+    var bindFirst = new knowflow.sanjin.modules.conversation.dto.UpdateConversationRequest();
+    bindFirst.setKnowledgeBaseIds(List.of(first.getId().toString()));
+    bindFirst.setRowVersion(conversation.getRowVersion().longValue());
+    conversation = conversationService.update(conversation.getId(), bindFirst);
+
+    stubChatModel("pong");
+    generationService.send(conversation.getId(), send("client-reg-snapshot", "snapshot-question"));
+    awaitSlotReleased();
+
+    // 发送完成后把绑定改为 second：重新生成必须使用 regenerate 准备时（Tx1）冻结的当前绑定，而不是发送时冻结的 first
+    var bindSecond = new knowflow.sanjin.modules.conversation.dto.UpdateConversationRequest();
+    bindSecond.setKnowledgeBaseIds(List.of(second.getId().toString()));
+    bindSecond.setRowVersion(conversation.getRowVersion().longValue());
+    conversationService.update(conversation.getId(), bindSecond);
+
+    stubChatModel("pong-2");
+    generationService.regenerate(conversation.getId(), null);
+
+    verify(ragContextBuilder, timeout(3000))
+        .build(conversation.getId(), "snapshot-question", List.of(second.getId()));
     awaitSlotReleased();
   }
 

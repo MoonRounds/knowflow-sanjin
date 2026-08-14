@@ -144,7 +144,7 @@ class RouterServiceTest {
   void shouldBeNotAvailableWhenNoCatalog() {
     when(kbMapper.selectList(any())).thenReturn(List.of());
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "hello");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "hello", List.of());
 
     assertThat(outcome.available()).isFalse();
     assertThat(outcome.trace().isRouterCalled()).isFalse();
@@ -160,7 +160,7 @@ class RouterServiceTest {
         .thenThrow(
             new knowflow.sanjin.modules.modelconfig.exception.ModelConfigNotFoundException(null));
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "hello");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "hello", List.of());
 
     assertThat(outcome.available()).isFalse();
     assertThat(outcome.trace().isRouterCalled()).isFalse();
@@ -172,7 +172,7 @@ class RouterServiceTest {
     stubCatalog(1L);
     stubRouterJson(routerJson(false));
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "你好");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "你好", List.of());
 
     assertThat(outcome.available()).isTrue();
     assertThat(outcome.result().isNeedRag()).isFalse();
@@ -185,7 +185,8 @@ class RouterServiceTest {
     stubCatalog(1L, 2L);
     stubRouterJson(routerJson(true, "1"));
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "What is the deploy checklist?");
+    RouterService.RouterOutcome outcome =
+        routerService.route(1L, "What is the deploy checklist?", List.of());
 
     assertThat(outcome.available()).isTrue();
     assertThat(outcome.result().isNeedRag()).isTrue();
@@ -198,7 +199,7 @@ class RouterServiceTest {
     stubCatalog(1L, 2L, 3L);
     stubRouterJson(routerJson(true, "1", "2"));
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "project conventions");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "project conventions", List.of());
 
     assertThat(outcome.result().getKnowledgeBaseIds()).containsExactly("1", "2");
   }
@@ -210,7 +211,7 @@ class RouterServiceTest {
     // 第一次输出 4 个 KB（超过上限 3）→ 修复后返回 0 个
     stubRouterJson(routerJson(true, "1", "2", "3", "4"), routerJson(false));
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "q");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of());
 
     assertThat(outcome.available()).isTrue();
     assertThat(outcome.trace().isFixed()).isTrue();
@@ -224,7 +225,7 @@ class RouterServiceTest {
     // 第一次输出 id 999（不在目录）→ 修复后返回合法 id
     stubRouterJson(routerJson(true, "999"), routerJson(true, "2"));
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "q");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of());
 
     assertThat(outcome.trace().isFixed()).isTrue();
     assertThat(outcome.result().getKnowledgeBaseIds()).containsExactly("2");
@@ -237,7 +238,7 @@ class RouterServiceTest {
     // 两次都返回未知 id
     stubRouterJson(routerJson(true, "999"), routerJson(true, "888"));
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "q");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of());
 
     assertThat(outcome.available()).isFalse();
     assertThat(outcome.trace().isRouterCalled()).isTrue();
@@ -250,7 +251,7 @@ class RouterServiceTest {
     stubCatalog(1L);
     stubRouterJson("not json at all", "still not json");
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "q");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of());
 
     assertThat(outcome.available()).isFalse();
   }
@@ -262,7 +263,7 @@ class RouterServiceTest {
     stubCatalog(1L, 2L, 3L);
     stubRouterJson(routerJson(false));
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "q");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of());
 
     assertThat(outcome.trace().getCatalog()).hasSize(2);
     assertThat(outcome.available()).isTrue();
@@ -305,7 +306,7 @@ class RouterServiceTest {
     when(itemMapper.selectList(any())).thenReturn(List.of(document(10L, 1L)));
 
     stubRouterJson(routerJson(false));
-    RouterService.RouterOutcome outcome = routerService.route(1L, "q");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of());
 
     List<RoutableKnowledgeBase> catalog = outcome.trace().getCatalog();
     assertThat(catalog).hasSize(1);
@@ -319,7 +320,7 @@ class RouterServiceTest {
     // 该 KB 下没有任何未软删已索引 Document → 目录为空
     when(itemMapper.selectList(any())).thenReturn(List.of());
 
-    RouterService.RouterOutcome outcome = routerService.route(1L, "q");
+    RouterService.RouterOutcome outcome = routerService.route(1L, "q", List.of());
 
     assertThat(outcome.available()).isFalse();
     assertThat(outcome.trace().getCatalog()).isEmpty();
