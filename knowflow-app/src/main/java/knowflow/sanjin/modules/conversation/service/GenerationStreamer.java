@@ -46,24 +46,27 @@ public class GenerationStreamer {
   }
 
   /** 在已认领 active slot 的前提下执行生成并把事件写入 emitter。 */
-  public void stream(GenerationContext ctx, SseEmitter emitter) throws java.io.IOException {
+  public void stream(GenerationContext ctx, SseEmitter emitter) {
     StringBuilder content = new StringBuilder();
     AtomicReference<Integer> promptTokens = new AtomicReference<>();
     AtomicReference<Integer> completionTokens = new AtomicReference<>();
     AtomicReference<Integer> totalTokens = new AtomicReference<>();
     long msgId = ctx.assistantMessageId();
+    long start = System.nanoTime();
     GenerationTraceSnapshot snapshot = GenerationTraceSnapshot.from(ctx.ragContext());
+    // 所有 SSE 写入经 writer 降级：客户端断开后进入静默模式，Provider 流继续跑完并以 COMPLETED 落库
+    SilentSseWriter writer = new SilentSseWriter(emitter);
 
     try {
-      emitStarted(ctx, emitter);
-      emitStage(ctx, emitter, "generating");
+      emitStarted(ctx, writer);
+      emitStage(ctx, writer, "generating");
 
       if (executor.isCancelled(msgId)) {
         throw new CancelledGenerationException();
       }
 
       content.append(
-          modelClientFacade.stream(ctx, promptTokens, completionTokens, totalTokens, emitter));
+          modelClientFacade.stream(ctx, promptTokens, completionTokens, totalTokens, writer));
 
       if (executor.isCancelled(msgId)) {
         throw new CancelledGenerationException();
@@ -82,39 +85,30 @@ public class GenerationStreamer {
           active,
           snapshot);
       triggerTitleGeneration(ctx);
-      emitSourcesAvailable(ctx, emitter, cited, snapshot);
+      emitSourcesAvailable(ctx, writer, cited, snapshot);
       emitCompleted(
           ctx,
-          emitter,
+          writer,
           content.toString(),
           active,
           snapshot,
           promptTokens,
           completionTokens,
           totalTokens);
+      log.info(
+          "生成完成 messageId={} 耗时={} 输出字符数={} 输入Token={} 输出Token={} RAG={}{}",
+          msgId,
+          elapsedMs(start),
+          content.length(),
+          promptTokens.get(),
+          completionTokens.get(),
+          ragStatus(ctx),
+          writer.isDisconnected() ? "（静默模式：客户端已断开，生成在后台完成）" : "");
 
     } catch (CancelledGenerationException e) {
       log.info("Generation {} cancelled by user", msgId);
       finalizer.cancel(ctx.conversationId(), msgId, content.toString(), snapshot);
-      emitFailed(ctx, emitter, GENERATION_CANCELLED, "cancelled", "生成已取消");
-
-    } catch (java.io.IOException e) {
-      // emitter.send 可直接抛 IOException（客户端断开）；不能只由上层记录日志，否则消息与
-      // conversation active slot 会永久停留在 GENERATING。
-      if (executor.isCancelled(msgId)) {
-        // stop 请求返回后客户端会主动关闭 SSE；此时写事件可能与取消终结并发抛 IOException。
-        // 用户取消标志优先，避免同一次操作被错误归类为客户端断连。
-        log.info("Generation {} cancelled while closing SSE", msgId);
-        finalizer.cancel(ctx.conversationId(), msgId, content.toString(), snapshot);
-      } else {
-        log.info("Generation {} client disconnected while emitting, finalizing", msgId);
-        finalizer.fail(
-            ctx.conversationId(),
-            msgId,
-            content.toString(),
-            GENERATION_CLIENT_DISCONNECTED,
-            snapshot);
-      }
+      emitFailed(ctx, writer, GENERATION_CANCELLED, "cancelled", "生成已取消");
 
     } catch (RuntimeException e) {
       if (executor.isCancelled(msgId)) {
@@ -122,23 +116,22 @@ public class GenerationStreamer {
         // Provider 错误分类，确保用户停止稳定落为 CANCELLED。
         log.info("Generation {} cancelled while provider stream was active", msgId);
         finalizer.cancel(ctx.conversationId(), msgId, content.toString(), snapshot);
-        emitFailed(ctx, emitter, GENERATION_CANCELLED, "cancelled", "生成已取消");
+        emitFailed(ctx, writer, GENERATION_CANCELLED, "cancelled", "生成已取消");
       } else {
-        Throwable cause = rootCause(e);
-        String errorCode;
-        String detail;
-        if (cause instanceof java.io.IOException || cause instanceof java.net.SocketException) {
-          log.info("Generation {} client disconnected, finalizing", msgId);
-          errorCode = GENERATION_CLIENT_DISCONNECTED;
-          detail = "客户端已断开";
-        } else {
-          errorCode = mapErrorCode(cause);
-          detail = errorCode;
-          // 真实失败（超时/模型/未知）记 error 级并带完整堆栈，供控制台定位问题
-          log.error("生成 {} 失败: errorCode={}", msgId, errorCode, e);
-        }
+        // 客户端断连已由 SilentSseWriter 静默吞掉；到达这里的异常是 Provider 自身的真实失败
+        // （超时/模型/网络），统一按模型调用失败分类收口。
+        String errorCode = mapErrorCode(rootCause(e));
+        String detail = errorCode;
+        // 真实失败（超时/模型/未知）记 error 级并带完整堆栈，供控制台定位问题
+        log.error(
+            "生成 {} 失败: errorCode={} 耗时={} 已输出字符数={}",
+            msgId,
+            errorCode,
+            elapsedMs(start),
+            content.length(),
+            e);
         finalizer.fail(ctx.conversationId(), msgId, content.toString(), errorCode, snapshot);
-        emitFailed(ctx, emitter, errorCode, "failed", detail);
+        emitFailed(ctx, writer, errorCode, "failed", detail);
       }
     } finally {
       emitter.complete();
@@ -172,8 +165,8 @@ public class GenerationStreamer {
     return sources;
   }
 
-  private void emitStarted(GenerationContext ctx, SseEmitter emitter) throws java.io.IOException {
-    emitter.send(
+  private void emitStarted(GenerationContext ctx, SilentSseWriter writer) {
+    writer.send(
         SseEmitter.event()
             .name(SseEvents.STARTED)
             .data(
@@ -183,13 +176,12 @@ public class GenerationStreamer {
                     Long.toString(ctx.assistantMessageId()))));
   }
 
-  private void emitStage(GenerationContext ctx, SseEmitter emitter, String stage)
-      throws java.io.IOException {
+  private void emitStage(GenerationContext ctx, SilentSseWriter writer, String stage) {
     String modelName =
         ctx.revision() != null && ctx.revision().getModelName() != null
             ? ctx.revision().getModelName()
             : "";
-    emitter.send(
+    writer.send(
         SseEmitter.event()
             .name(SseEvents.STAGE)
             .data(
@@ -202,14 +194,13 @@ public class GenerationStreamer {
 
   private void emitSourcesAvailable(
       GenerationContext ctx,
-      SseEmitter emitter,
+      SilentSseWriter writer,
       List<RetrievedSource> sources,
-      GenerationTraceSnapshot snapshot)
-      throws java.io.IOException {
+      GenerationTraceSnapshot snapshot) {
     RagContext rag = ctx.ragContext();
     String ragStatus = rag != null ? rag.getRagStatus() : null;
     SseEvents.RouterDiagnostic router = toDiagnostic(snapshot);
-    emitter.send(
+    writer.send(
         SseEmitter.event()
             .name(SseEvents.SOURCES_AVAILABLE)
             .data(
@@ -239,17 +230,16 @@ public class GenerationStreamer {
 
   private void emitCompleted(
       GenerationContext ctx,
-      SseEmitter emitter,
+      SilentSseWriter writer,
       String content,
       boolean active,
       GenerationTraceSnapshot snapshot,
       AtomicReference<Integer> promptTokens,
       AtomicReference<Integer> completionTokens,
-      AtomicReference<Integer> totalTokens)
-      throws java.io.IOException {
+      AtomicReference<Integer> totalTokens) {
     RagContext rag = ctx.ragContext();
     String ragStatus = rag != null ? rag.getRagStatus() : null;
-    emitter.send(
+    writer.send(
         SseEmitter.event()
             .name(SseEvents.COMPLETED)
             .data(
@@ -264,10 +254,13 @@ public class GenerationStreamer {
   }
 
   private void emitFailed(
-      GenerationContext ctx, SseEmitter emitter, String errorCode, String stage, String detail)
-      throws java.io.IOException {
+      GenerationContext ctx,
+      SilentSseWriter writer,
+      String errorCode,
+      String stage,
+      String detail) {
     // 失败事件：稳定错误码 + 摘要，不透传 Provider 原始错误文本（REVIEW 门禁）
-    emitter.send(
+    writer.send(
         SseEmitter.event()
             .name(SseEvents.FAILED)
             .data(
@@ -285,6 +278,19 @@ public class GenerationStreamer {
       cur = cur.getCause();
     }
     return cur;
+  }
+
+  private static String elapsedMs(long startNanos) {
+    return (System.nanoTime() - startNanos) / 1_000_000 + "ms";
+  }
+
+  /** 当前回合 RAG 状态（无上下文时为 "无"），用于生成汇总日志。 */
+  private static String ragStatus(GenerationContext ctx) {
+    RagContext rag = ctx.ragContext();
+    if (rag == null) {
+      return "无";
+    }
+    return rag.getRagStatus() != null ? rag.getRagStatus() : "无";
   }
 
   private static String mapErrorCode(Throwable cause) {

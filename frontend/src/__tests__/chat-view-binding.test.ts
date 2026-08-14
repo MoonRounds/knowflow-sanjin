@@ -1,5 +1,6 @@
 // ChatView 会话知识库绑定状态机测试：保留失效绑定、保存失败回滚、列表加载失败禁止保存。
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ChatView from '../views/ChatView.vue'
@@ -43,7 +44,9 @@ async function mountView(options?: { knowledgeBases?: () => Promise<KnowledgeBas
   const kbMock = options?.knowledgeBases ?? (() => Promise.resolve(knowledgeBases()))
   vi.spyOn(knowledgeBasesApi, 'listKnowledgeBases').mockImplementation(kbMock)
 
-  const wrapper = mount(ChatView, { global: { plugins: [ElementPlus] } })
+  const wrapper = mount(ChatView, {
+    global: { plugins: [createPinia(), ElementPlus] },
+  })
   await flushPromises()
   return wrapper
 }
@@ -73,6 +76,25 @@ describe('ChatView 会话知识库绑定', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
+  })
+
+  it('将知识库和模型入口集中在输入框工具栏，并保留辅助说明', async () => {
+    const wrapper = await mountView()
+
+    expect(wrapper.find('.chat-core-head .binding-trigger').exists()).toBe(false)
+    expect(wrapper.find('.composer-toolbar .binding-trigger').exists()).toBe(true)
+    expect(wrapper.find('.composer-toolbar .model-select').exists()).toBe(true)
+    expect(wrapper.find('.composer-assistive').text()).toContain('Enter 发送')
+    expect(wrapper.find('.composer-assistive').text()).toContain('Shift+Enter 换行')
+    expect(wrapper.find('.composer-assistive').text()).toContain('AI 回答可能不准确')
+    expect(wrapper.find('textarea').attributes('placeholder')).toBe('向 KnowFlow 提问…')
+  })
+
+  it('多知识库绑定在胶囊中显示数量', async () => {
+    const wrapper = await mountView()
+    await selectExistingConversation(wrapper)
+
+    expect(wrapper.find('.binding-trigger').text()).toContain('2 个知识库')
   })
 
   it('保存时保留已停用绑定，不静默清除', async () => {

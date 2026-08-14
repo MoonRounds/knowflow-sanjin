@@ -82,7 +82,7 @@ test.describe('个人笔记/上传闭环', () => {
     await bindingEditor.getByText(kb.name, { exact: true }).click()
     await bindingEditor.getByText(emptyKb.name, { exact: true }).click()
     await bindingEditor.getByRole('button', { name: '保存' }).click()
-    await expect(page.locator('.binding-trigger')).toContainText('已绑定 2 个库')
+    await expect(page.locator('.binding-trigger')).toContainText('2 个知识库')
     await sendMessage(page, 'Kf-番茄工作法-我用多少分钟一个番茄？', '45 分钟')
     const conversationId = await readActiveConversationId(page)
     expect(conversationId).toBeTruthy()
@@ -93,7 +93,7 @@ test.describe('个人笔记/上传闭环', () => {
     )
 
     const latestAssistant = page.locator('.message.assistant').last()
-    await expect(latestAssistant.getByRole('button', { name: /个人知识 · 来源/ })).toBeVisible()
+    await expect(latestAssistant.getByRole('button', { name: /来源个人知识库/ })).toBeVisible()
     await latestAssistant.getByRole('button', { name: /来源/ }).click()
     const sourceItem = latestAssistant.locator('.source-item').filter({ hasText: 'Kf-番茄工作法' })
     await expect(sourceItem.getByText('已引用')).toBeVisible()
@@ -197,7 +197,7 @@ test.describe('个人笔记/上传闭环', () => {
     expect(conversationId).toBeTruthy()
 
     const latestAssistant = page.locator('.message.assistant').last()
-    await expect(latestAssistant.getByRole('button', { name: /个人知识 · 来源/ })).toBeVisible()
+    await expect(latestAssistant.getByRole('button', { name: /来源个人知识库/ })).toBeVisible()
     await latestAssistant.getByRole('button', { name: /来源/ }).click()
     const sourceItem = latestAssistant
       .locator('.source-item')

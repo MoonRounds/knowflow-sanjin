@@ -22,9 +22,12 @@ import type { ModelConfigResponse, OwnerAiSettingsResponse } from '../api/types/
 import type { KnowledgeBaseResponse } from '../api/types/knowledge-base'
 import { useChatStream } from '../composables/useChatStream'
 import type { RouterDiagnostic } from '../composables/useChatStream'
+import { useChatGenerationStore } from '../stores/chatGeneration'
 import { errorText, networkErrorMessage } from '../utils/errorText'
 import ChatMessageItem from '../components/ChatMessageItem.vue'
 import { filterConversations, groupConversationsByDate } from '../utils/chat-workspace'
+
+const generationStore = useChatGenerationStore()
 
 const conversations = ref<ConversationResponse[]>([])
 const activeId = ref<string | null>(null)
@@ -45,7 +48,6 @@ const loadingHistory = ref(false)
 const nextBefore = ref<string | null>(null)
 const hasMoreHistory = ref(true)
 const chatBody = ref<HTMLElement | null>(null)
-let activeController: AbortController | null = null
 
 const HISTORY_PREF_KEY = 'knowflow.chat.history-panel'
 const historyOpen = ref(true)
@@ -113,13 +115,15 @@ const activeKnowledgeBaseIds = computed(() =>
     : (activeConversation.value?.knowledgeBaseIds ?? []),
 )
 
-const bindingLabel = computed(() =>
-  activeKnowledgeBaseIds.value.length === 0
-    ? '自动选择'
-    : `已绑定 ${activeKnowledgeBaseIds.value.length} 个库`,
-)
-
 const knowledgeBaseById = computed(() => new Map(knowledgeBases.value.map((kb) => [kb.id!, kb])))
+
+/** Composer 胶囊优先展示可识别的当前范围，完整详情仍由绑定弹层承接。 */
+const bindingLabel = computed(() => {
+  const ids = activeKnowledgeBaseIds.value
+  if (ids.length === 0) return '自动选择'
+  if (ids.length === 1) return knowledgeBaseById.value.get(ids[0])?.name ?? '1 个知识库'
+  return `${ids.length} 个知识库`
+})
 
 const selectableKnowledgeBases = computed(() =>
   knowledgeBases.value.filter((kb) => kb.enabled && kb.id),
@@ -149,7 +153,7 @@ const defaultModelName = computed(() => {
 
 /** 未显式选择模型时选择器的占位文案：明确告知实际生效模型是默认模型。 */
 const modelSelectPlaceholder = computed(() =>
-  defaultModelName.value ? `跟随默认（${defaultModelName.value}）` : '请选择模型',
+  defaultModelName.value ? `${defaultModelName.value}（默认）` : '请选择模型',
 )
 
 /** 选择器「跟随默认」哨兵值：与真实模型 id 区分，选中它表示不指定模型。 */
@@ -169,9 +173,38 @@ function modelRoleLabel(m: ModelConfigResponse): string {
 }
 
 /** 可开始新一轮发送：idle / completed / failed 均可，仅连接或生成进行中禁止。 */
-const canStartSend = computed(
-  () => stream.phase.value !== 'connecting' && stream.phase.value !== 'streaming',
-)
+const canStartSend = computed(() => {
+  // store 守卫：切走再切回时本组件 phase 已复位，但该会话可能在后台仍有 live 生成
+  if (activeId.value && generationStore.isGenerating(activeId.value)) return false
+  return stream.phase.value !== 'connecting' && stream.phase.value !== 'streaming'
+})
+
+/**
+ * 当前会话展示的消息：历史消息 + store 中「进行中」的 live 生成消息（按 messageId 去重合并）。
+ * 切回一个仍在后台生成的会话时，loadHistory 只能拉到空内容的 GENERATING 占位，
+ * 这里用 store 实时累积的增量内容补齐，回答完成后由 watch 对账回服务端最终状态。
+ */
+const visibleMessages = computed(() => {
+  if (!activeId.value) return messages.value
+  const live = generationStore.liveOf(activeId.value)
+  if (!live || live.status !== 'generating' || !live.messageId) return messages.value
+  const copy = [...messages.value]
+  const idx = copy.findIndex((m) => m.id === live.messageId)
+  const liveMessage: MessageResponse = {
+    id: live.messageId,
+    conversationId: activeId.value,
+    role: 'ASSISTANT',
+    content: live.content,
+    generationStatus: 'GENERATING',
+    active: false,
+  }
+  if (idx >= 0) {
+    copy[idx] = { ...copy[idx], content: live.content, generationStatus: 'GENERATING' }
+  } else {
+    copy.push(liveMessage)
+  }
+  return copy
+})
 
 const canSend = computed(
   () => !!activeConversation.value && canStartSend.value && input.value.trim().length > 0,
@@ -206,11 +239,12 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('resize', syncHistoryPanelForViewport)
   window.removeEventListener('keydown', handleHistoryEscape)
-  activeController?.abort()
-  // 离开页面时终止当前生成：token 守卫关闭，旧流事件不再污染后续会话
+  // 不 abort 当前生成流：流由 store 继续消费，生成在后台完成后落库（后端断连静默模式），
+  // 重进会话时从历史拉取完整回答。token 守卫关闭使旧流事件不再污染后续会话 UI。
   stream.stopGeneration()
   stopExtractionPolling()
   stopTitlePolling()
+  stopCompletionPolling()
   if (historyTransitionTimer) window.clearTimeout(historyTransitionTimer)
 })
 
@@ -287,10 +321,14 @@ async function loadKnowledgeBases() {
 }
 
 async function selectConversation(id: string) {
-  // 切换会话前终止当前生成，防止旧流对账/占位消息污染新会话
+  // 切换会话不中断原会话的后台生成（store 继续消费流）；仅使旧流事件对当前 UI 失效。
   if (activeId.value !== id) {
-    activeController?.abort()
     stream.stopGeneration()
+  }
+  // 已终态（completed/failed）的 live 条目在服务端已落库，对账后清理，避免残留
+  const live = generationStore.liveOf(id)
+  if (live && live.status !== 'generating') {
+    generationStore.clearGeneration(id)
   }
   leaveNewChat()
   activeId.value = id
@@ -332,6 +370,9 @@ async function loadHistory(before: string | null) {
     loadingHistory.value = false
   }
   if (loaded) {
+    // 刷新兜底：拉到的 GENERATING 消息若没有对应 live 流（页面刷新后连接已断），
+    // 启动轮询直至生成完成再重拉完整内容（后端非增量落库，期间没有实时增量可看）
+    if (!before) maybeStartCompletionPolling()
     await nextTick()
     if (body) {
       if (before) {
@@ -352,9 +393,10 @@ async function handleCreate() {
 
 /** 进入「新对话」空白态：主区切换到空白聊天，侧栏高亮占位项；不创建后端会话。 */
 function enterNewChat() {
-  activeController?.abort()
+  // 不 abort 当前生成流：原会话的生成继续在后台完成（store 接管），空白态不受影响
   stream.stopGeneration()
   stopExtractionPolling()
+  stopCompletionPolling()
   activeId.value = null
   messages.value = []
   nextBefore.value = null
@@ -465,15 +507,22 @@ async function resendAsActive(content: string) {
     },
   ]
   const modelConfigId = selectedModelId.value || undefined
-  activeController = streamSend(
-    conv.id,
-    { clientMessageId, content, modelConfigId },
-    makeOnEvent(dispatch),
-    (err) => {
-      stream.stopGeneration()
-      stream.streamError.value = networkErrorMessage(err, '发送失败')
-      void loadHistory(null)
-    },
+  const conversationId = conv.id
+  generationStore.startStream(
+    conversationId,
+    (onDispatch) =>
+      streamSend(
+        conversationId,
+        { clientMessageId, content, modelConfigId },
+        makeOnEvent(onDispatch),
+        (err) => {
+          stream.stopGeneration()
+          stream.streamError.value = networkErrorMessage(err, '发送失败')
+          generationStore.clearGeneration(conversationId)
+          void loadHistory(null)
+        },
+      ),
+    dispatch,
   )
 }
 
@@ -510,6 +559,57 @@ function stopTitlePolling() {
     titlePollTimer = undefined
   }
 }
+
+/** 刷新兜底轮询定时器：store 无 live 流（连接已断）但消息仍 GENERATING 时，轮询至终态再重拉。 */
+let completionPollTimer: number | undefined
+
+function stopCompletionPolling() {
+  if (completionPollTimer) {
+    clearInterval(completionPollTimer)
+    completionPollTimer = undefined
+  }
+}
+
+/** 检测「孤儿 GENERATING 消息」（页面刷新后连接已断，无 live 流接管）并启动轮询补齐。 */
+function maybeStartCompletionPolling() {
+  stopCompletionPolling()
+  if (!activeId.value) return
+  // 有 live 流时由 store 实时累积内容并随事件对账，不需要轮询
+  if (generationStore.isGenerating(activeId.value)) return
+  if (!messages.value.some((m) => m.role === 'ASSISTANT' && m.generationStatus === 'GENERATING')) {
+    return
+  }
+  completionPollTimer = window.setInterval(async () => {
+    if (!activeId.value) return
+    try {
+      const page = await listMessages(activeId.value, { limit: 5 })
+      const stillGenerating = (page.messages ?? []).some((m) => m.generationStatus === 'GENERATING')
+      if (!stillGenerating) {
+        stopCompletionPolling()
+        await loadHistory(null)
+      }
+    } catch {
+      // 轮询失败静默，下轮重试
+    }
+  }, 1500)
+}
+
+/**
+ * live 生成终态对账：流在本组件外部完成（切走期间/切回会话后）时，服务端已落库，
+ * 重新拉取完整历史并清理 store 条目；本组件发起并正常完成的流由 handleCompleted/
+ * handleFailed 直接对账，这里只清理残留（消息列表已非 GENERATING 则不再重复拉取）。
+ */
+watch(
+  () => (activeId.value ? generationStore.liveOf(activeId.value)?.status : undefined),
+  async (status) => {
+    if (status !== 'completed' && status !== 'failed' && status !== 'cancelled') return
+    if (!activeId.value) return
+    generationStore.clearGeneration(activeId.value)
+    if (messages.value.some((m) => m.role === 'ASSISTANT' && m.generationStatus === 'GENERATING')) {
+      await loadHistory(null)
+    }
+  },
+)
 
 async function handleExtract() {
   if (!activeConversation.value || isNewChat.value || extracting.value) return
@@ -595,9 +695,10 @@ async function handleDelete() {
         closeOnClickModal: false,
       },
     )
-    activeController?.abort()
+    // 删除前先取消后端生成并停掉本地流，避免后台生成对已删除会话写状态
     stream.stopGeneration()
     await stopGeneration(conversationId)
+    generationStore.stopStream(conversationId)
     await waitForGenerationRelease(conversationId)
     await deleteConversation(conversationId)
     conversations.value = conversations.value.filter((c) => c.id !== conversationId)
@@ -662,27 +763,34 @@ function handleSend() {
 
   const modelConfigId = selectedModelId.value || undefined
 
-  activeController = streamSend(
+  generationStore.startStream(
     conv.id!,
-    { clientMessageId, content, modelConfigId },
-    makeOnEvent(dispatch),
-    (err) => {
-      // 连接级错误（fetch 失败/断连）：终止状态机，避免消息永久 loading
-      stream.stopGeneration()
-      stream.streamError.value = networkErrorMessage(err, '发送失败')
-      // 断连/错误后对账最终状态
-      void loadHistory(null)
-    },
+    (onDispatch) =>
+      streamSend(
+        conv.id!,
+        { clientMessageId, content, modelConfigId },
+        makeOnEvent(onDispatch),
+        (err) => {
+          // 连接级错误（fetch 失败/断连）：终止状态机，避免消息永久 loading
+          stream.stopGeneration()
+          stream.streamError.value = networkErrorMessage(err, '发送失败')
+          generationStore.clearGeneration(conv.id!)
+          // 断连/错误后对账最终状态
+          void loadHistory(null)
+        },
+      ),
+    dispatch,
   )
 }
 
 async function handleStop() {
   if (!activeConversation.value) return
+  const conversationId = activeConversation.value.id!
   try {
-    // 先确认后端已设置取消标志，再断开当前 SSE；否则断连可能先被服务端归类为 FAILED。
-    await stopGeneration(activeConversation.value.id!)
+    // 先确认后端已设置取消标志，再断开本地流；否则断连可能先被服务端归类为 FAILED。
+    await stopGeneration(conversationId)
     stream.stopGeneration()
-    activeController?.abort()
+    generationStore.stopStream(conversationId)
     await loadHistory(null)
   } catch (e) {
     ElMessage.error(e instanceof Error ? e.message : '停止生成失败')
@@ -690,7 +798,8 @@ async function handleStop() {
 }
 
 function handleRegenerate() {
-  if (!activeConversation.value) return
+  if (!activeConversation.value || !canStartSend.value) return
+  const conversationId = activeConversation.value.id!
   const dispatch = stream.startGeneration()
   // 后端 regenerate 锁定"最新一条 assistant 消息"原位覆盖；前端同步清空该条，旧内容立即消失，流式新内容写回同一位置。
   const target = [...messages.value].reverse().find((m) => m.role === 'ASSISTANT')
@@ -702,15 +811,21 @@ function handleRegenerate() {
     target.sources = undefined
     target.usage = undefined
   }
-  activeController = streamRegenerate(
-    activeConversation.value.id!,
-    { modelConfigId: selectedModelId.value || undefined },
-    makeOnEvent(dispatch),
-    (err) => {
-      stream.stopGeneration()
-      stream.streamError.value = networkErrorMessage(err, '重新生成失败')
-      void loadHistory(null)
-    },
+  generationStore.startStream(
+    conversationId,
+    (onDispatch) =>
+      streamRegenerate(
+        conversationId,
+        { modelConfigId: selectedModelId.value || undefined },
+        makeOnEvent(onDispatch),
+        (err) => {
+          stream.stopGeneration()
+          stream.streamError.value = networkErrorMessage(err, '重新生成失败')
+          generationStore.clearGeneration(conversationId)
+          void loadHistory(null)
+        },
+      ),
+    dispatch,
   )
 }
 
@@ -796,7 +911,10 @@ function replaceConversation(updated: ConversationResponse) {
             <span class="session-dot" />
             <b>{{ conv.title }}</b>
             <small>{{ conv.title }}</small>
-            <em>·</em>
+            <span v-if="generationStore.isGenerating(conv.id!)" class="session-generating">
+              生成中
+            </span>
+            <em v-if="!generationStore.isGenerating(conv.id!)">·</em>
           </button>
         </template>
         <div v-if="visibleConversations.length === 0 && !isNewChat" class="conv-empty">
@@ -839,112 +957,6 @@ function replaceConversation(updated: ConversationResponse) {
             </div>
           </div>
           <div class="chat-head-actions">
-            <el-popover
-              v-model:visible="bindingPopoverOpen"
-              placement="bottom-end"
-              :width="340"
-              trigger="manual"
-              :disabled="!canStartSend"
-            >
-              <template #reference>
-                <el-button
-                  size="small"
-                  class="binding-trigger"
-                  :class="{ 'has-unavailable': unavailableBindingIds.length > 0 }"
-                  :disabled="!canStartSend"
-                  :aria-label="
-                    unavailableBindingIds.length > 0
-                      ? `${bindingLabel}，包含不可用知识库`
-                      : bindingLabel
-                  "
-                  @click="openBindingEditor"
-                >
-                  {{ bindingLabel }}
-                </el-button>
-              </template>
-              <div class="binding-editor">
-                <div class="binding-editor-head">
-                  <strong>本会话知识库</strong>
-                  <el-button size="small" text @click="clearBindingDraft">切回自动选择</el-button>
-                </div>
-                <p>绑定后仅在这些知识库中判断是否需要检索；问题无关时不会强制引用。</p>
-                <el-alert
-                  v-if="!knowledgeBasesLoaded"
-                  type="warning"
-                  :closable="false"
-                  title="知识库列表加载失败，请重试"
-                />
-                <el-scrollbar v-else class="binding-options" max-height="220px">
-                  <el-checkbox-group v-model="draftKnowledgeBaseIds">
-                    <el-checkbox
-                      v-for="kb in selectableKnowledgeBases"
-                      :key="kb.id"
-                      :value="kb.id!"
-                    >
-                      {{ kb.name }}
-                    </el-checkbox>
-                  </el-checkbox-group>
-                  <el-empty
-                    v-if="selectableKnowledgeBases.length === 0"
-                    description="暂无可选知识库"
-                    :image-size="48"
-                  />
-                </el-scrollbar>
-                <div v-if="draftUnavailableBindingIds.length > 0" class="binding-unavailable">
-                  <span
-                    v-for="id in draftUnavailableBindingIds"
-                    :key="id"
-                    class="binding-stale-chip"
-                  >
-                    {{
-                      knowledgeBaseById.get(id)
-                        ? `${knowledgeBaseById.get(id)?.name}（已停用）`
-                        : `不可用知识库 #${id}`
-                    }}
-                    <button
-                      type="button"
-                      class="binding-chip-remove"
-                      :aria-label="`移除知识库 ${id}`"
-                      @click="removeDraftBinding(id)"
-                    >
-                      ×
-                    </button>
-                  </span>
-                </div>
-                <div class="binding-editor-actions">
-                  <el-button
-                    size="small"
-                    :loading="knowledgeBasesLoading"
-                    @click="loadKnowledgeBases"
-                  >
-                    重试加载
-                  </el-button>
-                  <el-button
-                    size="small"
-                    type="primary"
-                    :disabled="!knowledgeBasesLoaded"
-                    :loading="bindingSaving"
-                    @click="saveKnowledgeBaseBinding"
-                  >
-                    保存
-                  </el-button>
-                </div>
-              </div>
-            </el-popover>
-            <el-select
-              v-model="pickerModel"
-              :placeholder="modelSelectPlaceholder"
-              size="small"
-              style="width: 170px"
-              class="model-select"
-            >
-              <el-option
-                v-if="defaultChatModelId"
-                :value="FOLLOW_DEFAULT_MODEL"
-                :label="`跟随默认（${defaultModelName ?? '默认模型'}）`"
-              />
-              <el-option v-for="m in models" :key="m.id" :label="modelRoleLabel(m)" :value="m.id" />
-            </el-select>
             <el-button size="small" @click="handleRename">重命名</el-button>
             <el-button
               size="small"
@@ -980,7 +992,7 @@ function replaceConversation(updated: ConversationResponse) {
           </el-button>
 
           <ChatMessageItem
-            v-for="msg in messages"
+            v-for="msg in visibleMessages"
             :key="msg.id"
             :msg="msg"
             :router="messageRouter(msg) ?? null"
@@ -1005,34 +1017,194 @@ function replaceConversation(updated: ConversationResponse) {
               :autosize="{ minRows: 2, maxRows: 6 }"
               resize="none"
               aria-label="输入消息"
-              placeholder="聊聊你正在理解的事，让有价值的内容沉淀下来…"
+              placeholder="向 KnowFlow 提问…"
               @keydown.enter.exact.prevent="handleSend"
             />
-            <button
-              class="send-btn"
-              :class="{ stopping: stream.phase.value === 'streaming' }"
-              :disabled="isSendButtonDisabled"
-              :aria-label="sendLabel"
-              :title="sendLabel"
-              @click="stream.phase.value === 'streaming' ? handleStop() : handleSend()"
-            >
-              <svg
-                v-if="stream.phase.value !== 'streaming'"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                aria-hidden="true"
+            <div class="composer-toolbar">
+              <div class="composer-tools">
+                <el-popover
+                  v-model:visible="bindingPopoverOpen"
+                  placement="top-start"
+                  :width="340"
+                  trigger="manual"
+                  :disabled="!canStartSend"
+                >
+                  <template #reference>
+                    <el-button
+                      size="small"
+                      class="composer-pill binding-trigger"
+                      :class="{ 'has-unavailable': unavailableBindingIds.length > 0 }"
+                      :disabled="!canStartSend"
+                      :aria-label="
+                        unavailableBindingIds.length > 0
+                          ? `${bindingLabel}，包含不可用知识库`
+                          : bindingLabel
+                      "
+                      @click="openBindingEditor"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                        <path
+                          d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v15H6.5A2.5 2.5 0 0 1 4 16.5v-10Z"
+                          stroke-width="1.8"
+                        />
+                        <path
+                          d="M4 16.5A2.5 2.5 0 0 1 6.5 14H20M8 8h8"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                        />
+                      </svg>
+                      <span class="composer-pill-label">{{ bindingLabel }}</span>
+                    </el-button>
+                  </template>
+                  <div class="binding-editor">
+                    <div class="binding-editor-head">
+                      <strong>本会话知识库</strong>
+                      <el-button size="small" text @click="clearBindingDraft">
+                        切回自动选择
+                      </el-button>
+                    </div>
+                    <p>绑定后仅在这些知识库中判断是否需要检索；问题无关时不会强制引用。</p>
+                    <el-alert
+                      v-if="!knowledgeBasesLoaded"
+                      type="warning"
+                      :closable="false"
+                      title="知识库列表加载失败，请重试"
+                    />
+                    <el-scrollbar v-else class="binding-options" max-height="220px">
+                      <el-checkbox-group v-model="draftKnowledgeBaseIds">
+                        <el-checkbox
+                          v-for="kb in selectableKnowledgeBases"
+                          :key="kb.id"
+                          :value="kb.id!"
+                        >
+                          {{ kb.name }}
+                        </el-checkbox>
+                      </el-checkbox-group>
+                      <el-empty
+                        v-if="selectableKnowledgeBases.length === 0"
+                        description="暂无可选知识库"
+                        :image-size="48"
+                      />
+                    </el-scrollbar>
+                    <div v-if="draftUnavailableBindingIds.length > 0" class="binding-unavailable">
+                      <span
+                        v-for="id in draftUnavailableBindingIds"
+                        :key="id"
+                        class="binding-stale-chip"
+                      >
+                        {{
+                          knowledgeBaseById.get(id)
+                            ? `${knowledgeBaseById.get(id)?.name}（已停用）`
+                            : `不可用知识库 #${id}`
+                        }}
+                        <button
+                          type="button"
+                          class="binding-chip-remove"
+                          :aria-label="`移除知识库 ${id}`"
+                          @click="removeDraftBinding(id)"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    </div>
+                    <div class="binding-editor-actions">
+                      <el-button
+                        size="small"
+                        :loading="knowledgeBasesLoading"
+                        @click="loadKnowledgeBases"
+                      >
+                        重试加载
+                      </el-button>
+                      <el-button
+                        size="small"
+                        type="primary"
+                        :disabled="!knowledgeBasesLoaded"
+                        :loading="bindingSaving"
+                        @click="saveKnowledgeBaseBinding"
+                      >
+                        保存
+                      </el-button>
+                    </div>
+                  </div>
+                </el-popover>
+
+                <el-select
+                  v-model="pickerModel"
+                  :placeholder="modelSelectPlaceholder"
+                  :disabled="!canStartSend"
+                  size="small"
+                  class="composer-pill model-select"
+                  aria-label="选择对话模型"
+                >
+                  <template #prefix>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                      <path
+                        d="M12 3 4.5 7.25v9.5L12 21l7.5-4.25v-9.5L12 3Z"
+                        stroke-width="1.8"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="m4.8 7.5 7.2 4.1 7.2-4.1M12 11.6V21"
+                        stroke-width="1.8"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </template>
+                  <el-option
+                    v-if="defaultChatModelId"
+                    :value="FOLLOW_DEFAULT_MODEL"
+                    :label="`${defaultModelName ?? '默认模型'}（默认）`"
+                  />
+                  <el-option
+                    v-for="m in models"
+                    :key="m.id"
+                    :label="modelRoleLabel(m)"
+                    :value="m.id"
+                  />
+                </el-select>
+              </div>
+
+              <button
+                class="send-btn"
+                :class="{
+                  connecting: stream.phase.value === 'connecting',
+                  stopping: stream.phase.value === 'streaming',
+                }"
+                :disabled="isSendButtonDisabled"
+                :aria-label="sendLabel"
+                :title="sendLabel"
+                @click="stream.phase.value === 'streaming' ? handleStop() : handleSend()"
               >
-                <path
-                  d="M12 19V5M5 12l7-7 7 7"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                <span
+                  v-if="stream.phase.value === 'connecting'"
+                  class="send-loading"
+                  aria-hidden="true"
                 />
-              </svg>
-              <span v-else class="stop-square" aria-hidden="true" />
-            </button>
+                <svg
+                  v-else-if="stream.phase.value !== 'streaming'"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 19V5M5 12l7-7 7 7"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <span v-else class="stop-square" aria-hidden="true" />
+              </button>
+            </div>
           </div>
+          <p class="composer-assistive">
+            <span>Enter 发送</span>
+            <span class="composer-secondary-separator" aria-hidden="true">·</span>
+            <span class="composer-secondary-shortcut">Shift+Enter 换行</span>
+            <span class="composer-disclaimer-separator" aria-hidden="true">·</span>
+            <span class="composer-disclaimer">AI 回答可能不准确，请核对重要信息</span>
+          </p>
         </div>
       </template>
     </main>
@@ -1308,6 +1480,28 @@ function replaceConversation(updated: ConversationResponse) {
   color: var(--kf-muted);
   font-weight: 900;
 }
+.session-generating {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-weight: 900;
+  color: var(--kf-hot);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 1px 7px;
+  animation: session-generating-pulse 1.2s ease-in-out infinite;
+}
+@keyframes session-generating-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
 .session-dot {
   position: absolute;
   left: 10px;
@@ -1417,11 +1611,6 @@ function replaceConversation(updated: ConversationResponse) {
   border-radius: 12px;
   min-height: 40px;
 }
-.chat-head-actions :deep(.model-select .el-select__wrapper) {
-  min-height: 40px;
-  border-radius: 12px;
-  background: var(--kf-paper);
-}
 .binding-trigger.has-unavailable {
   color: #9a4a00;
   border-color: #d9974a;
@@ -1447,6 +1636,7 @@ function replaceConversation(updated: ConversationResponse) {
   line-height: 1.6;
 }
 .binding-options {
+  height: fit-content;
   padding: 8px 10px;
   border: 1px solid var(--kf-line);
   border-radius: 10px;
@@ -1490,9 +1680,6 @@ function replaceConversation(updated: ConversationResponse) {
 }
 .binding-editor-actions {
   justify-content: flex-end;
-}
-.chat-head-actions :deep(.model-select) {
-  min-width: 0;
 }
 .action-divider {
   width: 1px;
@@ -1574,29 +1761,33 @@ function replaceConversation(updated: ConversationResponse) {
 .chat-input {
   padding: 10px 16px 14px;
   border-top: 1px solid var(--kf-line);
+  background: var(--kf-white);
 }
 .composebox {
   position: relative;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   box-sizing: border-box;
-  border: 1.5px solid var(--kf-ink);
+  border: 1px solid var(--kf-line);
   background: var(--kf-white);
-  border-radius: 12px;
-  min-height: 88px;
+  border-radius: 18px;
+  min-height: 132px;
   overflow: hidden;
+  box-shadow: 0 12px 36px rgba(45, 36, 23, 0.08);
   transition:
     box-shadow var(--kf-duration-fast) var(--kf-ease),
     border-color var(--kf-duration-fast) var(--kf-ease);
 }
 .composebox:focus-within {
   border-color: var(--kf-green);
-  box-shadow: 0 0 0 2px var(--kf-green-soft);
+  box-shadow:
+    0 0 0 2px var(--kf-green-soft),
+    0 12px 36px rgba(45, 36, 23, 0.08);
 }
 .composebox :deep(.el-textarea) {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  padding: 20px 72px 20px 20px;
+  padding: 18px 18px 8px;
   border-radius: inherit;
   overflow: hidden;
 }
@@ -1604,8 +1795,8 @@ function replaceConversation(updated: ConversationResponse) {
   box-sizing: border-box;
   font-family: inherit;
   font-size: 16px;
-  font-weight: 600;
-  line-height: 24px;
+  font-weight: 500;
+  line-height: 28px;
   padding: 0;
   margin: 0;
   border: 0;
@@ -1620,20 +1811,95 @@ function replaceConversation(updated: ConversationResponse) {
 .composebox :deep(.el-textarea__inner::placeholder) {
   color: var(--kf-muted);
   font: inherit;
-  line-height: 24px;
-  opacity: 0.72;
+  line-height: 28px;
+  opacity: 0.85;
 }
 .composebox :deep(.el-textarea__inner:focus) {
   box-shadow: none;
 }
+.composer-toolbar {
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 10px 10px;
+}
+.composer-tools {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.composer-pill.binding-trigger {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 220px;
+  height: var(--kf-touch-min);
+  padding-inline: 12px;
+  border-color: var(--kf-line);
+  border-radius: var(--kf-radius-pill);
+  background: var(--kf-paper);
+  color: var(--kf-ink);
+  box-shadow: none;
+  overflow: hidden;
+}
+.composer-pill.binding-trigger:hover:not(:disabled) {
+  border-color: var(--kf-green);
+  color: var(--kf-green);
+  background: var(--kf-green-soft);
+}
+.composer-pill.binding-trigger svg,
+.model-select :deep(.el-select__prefix svg) {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+}
+.composer-pill-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-select {
+  flex: 0 1 220px;
+  width: 220px;
+  min-width: 130px;
+}
+.model-select :deep(.el-select__wrapper) {
+  min-height: var(--kf-touch-min);
+  padding-inline: 12px;
+  border: 1px solid var(--kf-line);
+  border-radius: var(--kf-radius-pill);
+  background: var(--kf-paper);
+  box-shadow: none;
+  transition:
+    border-color var(--kf-duration-fast) var(--kf-ease),
+    background var(--kf-duration-fast) var(--kf-ease);
+}
+.model-select :deep(.el-select__wrapper:hover),
+.model-select :deep(.el-select__wrapper.is-focused) {
+  border-color: var(--kf-green);
+  background: var(--kf-green-soft);
+  box-shadow: none;
+}
+.model-select :deep(.el-select__selected-item),
+.model-select :deep(.el-select__placeholder) {
+  min-width: 0;
+  color: var(--kf-ink);
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .send-btn {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  border-radius: 12px;
+  flex: 0 0 var(--kf-touch-min);
+  width: var(--kf-touch-min);
+  height: var(--kf-touch-min);
+  min-height: var(--kf-touch-min);
+  border-radius: 50%;
   border: 1px solid var(--kf-ink);
   background: var(--kf-ink);
   color: var(--kf-paper);
@@ -1665,15 +1931,46 @@ function replaceConversation(updated: ConversationResponse) {
   cursor: not-allowed;
   color: var(--kf-muted);
 }
+.send-btn.connecting:disabled {
+  background: var(--kf-paper-2);
+  border-color: var(--kf-line);
+  color: var(--kf-green);
+}
 .send-btn svg {
   width: 18px;
   height: 18px;
+}
+.send-loading {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: composer-spin 700ms linear infinite;
+}
+@keyframes composer-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .stop-square {
   width: 12px;
   height: 12px;
   border-radius: 3px;
   background: currentColor;
+}
+.composer-assistive {
+  min-height: 17px;
+  margin: 7px 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--kf-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
 }
 
 /* ---- 响应式收窄：桌面主 + 窄屏基础适配 ---- */
@@ -1698,7 +1995,49 @@ function replaceConversation(updated: ConversationResponse) {
   .chat-head-actions {
     flex: 1 0 100%;
     width: 100%;
+    justify-content: flex-end;
     margin-top: 4px;
+  }
+}
+@media (max-width: 620px) {
+  .chat-input {
+    padding: 8px 10px 10px;
+  }
+  .composebox {
+    border-radius: 16px;
+  }
+  .composer-toolbar {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+  .composer-tools {
+    gap: 6px;
+  }
+  .composer-pill.binding-trigger {
+    max-width: 150px;
+    padding-inline: 10px;
+  }
+  .model-select {
+    flex-basis: 170px;
+    width: 170px;
+  }
+  .composer-disclaimer,
+  .composer-disclaimer-separator {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  .composer-secondary-shortcut,
+  .composer-secondary-separator {
+    display: none;
+  }
+  .composer-assistive {
+    justify-content: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .send-loading {
+    animation-duration: 1.4s;
   }
 }
 </style>

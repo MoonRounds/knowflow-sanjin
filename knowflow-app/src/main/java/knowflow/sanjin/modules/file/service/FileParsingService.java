@@ -3,6 +3,7 @@ package knowflow.sanjin.modules.file.service;
 import java.io.InputStream;
 import java.util.Locale;
 import knowflow.sanjin.common.error.ErrorCode;
+import knowflow.sanjin.common.util.ObsLog;
 import knowflow.sanjin.modules.file.FileConstants;
 import knowflow.sanjin.modules.file.entity.FileMetadata;
 import knowflow.sanjin.modules.file.exception.RetryableFileException;
@@ -67,6 +68,7 @@ public class FileParsingService {
     }
 
     boolean isMarkdown = isMarkdownFile(file.getOriginalFilename());
+    long parseStart = System.nanoTime();
     FileParser.ParsedFile parsed;
     try (InputStream in = storage.read(file.getStorageKey())) {
       parsed = parser.parse(in, file.getOriginalFilename(), isMarkdown);
@@ -97,10 +99,13 @@ public class FileParsingService {
     knowledgeService.submitIndexTaskAfterParse(
         item.getId(), item.getOwnerId(), item.getContentVersion());
     log.info(
-        "文档解析成功 fileId={} documentId={} contentChars={}",
+        "文档解析成功 fileId={} documentId={} 标题={} 内容字符数={} 文件类型={} 解析耗时={}",
         fileId,
         item.getId(),
-        parsed.content().length());
+        parsed.title(),
+        parsed.content().length(),
+        isMarkdown ? "Markdown" : "TXT",
+        ObsLog.elapsedMs(parseStart));
   }
 
   private boolean isMarkdownFile(String filename) {

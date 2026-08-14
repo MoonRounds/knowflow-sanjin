@@ -187,7 +187,9 @@ public class KnowledgeIndexingService implements IndexingService {
   }
 
   private void indexVersion(KnowledgeDocument document, int version, String collection) {
+    long start = System.nanoTime();
     List<TextChunker.Chunk> chunks = textChunker.chunk(document.getTitle(), document.getContent());
+    long afterChunk = System.nanoTime();
     if (chunks.isEmpty()) {
       throw new TerminalIndexException(
           ErrorCode.CHUNK_EMPTY, "No chunks produced for KnowledgeDocument " + document.getId());
@@ -221,12 +223,14 @@ public class KnowledgeIndexingService implements IndexingService {
               : chunk.headingPath() + "\n" + chunk.text());
       index++;
     }
+    long afterSave = System.nanoTime();
     log.info(
         "Saved {} chunks to MySQL, embedding {} texts", savedChunks.size(), embeddingTexts.size());
 
     // 批量 Embedding
     List<float[]> vectors =
         embeddingClient.embed(embeddingTexts, embeddingConfigService.getCurrentSnapshot());
+    long afterEmbed = System.nanoTime();
     log.info("Embedded {} vectors", vectors.size());
 
     // Qdrant Upsert
@@ -240,7 +244,18 @@ public class KnowledgeIndexingService implements IndexingService {
               payload(document, version, kc.getChunkIndex())));
     }
     qdrantClient.upsertPoints(collection, points);
-    log.info("Upserted {} points to Qdrant", points.size());
+    long afterUpsert = System.nanoTime();
+    log.info(
+        "文档索引完成 documentId={} contentVersion={} 块数={} 向量数={} 阶段耗时:切块={} 存MySQL={} 嵌入={} QdrantUpsert={} 总耗时={}",
+        document.getId(),
+        version,
+        savedChunks.size(),
+        points.size(),
+        elapsed(afterChunk - start),
+        elapsed(afterSave - afterChunk),
+        elapsed(afterEmbed - afterSave),
+        elapsed(afterUpsert - afterEmbed),
+        elapsed(afterUpsert - start));
 
     // 成功后切换当前索引版本
     documentMapper.update(
@@ -266,6 +281,11 @@ public class KnowledgeIndexingService implements IndexingService {
                 java.util.Map.of(
                     "key", "content_version", "range", java.util.Map.of("lt", version))));
     qdrantClient.deletePointsByFilter(collection, oldFilter);
+  }
+
+  /** 纳秒耗时 → 中文毫秒字符串（索引阶段计时可观测）。 */
+  private static String elapsed(long nanos) {
+    return nanos / 1_000_000 + "ms";
   }
 
   private int taskContentVersion(String businessKey, String suffix) {

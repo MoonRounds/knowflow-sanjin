@@ -3,7 +3,25 @@
   <!-- correlationId 由 CorrelationIdFilter 写入 MDC；%X{correlationId} 使同一请求的日志可关联。 -->
   <include resource="org/springframework/boot/logging/logback/defaults.xml" />
 
+  <!-- 日志目录可经 KNOWFLOW_LOG_DIR 覆盖；默认相对应用工作目录的 logs/。 -->
+  <property name="LOG_DIR" value="${KNOWFLOW_LOG_DIR:-logs}" />
+
   <appender name="CONSOLE_WITH_CORRELATION" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>
+        %d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} [correlationId=%X{correlationId:-}] - %msg%n
+      </pattern>
+      <charset>UTF-8</charset>
+    </encoder>
+  </appender>
+
+  <!-- 文件日志：按天滚动、保留 14 天，供事后排查（前端只展示结果，问题定位靠文件日志）。 -->
+  <appender name="FILE_DAILY" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_DIR}/knowflow.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_DIR}/knowflow.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <maxHistory>14</maxHistory>
+    </rollingPolicy>
     <encoder>
       <pattern>
         %d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} [correlationId=%X{correlationId:-}] - %msg%n
@@ -14,5 +32,13 @@
 
   <root level="INFO">
     <appender-ref ref="CONSOLE_WITH_CORRELATION" />
+    <appender-ref ref="FILE_DAILY" />
   </root>
+
+  <!--
+    明细日志（切块内容、LLM 调用 Token/耗时逐条等）统一走 DEBUG 级别，默认关闭。
+    需要时按包/类开启，例如：
+    logging.level.knowflow.sanjin.modules.knowledge.service=DEBUG
+    logging.level.knowflow.sanjin.modules.conversation.service=DEBUG
+  -->
 </configuration>

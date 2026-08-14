@@ -44,7 +44,8 @@ public class GenerationService {
       "你是 KnowFlow 的个人学习助手，回答时注意输出格式：\n"
           + "1. 真实代码必须放在围栏代码块中，并标注准确语言（如 ```javascript、```sql、```bash）。\n"
           + "2. 展示流程、步骤或过程时，用 ```text 围栏块，每行一步，步骤之间用 ↓ 连接；前端会把这类块渲染成流程图。\n"
-          + "3. 不要用代码块展示普通文本或列表，普通文本直接用段落表达。";
+          + "3. 不要用代码块展示普通文本或列表，普通文本直接用段落表达。\n"
+          + "4. 回答内容若来自「检索到的个人知识引用材料」，请在相关句子末尾标注对应来源编号（如 [S1]）；未使用该材料则不标注。";
 
   private final GenerationPrepare prepare;
   private final ConversationService conversationService;
@@ -163,9 +164,6 @@ public class GenerationService {
                     promptMessages,
                     ragContext);
             streamer.stream(ctx, emitter);
-          } catch (java.io.IOException e) {
-            // 断连等 IOException 由 streamer 内部统一终结并释放 slot
-            log.warn("Streaming aborted for generation {}: {}", assistantMessageId, e.getMessage());
           } finally {
             MDC.remove(CorrelationIdFilter.CORRELATION_ID_KEY);
           }

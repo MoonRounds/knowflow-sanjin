@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import knowflow.sanjin.common.config.EmbeddingProperties;
 import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.common.security.BaseUrlValidator;
+import knowflow.sanjin.common.util.ObsLog;
 import knowflow.sanjin.modules.knowledge.exception.RetryableIndexException;
 import knowflow.sanjin.modules.knowledge.exception.TerminalIndexException;
 import okhttp3.MediaType;
@@ -16,6 +17,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 薄 Embedding 客户端：调 OpenAI 兼容 {@code /embeddings} 端点，返回 dense vector。
@@ -25,6 +28,8 @@ import okhttp3.Response;
  * {@link RetryableIndexException}；401/403/维度不匹配 → {@link TerminalIndexException}。
  */
 public class EmbeddingClient {
+
+  private static final Logger log = LoggerFactory.getLogger(EmbeddingClient.class);
 
   private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
@@ -52,6 +57,7 @@ public class EmbeddingClient {
     if (texts.isEmpty()) {
       return List.of();
     }
+    long start = System.nanoTime();
     baseUrlValidator.validate(config.baseUrl());
     String endpoint = config.baseUrl().replaceAll("/+$", "") + "/embeddings";
     String payload;
@@ -89,7 +95,14 @@ public class EmbeddingClient {
             ErrorCode.EMBEDDING_AUTH_FAILURE, "Embedding unexpected status " + code);
       }
       String body = response.body() != null ? response.body().string() : "{}";
-      return parseEmbeddings(body, config);
+      List<float[]> vectors = parseEmbeddings(body, config);
+      log.info(
+          "嵌入完成 文本数={} 模型={} 维度={} 耗时={}",
+          texts.size(),
+          config.modelName(),
+          vectors.isEmpty() ? 0 : vectors.get(0).length,
+          ObsLog.elapsedMs(start));
+      return vectors;
     } catch (TerminalIndexException | RetryableIndexException e) {
       throw e;
     } catch (IOException e) {

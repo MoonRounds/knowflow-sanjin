@@ -63,6 +63,13 @@ public class ProcessingTaskService {
     }
     ProcessingTask task = mapper.selectById(taskId);
     domainRecovery(task).ifPresent(recovery -> recovery.markProcessing(task));
+    log.info(
+        "任务认领成功 taskId={} taskType={} businessKey={} businessId={} 投递次数={}",
+        taskId,
+        task.getTaskType(),
+        task.getBusinessKey(),
+        task.getBusinessId(),
+        task.getAttemptedDeliveries());
     return task;
   }
 
@@ -78,7 +85,17 @@ public class ProcessingTaskService {
                 ProcessingConstants.STATUS_PENDING)
             .set(ProcessingTask::getStatus, ProcessingConstants.STATUS_SUCCEEDED)
             .set(ProcessingTask::getFinishedAt, Instant.now());
-    return mapper.update(null, update) == 1;
+    boolean succeeded = mapper.update(null, update) == 1;
+    if (succeeded) {
+      ProcessingTask task = mapper.selectById(taskId);
+      log.info(
+          "任务成功 taskId={} taskType={} businessKey={} businessId={}",
+          taskId,
+          task != null ? task.getTaskType() : null,
+          task != null ? task.getBusinessKey() : null,
+          task != null ? task.getBusinessId() : null);
+    }
+    return succeeded;
   }
 
   /**
@@ -102,6 +119,14 @@ public class ProcessingTaskService {
               .set(ProcessingTask::getFailureCode, failureCode)
               .set(ProcessingTask::getLastError, lastError)
               .set(ProcessingTask::getStartedAt, null));
+      log.info(
+          "任务可重试失败 taskId={} taskType={} businessKey={} 失败码={} 重试 {}/{}",
+          taskId,
+          task.getTaskType(),
+          task.getBusinessKey(),
+          failureCode,
+          next,
+          task.getMaxRetries());
       return next;
     }
     mapper.update(
@@ -112,6 +137,14 @@ public class ProcessingTaskService {
             .set(ProcessingTask::getFailureCode, failureCode)
             .set(ProcessingTask::getLastError, lastError)
             .set(ProcessingTask::getFinishedAt, Instant.now()));
+    log.warn(
+        "任务最终失败 taskId={} taskType={} businessKey={} 失败码={} 已重试 {}/{}",
+        taskId,
+        task.getTaskType(),
+        task.getBusinessKey(),
+        failureCode,
+        task.getRetryCount(),
+        task.getMaxRetries());
     return 0;
   }
 
@@ -134,6 +167,7 @@ public class ProcessingTaskService {
   /** 不可重试失败：直接 FAILED。 */
   @Transactional
   public void failTerminal(Long taskId, String failureCode, String lastError) {
+    ProcessingTask task = mapper.selectById(taskId);
     mapper.update(
         null,
         new LambdaUpdateWrapper<ProcessingTask>()
@@ -146,6 +180,12 @@ public class ProcessingTaskService {
             .set(ProcessingTask::getFailureCode, failureCode)
             .set(ProcessingTask::getLastError, lastError)
             .set(ProcessingTask::getFinishedAt, Instant.now()));
+    log.warn(
+        "任务终态失败 taskId={} taskType={} businessKey={} 失败码={}",
+        taskId,
+        task != null ? task.getTaskType() : null,
+        task != null ? task.getBusinessKey() : null,
+        failureCode);
   }
 
   /** 索引终态失败：Task 与当前版本 Item 的 FAILED 投影必须原子提交。 */
@@ -227,6 +267,12 @@ public class ProcessingTaskService {
     }
     prepareDomainForRetry(original, retry);
     republishToWork(retry);
+    log.info(
+        "任务手动重试 原任务={} 新任务={} taskType={} businessKey={}",
+        original.getId(),
+        retry.getId(),
+        retry.getTaskType(),
+        retry.getBusinessKey());
     return retry;
   }
 

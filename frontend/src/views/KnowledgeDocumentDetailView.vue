@@ -213,10 +213,12 @@ onBeforeUnmount(stopPolling)
     <template v-if="item">
       <div class="page-header">
         <el-button link @click="router.push('/knowledge-bases')">← 返回知识库</el-button>
-        <el-button v-if="!editMode && !isUpload" type="primary" @click="enterEdit">
-          编辑
-        </el-button>
-        <el-button v-if="!editMode" type="danger" plain @click="confirmDelete"> 删除 </el-button>
+        <div class="header-actions">
+          <el-button v-if="!editMode && !isUpload" type="primary" @click="enterEdit">
+            编辑
+          </el-button>
+          <el-button v-if="!editMode" type="danger" plain @click="confirmDelete"> 删除 </el-button>
+        </div>
       </div>
 
       <div v-if="!editMode" class="view-mode">
@@ -345,6 +347,10 @@ onBeforeUnmount(stopPolling)
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
 }
 .view-mode h2 {
   margin: 8px 0;

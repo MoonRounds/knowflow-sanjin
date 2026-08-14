@@ -57,7 +57,7 @@ test.describe('对话沉淀闭环', () => {
 
     // ---- 创建会话并完成两轮 SSE；第二轮必须依赖第一轮的海豚上下文 ----
     await enterNewConversationViaUI(page)
-    const modelSelect = page.locator('.chat-core-head .model-select')
+    const modelSelect = page.locator('.chat-input .model-select')
     await modelSelect.click()
     await page.getByRole('option', { name: `${model.name}（默认）`, exact: true }).click()
     await expect(modelSelect).toContainText(model.name)
@@ -184,7 +184,7 @@ test.describe('对话沉淀闭环', () => {
     expect(ragConversationId).toBeTruthy()
 
     let latestAssistant = page.locator('.message.assistant').last()
-    await expect(latestAssistant.getByRole('button', { name: /个人知识 · 来源/ })).toBeVisible()
+    await expect(latestAssistant.getByRole('button', { name: /来源个人知识库/ })).toBeVisible()
     await latestAssistant.getByRole('button', { name: /来源/ }).click()
     const sourceItem = latestAssistant.locator('.source-item').filter({ hasText: editedTitle })
     await expect(sourceItem).toBeVisible()

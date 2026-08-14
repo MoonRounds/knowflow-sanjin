@@ -70,17 +70,28 @@ class GenerationStreamerTest {
   }
 
   @Test
-  @DisplayName("should finalize as client-disconnected when emitter send throws IOException")
-  void shouldFinalizeOnDirectEmitterDisconnect() throws Exception {
+  @DisplayName(
+      "should complete generation in silent mode when emitter send throws IOException (client disconnected)")
+  void shouldCompleteSilentlyOnClientDisconnect() throws Exception {
     SseEmitter emitter = mock(SseEmitter.class);
     doThrow(new IOException("broken pipe"))
         .when(emitter)
         .send(any(SseEmitter.SseEventBuilder.class));
+    when(executor.isCancelled(42L)).thenReturn(false);
+    when(conversationService.isActiveGeneration(1L, 42L)).thenReturn(true);
+    when(modelClientFacade.stream(any(), any(), any(), any(), any()))
+        .thenAnswer(
+            inv -> {
+              AtomicReference<Integer> prompt = inv.getArgument(1);
+              prompt.set(10);
+              return "Hello";
+            });
 
     streamer().stream(context(), emitter);
 
-    verify(finalizer)
-        .fail(eq(1L), eq(42L), anyString(), eq(ErrorCode.GENERATION_CLIENT_DISCONNECTED), any());
+    // 断连不再中断生成：Provider 流照常收完，以 COMPLETED 落库
+    verify(finalizer).complete(eq(1L), eq(42L), eq("Hello"), eq(10), any(), any(), eq(true), any());
+    verify(finalizer, never()).fail(anyLong(), anyLong(), anyString(), anyString(), any());
     verify(emitter).complete();
   }
 
@@ -97,6 +108,20 @@ class GenerationStreamerTest {
 
     verify(finalizer).cancel(eq(1L), eq(42L), anyString(), any());
     verify(finalizer, never()).fail(anyLong(), anyLong(), anyString(), anyString(), any());
+  }
+
+  @Test
+  @DisplayName(
+      "should classify provider-side IO error as MODEL_CALL_FAILED (not client disconnect)")
+  void shouldClassifyProviderIoErrorAsModelCallFailed() throws Exception {
+    when(executor.isCancelled(42L)).thenReturn(false);
+    when(modelClientFacade.stream(any(), any(), any(), any(), any()))
+        .thenThrow(new RuntimeException(new java.net.SocketException("upstream reset")));
+
+    streamer().stream(context(), new SseEmitter());
+
+    verify(finalizer).fail(eq(1L), eq(42L), anyString(), eq(ErrorCode.MODEL_CALL_FAILED), any());
+    verify(finalizer, never()).cancel(anyLong(), anyLong(), anyString(), any());
   }
 
   @Test

@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import knowflow.sanjin.common.util.ObsLog;
 import knowflow.sanjin.modules.conversation.memory.MemoryService;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
 import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
@@ -262,10 +263,26 @@ public class RouterService {
   }
 
   private String callRouter(ChatModel model, String prompt, long revisionId) {
+    long start = System.nanoTime();
     ChatResponse response =
         modelClientFactory.callWithTotalTimeout(
             () -> model.call(new Prompt(new UserMessage(prompt))), revisionId);
     String text = modelClientFactory.extractText(response);
+    Integer promptTokens = null;
+    Integer completionTokens = null;
+    if (response != null
+        && response.getMetadata() != null
+        && response.getMetadata().getUsage() != null) {
+      promptTokens = response.getMetadata().getUsage().getPromptTokens();
+      completionTokens = response.getMetadata().getUsage().getCompletionTokens();
+    }
+    log.info(
+        "RAG路由LLM调用完成 revision={} 耗时={} 输出字符数={} 输入Token={} 输出Token={}",
+        revisionId,
+        ObsLog.elapsedMs(start),
+        text == null ? 0 : text.length(),
+        promptTokens,
+        completionTokens);
     if (text == null || text.isBlank()) {
       throw new RouterException("Router returned empty output");
     }

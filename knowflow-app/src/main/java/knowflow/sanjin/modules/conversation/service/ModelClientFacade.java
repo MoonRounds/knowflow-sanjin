@@ -1,6 +1,7 @@
 package knowflow.sanjin.modules.conversation.service;
 
 import java.util.concurrent.atomic.AtomicReference;
+import knowflow.sanjin.common.util.ObsLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
@@ -14,23 +15,28 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * 把 Provider 的流式 chunk 逐个写入 SSE，并累积完整文本与 token usage。
  *
  * <p>阻塞式订阅：{@code Flux.block()} 把整个流压在 {@link GenerationExecutor} 的执行线程上， 复用与 {@code
- * callWithTotalTimeout} 一致的总超时兜底（超时后中断执行线程、终结失败状态）。 {@code doOnNext} 在每次 chunk 到达时写 SSE 事件；客户端断连的
- * {@code IOException} 会沿错误信号 抛给 {@code block()}，由 streamer 统一终结。
+ * callWithTotalTimeout} 一致的总超时兜底（超时后中断执行线程、终结失败状态）。 {@code doOnNext} 在每次 chunk 到达时经 {@link
+ * SilentSseWriter} 写 SSE 事件：客户端断连被 writer 静默降级，不再沿错误信号中断 Provider 流， 生成继续在后台完成。
  */
 @Component
 public class ModelClientFacade {
 
   private static final Logger log = LoggerFactory.getLogger(ModelClientFacade.class);
 
-  /** 返回累积的完整文本；流中途失败/断连时抛出，由调用方终结。 */
+  /** 返回累积的完整文本；Provider 流失败时抛出，由调用方终结。 */
   public String stream(
       GenerationContext ctx,
       AtomicReference<Integer> promptTokens,
       AtomicReference<Integer> completionTokens,
       AtomicReference<Integer> totalTokens,
-      SseEmitter emitter) {
+      SilentSseWriter writer) {
     ChatModel model = ctx.chatModel();
     StringBuilder collected = new StringBuilder();
+    long start = System.nanoTime();
+    String modelName =
+        ctx.revision() != null && ctx.revision().getModelName() != null
+            ? ctx.revision().getModelName()
+            : "unknown";
 
     model.stream(new Prompt(ctx.promptMessages()))
         .doOnNext(
@@ -41,22 +47,28 @@ public class ModelClientFacade {
               }
               collected.append(delta);
               accumulateUsage(response, promptTokens, completionTokens, totalTokens);
-              try {
-                emitter.send(
-                    SseEmitter.event()
-                        .name(SseEvents.DELTA)
-                        .data(
-                            new SseEvents.DeltaEvent(
-                                SseEvents.PROTOCOL_VERSION,
-                                Long.toString(ctx.assistantMessageId()),
-                                delta)));
-              } catch (java.io.IOException e) {
-                throw new RuntimeException("sse-write-failed", e);
-              }
+              writer.send(
+                  SseEmitter.event()
+                      .name(SseEvents.DELTA)
+                      .data(
+                          new SseEvents.DeltaEvent(
+                              SseEvents.PROTOCOL_VERSION,
+                              Long.toString(ctx.assistantMessageId()),
+                              delta)));
             })
         .blockLast();
 
-    return collected.toString();
+    String fullText = collected.toString();
+    log.info(
+        "LLM流式生成完成 messageId={} 模型={} 耗时={} 输出字符数={} 输入Token={} 输出Token={} 总Token={}",
+        ctx.assistantMessageId(),
+        modelName,
+        ObsLog.elapsedMs(start),
+        fullText.length(),
+        promptTokens.get(),
+        completionTokens.get(),
+        totalTokens.get());
+    return fullText;
   }
 
   private static String extractText(ChatResponse response) {

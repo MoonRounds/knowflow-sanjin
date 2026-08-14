@@ -19,6 +19,7 @@ interface MessageView {
   generationStatus?: string
   errorCode?: string
   active?: boolean
+  content?: string
 }
 
 async function readMessages(
@@ -96,7 +97,7 @@ test.describe('受控失败与恢复', () => {
       .toBe('INDEXED')
   })
 
-  test('SSE 断连释放 slot；停止落 CANCELLED；重新生成原位覆盖 active 消息', async ({
+  test('SSE 断连不中断生成；停止落 CANCELLED；重新生成原位覆盖 active 消息', async ({
     page,
     request,
   }, testInfo) => {
@@ -122,6 +123,7 @@ test.describe('受控失败与恢复', () => {
       )
       .not.toBe('')
     await page.goto('/knowledge-bases')
+    // 断连后后端进入静默模式：Provider 流继续收完，回答以 COMPLETED 落库并释放 active slot
     await expect
       .poll(
         async () => {
@@ -136,13 +138,13 @@ test.describe('受控失败与恢复', () => {
           const assistant = messages.find((message) => message.id === disconnectedAssistantId)
           return {
             status: assistant?.generationStatus,
-            errorCode: assistant?.errorCode,
+            content: assistant?.content,
             activeSlot: conversation.activeGenerationMessageId ?? null,
           }
         },
-        { timeout: 30_000 },
+        { timeout: 60_000 },
       )
-      .toEqual({ status: 'FAILED', errorCode: '客户端已断开', activeSlot: null })
+      .toEqual(expect.objectContaining({ status: 'COMPLETED', activeSlot: null }))
 
     await enterNewConversationViaUI(page)
     await page.locator('.chat-input textarea').fill(`Kf-慢速-停止-${suffix}`)
@@ -205,5 +207,46 @@ test.describe('受控失败与恢复', () => {
         latestStatus: 'COMPLETED',
         latestActive: true,
       })
+  })
+
+  test('生成中切换模块后返回：侧栏标记生成中，后台完成后看到完整回答', async ({
+    page,
+  }, testInfo) => {
+    const suffix = `r${testInfo.retry}`
+    await configureModelViaUI(page, `stub-chat-bg-${suffix}`)
+
+    await enterNewConversationViaUI(page)
+    await page.locator('.chat-input textarea').fill(`Kf-慢速-后台完成-${suffix}`)
+    await page.getByRole('button', { name: '发送' }).click()
+    await expect(page.getByRole('button', { name: '停止' })).toBeVisible()
+    const conversationId = await readActiveConversationId(page)
+    expect(conversationId).toBeTruthy()
+
+    // 生成中通过侧栏导航切到知识库模块（SPA 路由切换，页面不刷新：store 与本地流存活）
+    await page.getByRole('link', { name: '知识库' }).click()
+    await expect(page).toHaveURL(/\/knowledge-bases/)
+
+    // 返回 /chat：该会话仍在后台生成，侧栏会话项显示「生成中」标记（store 跨路由存活）
+    await page.getByRole('link', { name: 'AI 对话' }).click()
+    await expect(page).toHaveURL(/\/chat/)
+    await expect(page.locator('.session-generating').first()).toBeVisible({
+      timeout: 10_000,
+    })
+
+    // 进入该会话（排除空白态占位项）：实时增量内容（store live 消息）最终汇聚为完整回答
+    await page.locator('.session-item:not([aria-current])').first().click()
+    await expect
+      .poll(
+        () =>
+          page
+            .locator('.message.assistant .msg-content')
+            .allTextContents()
+            .then((texts) => texts.some((t) => t.includes('Kf-慢速回答-'))),
+        { timeout: 60_000 },
+      )
+      .toBe(true)
+
+    // 生成完成并落库后，「生成中」标记消失
+    await expect(page.locator('.session-generating')).toHaveCount(0, { timeout: 30_000 })
   })
 })

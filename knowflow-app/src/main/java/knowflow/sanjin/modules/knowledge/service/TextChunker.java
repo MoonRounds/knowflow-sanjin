@@ -3,14 +3,21 @@ package knowflow.sanjin.modules.knowledge.service;
 import java.util.ArrayList;
 import java.util.List;
 import knowflow.sanjin.common.config.ChunkingProperties;
+import knowflow.sanjin.common.util.ObsLog;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 轻量结构感知文本 Chunk 策略（无 Markdown 解析库，留给 Phase 08）。
  *
  * <p>按 {@code #}/{@code ##}/{@code ###} 标题划分区块，维护 heading path；每个区块再按段落聚合，超过 {@code targetChars}
  * 的段落按字符拆分并保留少量 overlap。返回 (chunkText, headingPath) 对。
+ *
+ * <p>可观测性：INFO 输出切块摘要（块数/字符分布）；DEBUG 输出逐块内容（截断到前 200 字符），满足「切了几块、怎么切、多大」的后端可观测需求。
  */
 public class TextChunker {
+
+  private static final Logger log = LoggerFactory.getLogger(TextChunker.class);
 
   private final int targetChars;
   private final int overlapChars;
@@ -23,12 +30,14 @@ public class TextChunker {
   }
 
   public List<Chunk> chunk(String title, String content) {
+    long start = System.nanoTime();
     List<Section> sections = splitByHeadings(content);
     List<Chunk> chunks = new ArrayList<>();
+    outer:
     for (Section section : sections) {
       for (String piece : splitLongContent(section.body())) {
         if (chunks.size() >= maxChunks) {
-          return chunks;
+          break outer;
         }
         String headingPath = buildHeadingPath(title, section.headingPath());
         if (piece.isBlank()) {
@@ -37,7 +46,41 @@ public class TextChunker {
         chunks.add(new Chunk(piece, headingPath));
       }
     }
+    logChunkSummary(title, content, chunks, start);
     return chunks;
+  }
+
+  private void logChunkSummary(String title, String content, List<Chunk> chunks, long start) {
+    if (chunks.isEmpty()) {
+      log.info("切块完成 标题={} 原文长度={} 切块数=0 耗时={}", title, content.length(), ObsLog.elapsedMs(start));
+      return;
+    }
+    int totalChars = chunks.stream().mapToInt(c -> c.text().length()).sum();
+    int minChars = chunks.stream().mapToInt(c -> c.text().length()).min().orElse(0);
+    int maxChars = chunks.stream().mapToInt(c -> c.text().length()).max().orElse(0);
+    log.info(
+        "切块完成 标题={} 原文长度={} 切块数={} 平均块长={} 最小块长={} 最大块长={} 配置(targetChars={} overlapChars={} maxChunks={}) 耗时={}",
+        title,
+        content.length(),
+        chunks.size(),
+        totalChars / chunks.size(),
+        minChars,
+        maxChars,
+        targetChars,
+        overlapChars,
+        maxChunks,
+        ObsLog.elapsedMs(start));
+    if (log.isDebugEnabled()) {
+      for (int i = 0; i < chunks.size(); i++) {
+        Chunk c = chunks.get(i);
+        log.debug(
+            "  块[{}] 长度={} heading={} 内容={}",
+            i,
+            c.text().length(),
+            c.headingPath(),
+            ObsLog.truncate(c.text(), ObsLog.DEFAULT_SNIPPET_CHARS));
+      }
+    }
   }
 
   /** 返回 (body, headingPath 数组) 的区块列表；正文前面的无标题内容作为独立区块。 */

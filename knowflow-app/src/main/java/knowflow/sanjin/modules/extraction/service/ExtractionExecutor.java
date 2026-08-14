@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import knowflow.sanjin.common.error.ErrorCode;
+import knowflow.sanjin.common.util.ObsLog;
 import knowflow.sanjin.modules.conversation.entity.ChatMessage;
 import knowflow.sanjin.modules.conversation.service.ConversationService;
 import knowflow.sanjin.modules.extraction.ExtractionConstants;
@@ -296,10 +297,26 @@ public class ExtractionExecutor {
   }
 
   private String callExtraction(ChatModel model, String prompt, long revisionId) {
+    long start = System.nanoTime();
     ChatResponse response =
         modelClientFactory.callWithTotalTimeout(
             () -> model.call(new Prompt(new UserMessage(prompt))), revisionId);
     String text = modelClientFactory.extractText(response);
+    Integer promptTokens = null;
+    Integer completionTokens = null;
+    if (response != null
+        && response.getMetadata() != null
+        && response.getMetadata().getUsage() != null) {
+      promptTokens = response.getMetadata().getUsage().getPromptTokens();
+      completionTokens = response.getMetadata().getUsage().getCompletionTokens();
+    }
+    log.info(
+        "知识提取LLM调用完成 revision={} 耗时={} 输出字符数={} 输入Token={} 输出Token={}",
+        revisionId,
+        ObsLog.elapsedMs(start),
+        text == null ? 0 : text.length(),
+        promptTokens,
+        completionTokens);
     if (text == null || text.isBlank()) {
       throw new TerminalExtractionException(
           ErrorCode.INDEX_SCHEMA_FAILURE, "Extraction returned empty output");

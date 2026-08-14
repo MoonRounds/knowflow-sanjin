@@ -17,6 +17,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 薄 Qdrant REST 客户端：collection 初始化与维度校验、确定性 Point ID upsert/delete、按 payload filter 删除。
@@ -25,6 +27,8 @@ import okhttp3.Response;
  * 错误 → 终态。
  */
 public class QdrantClient {
+
+  private static final Logger log = LoggerFactory.getLogger(QdrantClient.class);
 
   private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
@@ -140,6 +144,7 @@ public class QdrantClient {
 
   /** 按 payload filter 删除 Point（用于清理旧版本或移除归属）。 */
   public void deletePointsByFilter(String collectionName, Map<String, Object> filter) {
+    logFilterScope(collectionName, filter);
     ObjectNode body = objectMapper.createObjectNode();
     body.set("filter", objectMapper.valueToTree(filter));
     body.put("points", true);
@@ -149,6 +154,56 @@ public class QdrantClient {
             .post(RequestBody.create(body.toString(), JSON))
             .build();
     execute(request, "Qdrant delete failed");
+  }
+
+  /** 从 filter 中提取文档 id 与版本范围记录删除范围；DEBUG 时附加删除前数量统计。 */
+  private void logFilterScope(String collectionName, Map<String, Object> filter) {
+    String documentId = extractFilterValue(filter, "knowledge_document_id");
+    String versionText = extractFilterRange(filter, "content_version");
+    log.info(
+        "Qdrant清理 collection={} documentId={} 版本条件={}",
+        collectionName,
+        documentId == null ? "全部" : documentId,
+        versionText == null ? "不限" : versionText);
+    if (log.isDebugEnabled()) {
+      try {
+        long count = countPoints(collectionName, filter);
+        log.debug("Qdrant清理前匹配点数={}", count);
+      } catch (RuntimeException e) {
+        log.debug("Qdrant清理前点数统计失败: {}", e.getMessage());
+      }
+    }
+  }
+
+  private static String extractFilterValue(Map<String, Object> filter, String key) {
+    Object must = filter.get("must");
+    if (!(must instanceof List<?> list)) {
+      return null;
+    }
+    for (Object o : list) {
+      if (o instanceof Map<?, ?> m && key.equals(m.get("key"))) {
+        Object match = m.get("match");
+        if (match instanceof Map<?, ?> mm) {
+          Object v = mm.get("value");
+          return v == null ? null : String.valueOf(v);
+        }
+      }
+    }
+    return null;
+  }
+
+  private static String extractFilterRange(Map<String, Object> filter, String key) {
+    Object must = filter.get("must");
+    if (!(must instanceof List<?> list)) {
+      return null;
+    }
+    for (Object o : list) {
+      if (o instanceof Map<?, ?> m && key.equals(m.get("key"))) {
+        Object range = m.get("range");
+        return range == null ? null : range.toString();
+      }
+    }
+    return null;
   }
 
   /** 统计匹配 filter 的 Point 数（用于删除后验证）。 */

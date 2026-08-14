@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import knowflow.sanjin.common.config.QdrantProperties;
+import knowflow.sanjin.common.util.ObsLog;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentChunk;
 import knowflow.sanjin.modules.knowledge.infrastructure.EmbeddingClient;
@@ -76,6 +77,7 @@ public class RetrievalService {
    * @param fallbackQuestion current question。
    */
   public RetrievalResult retrieve(String query, List<Long> selectedKbIds, String fallbackQuestion) {
+    long start = System.nanoTime();
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
     String effectiveQuery = query == null || query.isBlank() ? fallbackQuestion : query;
     RetrievalTrace trace = new RetrievalTrace();
@@ -93,6 +95,14 @@ public class RetrievalService {
 
     List<RetrievedSource> injected = validateAndLoad(candidates, selectedKbIds, ownerId, trace);
     trace.setInjectedCount(injected.size());
+    log.info(
+        "检索完成 选中知识库={} 查询={} Qdrant候选={} 校验剔除={} 注入={} 耗时={}",
+        selectedKbIds,
+        ObsLog.truncate(effectiveQuery, 200),
+        trace.getQdrantCandidates(),
+        trace.getDiscardedByValidation(),
+        injected.size(),
+        ObsLog.elapsedMs(start));
     return new RetrievalResult(injected, trace);
   }
 
@@ -148,10 +158,22 @@ public class RetrievalService {
     for (QdrantClient.ScoredPoint c : candidates) {
       if (c.score() >= properties.getScoreThreshold()) {
         aboveThreshold.add(c);
+      } else if (log.isDebugEnabled()) {
+        log.debug("检索候选被阈值剔除 score={} 阈值={}", c.score(), properties.getScoreThreshold());
       }
     }
     int below = candidates.size() - aboveThreshold.size();
     trace.setDiscardedByValidation(trace.getDiscardedByValidation() + below);
+    if (log.isDebugEnabled()) {
+      for (QdrantClient.ScoredPoint c : aboveThreshold) {
+        log.debug(
+            "检索候选 score={} chunkId={} documentId={} chunkIndex={}",
+            c.score(),
+            c.payload().path("chunk_id").asText(""),
+            c.payload().path("knowledge_document_id").asText(""),
+            c.payload().path("chunk_index").asText(""));
+      }
+    }
 
     // 批量回查 chunk（owner 过滤）
     List<String> chunkIds =
