@@ -219,6 +219,8 @@ public class RetrievalService {
       source.setDocumentId(document.getId().toString());
       source.setDocumentTitle(document.getTitle());
       source.setSourceType(document.getSourceType());
+      source.setKnowledgeBaseId(kb.getId().toString());
+      source.setKnowledgeBaseName(kb.getDisplayName());
       source.setContentVersion(chunk.getContentVersion());
       source.setChunkIndex(chunk.getChunkIndex());
       source.setSnippet(trim(chunk.getContent()));

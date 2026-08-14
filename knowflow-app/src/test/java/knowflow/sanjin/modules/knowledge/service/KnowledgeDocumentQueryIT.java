@@ -6,12 +6,17 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import knowflow.sanjin.modules.file.FileConstants;
+import knowflow.sanjin.modules.file.entity.FileMetadata;
+import knowflow.sanjin.modules.file.mapper.FileMetadataMapper;
+import knowflow.sanjin.modules.knowledge.assembler.KnowledgeDocumentAssembler;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentTag;
 import knowflow.sanjin.modules.knowledge.entity.Tag;
 import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentMapper;
 import knowflow.sanjin.modules.knowledge.mapper.KnowledgeDocumentTagMapper;
 import knowflow.sanjin.modules.knowledge.mapper.TagMapper;
+import knowflow.sanjin.modules.knowledge.vo.KnowledgeDocumentSummaryResponse;
 import knowflow.sanjin.modules.knowledgebase.dto.CreateKnowledgeBaseRequest;
 import knowflow.sanjin.modules.knowledgebase.entity.KnowledgeBase;
 import knowflow.sanjin.modules.knowledgebase.service.KnowledgeBaseService;
@@ -39,6 +44,8 @@ class KnowledgeDocumentQueryIT extends MySQLTestBase {
   @Autowired private KnowledgeDocumentTagMapper documentTagMapper;
 
   @Autowired private TagMapper tagMapper;
+
+  @Autowired private FileMetadataMapper fileMetadataMapper;
 
   @Autowired private AppUserMapper appUserMapper;
 
@@ -222,6 +229,107 @@ class KnowledgeDocumentQueryIT extends MySQLTestBase {
         .extracting(KnowledgeDocument::getTitle)
         .containsExactly("mine")
         .doesNotContain("theirs");
+  }
+
+  @Test
+  @DisplayName("should aggregate parse states and index errors for the document list (P4)")
+  void shouldAggregateParseStatesAndIndexErrors() {
+    KnowledgeDocument uploaded = insertDoc(kb.getId(), "UPLOAD_FILE", "FAILED", "u1", false);
+    uploaded.setIndexErrorCode("EMBEDDING_UNAVAILABLE");
+    uploaded.setIndexErrorMessage("Embedding 服务不可用");
+    documentMapper.updateById(uploaded);
+    FileMetadata file = insertFile(uploaded.getId(), "FAILED", "DOCUMENT_PARSE_FAILED", "解析失败");
+    KnowledgeDocument manual = insertDoc(kb.getId(), "MANUAL_NOTE", "PENDING", "m1", false);
+
+    Map<Long, FileMetadata> parseStates =
+        service.batchParseStates(List.of(uploaded.getId(), manual.getId()));
+
+    assertThat(parseStates).containsOnlyKeys(uploaded.getId());
+    assertThat(parseStates.get(uploaded.getId()).getParseStatus()).isEqualTo("FAILED");
+
+    List<KnowledgeDocumentSummaryResponse> items =
+        KnowledgeDocumentAssembler.toSummaryList(
+            List.of(uploaded, manual),
+            Map.of(uploaded.getId(), kb.getId(), manual.getId(), kb.getId()),
+            Map.of(),
+            parseStates);
+    KnowledgeDocumentSummaryResponse uploadSummary =
+        items.stream()
+            .filter(s -> s.getId().equals(uploaded.getId().toString()))
+            .findFirst()
+            .orElseThrow();
+    assertThat(uploadSummary.getParseStatus()).isEqualTo("FAILED");
+    assertThat(uploadSummary.getParseErrorCode()).isEqualTo("DOCUMENT_PARSE_FAILED");
+    assertThat(uploadSummary.getParseErrorMessage()).isEqualTo("解析失败");
+    assertThat(uploadSummary.getIndexErrorCode()).isEqualTo("EMBEDDING_UNAVAILABLE");
+    assertThat(uploadSummary.getIndexErrorMessage()).isEqualTo("Embedding 服务不可用");
+    KnowledgeDocumentSummaryResponse manualSummary =
+        items.stream()
+            .filter(s -> s.getId().equals(manual.getId().toString()))
+            .findFirst()
+            .orElseThrow();
+    assertThat(manualSummary.getParseStatus()).isNull();
+    assertThat(manualSummary.getIndexErrorCode()).isNull();
+  }
+
+  @Test
+  @DisplayName("should isolate parse states across owners (P4)")
+  void shouldIsolateParseStatesAcrossOwners() {
+    KnowledgeDocument mine = insertDoc(kb.getId(), "UPLOAD_FILE", "PENDING", "mine", false);
+    insertFile(mine.getId(), "PENDING", null, null);
+
+    AppUser secondOwner = new AppUser();
+    secondOwner.setName("Second Owner");
+    secondOwner.setStatus("ACTIVE");
+    appUserMapper.insert(secondOwner);
+    KnowledgeDocument theirs = new KnowledgeDocument();
+    theirs.setOwnerId(secondOwner.getId());
+    theirs.setKbId(kb.getId());
+    theirs.setSourceType("UPLOAD_FILE");
+    theirs.setTitle("theirs");
+    theirs.setContent("private");
+    theirs.setContentVersion(1);
+    theirs.setIndexStatus("PENDING");
+    theirs.setDeleted(false);
+    theirs.setRowVersion(0);
+    documentMapper.insert(theirs);
+    FileMetadata theirFile = new FileMetadata();
+    theirFile.setOwnerId(secondOwner.getId());
+    theirFile.setKnowledgeDocumentId(theirs.getId());
+    theirFile.setStorageKey("kf-upload/theirs.md");
+    theirFile.setOriginalFilename("theirs.md");
+    theirFile.setContentType("text/markdown");
+    theirFile.setDetectedMimeType("text/markdown");
+    theirFile.setByteSize(10L);
+    theirFile.setSha256(String.format("%064x", theirs.getId()));
+    theirFile.setStatus(FileConstants.FILE_STATUS_ACTIVE);
+    theirFile.setParseStatus(FileConstants.PARSE_STATUS_SUCCEEDED);
+    fileMetadataMapper.insert(theirFile);
+
+    Map<Long, FileMetadata> parseStates =
+        service.batchParseStates(List.of(mine.getId(), theirs.getId()));
+
+    assertThat(parseStates).containsOnlyKeys(mine.getId());
+  }
+
+  private FileMetadata insertFile(
+      Long documentId, String parseStatus, String errorCode, String errorMessage) {
+    FileMetadata file = new FileMetadata();
+    file.setOwnerId(currentOwnerProvider.getCurrentOwnerId());
+    file.setKnowledgeDocumentId(documentId);
+    file.setStorageKey("kf-upload/file-" + documentId + ".md");
+    file.setOriginalFilename("file.md");
+    file.setContentType("text/markdown");
+    file.setDetectedMimeType("text/markdown");
+    file.setByteSize(42L);
+    // 去重唯一键 (owner_id, detected_mime_type, sha256)：按 documentId 派生，避免跨用例重复
+    file.setSha256(String.format("%064x", documentId));
+    file.setStatus(FileConstants.FILE_STATUS_ACTIVE);
+    file.setParseStatus(parseStatus);
+    file.setParseErrorCode(errorCode);
+    file.setParseErrorMessage(errorMessage);
+    fileMetadataMapper.insert(file);
+    return file;
   }
 
   private KnowledgeBase createKb() {

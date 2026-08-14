@@ -2,6 +2,7 @@ package knowflow.sanjin.modules.knowledge.assembler;
 
 import java.util.List;
 import java.util.Map;
+import knowflow.sanjin.modules.file.entity.FileMetadata;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
 import knowflow.sanjin.modules.knowledge.vo.KnowledgeDocumentResponse;
 import knowflow.sanjin.modules.knowledge.vo.KnowledgeDocumentSummaryResponse;
@@ -46,9 +47,9 @@ public final class KnowledgeDocumentAssembler {
         .toList();
   }
 
-  /** 列表摘要：剥离 content/summary/索引错误字段（错误码聚合展示属 P4）。 */
+  /** 列表摘要：剥离正文；解析/索引两段状态与失败错误码供前端聚合展示（P4）。 */
   public static KnowledgeDocumentSummaryResponse toSummary(
-      KnowledgeDocument document, Long knowledgeBaseId, List<String> tags) {
+      KnowledgeDocument document, Long knowledgeBaseId, List<String> tags, FileMetadata file) {
     KnowledgeDocumentSummaryResponse r = new KnowledgeDocumentSummaryResponse();
     r.setId(document.getId().toString());
     r.setSourceType(document.getSourceType());
@@ -56,25 +57,34 @@ public final class KnowledgeDocumentAssembler {
     r.setContentVersion(document.getContentVersion());
     r.setIndexedVersion(document.getIndexedVersion());
     r.setIndexStatus(document.getIndexStatus());
+    r.setIndexErrorCode(document.getIndexErrorCode());
+    r.setIndexErrorMessage(document.getIndexErrorMessage());
     r.setKnowledgeBaseId(knowledgeBaseId == null ? null : String.valueOf(knowledgeBaseId));
     r.setTags(tags);
     r.setRowVersion(document.getRowVersion());
     r.setCreatedAt(document.getCreatedAt());
     r.setUpdatedAt(document.getUpdatedAt());
+    if (file != null) {
+      r.setParseStatus(file.getParseStatus());
+      r.setParseErrorCode(file.getParseErrorCode());
+      r.setParseErrorMessage(file.getParseErrorMessage());
+    }
     return r;
   }
 
   public static List<KnowledgeDocumentSummaryResponse> toSummaryList(
       List<KnowledgeDocument> documents,
       Map<Long, Long> kbIdByDocument,
-      Map<Long, List<String>> tagsByDocument) {
+      Map<Long, List<String>> tagsByDocument,
+      Map<Long, FileMetadata> fileByDocument) {
     return documents.stream()
         .map(
             document ->
                 toSummary(
                     document,
                     kbIdByDocument.get(document.getId()),
-                    tagsByDocument.getOrDefault(document.getId(), List.of())))
+                    tagsByDocument.getOrDefault(document.getId(), List.of()),
+                    fileByDocument.get(document.getId())))
         .toList();
   }
 }

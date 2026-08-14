@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
 
-/** 文档列表摘要响应：不含正文（列表不需要 content）与索引错误摘要（错误码聚合展示属 P4）。BIGINT id 字符串化。 */
+/** 文档列表摘要响应：不含正文（列表不需要 content）。BIGINT id 字符串化。解析/索引两段状态与失败错误码供前端聚合展示（P4）。 */
 public class KnowledgeDocumentSummaryResponse {
 
   @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
@@ -38,6 +38,17 @@ public class KnowledgeDocumentSummaryResponse {
 
   @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
   private Instant updatedAt;
+
+  /** 上传文件解析状态（PENDING/PROCESSING/SUCCEEDED/FAILED）；非上传文档为 null。 */
+  private String parseStatus;
+
+  private String parseErrorCode;
+  private String parseErrorMessage;
+
+  /** 索引失败摘要（document 列直出）；未失败为 null。 */
+  private String indexErrorCode;
+
+  private String indexErrorMessage;
 
   public String getId() {
     return id;
@@ -125,5 +136,45 @@ public class KnowledgeDocumentSummaryResponse {
 
   public void setUpdatedAt(Instant updatedAt) {
     this.updatedAt = updatedAt;
+  }
+
+  public String getParseStatus() {
+    return parseStatus;
+  }
+
+  public void setParseStatus(String parseStatus) {
+    this.parseStatus = parseStatus;
+  }
+
+  public String getParseErrorCode() {
+    return parseErrorCode;
+  }
+
+  public void setParseErrorCode(String parseErrorCode) {
+    this.parseErrorCode = parseErrorCode;
+  }
+
+  public String getParseErrorMessage() {
+    return parseErrorMessage;
+  }
+
+  public void setParseErrorMessage(String parseErrorMessage) {
+    this.parseErrorMessage = parseErrorMessage;
+  }
+
+  public String getIndexErrorCode() {
+    return indexErrorCode;
+  }
+
+  public void setIndexErrorCode(String indexErrorCode) {
+    this.indexErrorCode = indexErrorCode;
+  }
+
+  public String getIndexErrorMessage() {
+    return indexErrorMessage;
+  }
+
+  public void setIndexErrorMessage(String indexErrorMessage) {
+    this.indexErrorMessage = indexErrorMessage;
   }
 }

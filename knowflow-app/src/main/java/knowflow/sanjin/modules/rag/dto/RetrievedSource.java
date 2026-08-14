@@ -10,6 +10,11 @@ public class RetrievedSource {
 
   private String documentTitle;
   private String sourceType;
+
+  /** 来源所属 KnowledgeBase id（字符串化）与显示名；老 Trace 数据可能为 null。 */
+  private String knowledgeBaseId;
+
+  private String knowledgeBaseName;
   private Integer contentVersion;
   private Integer chunkIndex;
   private String snippet;
@@ -48,6 +53,22 @@ public class RetrievedSource {
 
   public void setSourceType(String sourceType) {
     this.sourceType = sourceType;
+  }
+
+  public String getKnowledgeBaseId() {
+    return knowledgeBaseId;
+  }
+
+  public void setKnowledgeBaseId(String knowledgeBaseId) {
+    this.knowledgeBaseId = knowledgeBaseId;
+  }
+
+  public String getKnowledgeBaseName() {
+    return knowledgeBaseName;
+  }
+
+  public void setKnowledgeBaseName(String knowledgeBaseName) {
+    this.knowledgeBaseName = knowledgeBaseName;
   }
 
   public Integer getContentVersion() {

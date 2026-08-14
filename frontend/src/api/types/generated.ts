@@ -789,10 +789,15 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             id: string;
+            indexErrorCode?: string;
+            indexErrorMessage?: string;
             indexStatus: string;
             /** Format: int32 */
             indexedVersion?: number;
             knowledgeBaseId: string;
+            parseErrorCode?: string;
+            parseErrorMessage?: string;
+            parseStatus?: string;
             /** Format: int32 */
             rowVersion: number;
             sourceType: string;
@@ -894,6 +899,8 @@ export interface components {
             contentVersion?: number;
             documentId?: string;
             documentTitle?: string;
+            knowledgeBaseId?: string;
+            knowledgeBaseName?: string;
             /** Format: float */
             score?: number;
             snippet?: string;

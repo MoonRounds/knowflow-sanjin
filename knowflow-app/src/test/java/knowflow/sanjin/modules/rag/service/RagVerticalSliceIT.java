@@ -103,6 +103,7 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
   private Long itemId;
   private Long conversationId;
   private Long modelConfigId;
+  private String kbName;
 
   @BeforeEach
   void setUp() throws InterruptedException {
@@ -110,6 +111,7 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     kbReq.setName("RAG KB " + System.nanoTime());
     KnowledgeBase kb = knowledgeBaseService.create(kbReq);
     kbId = kb.getId();
+    kbName = kb.getDisplayName();
 
     CreateDocumentRequest note = new CreateDocumentRequest();
     note.setTitle("Spring 事务传播");
@@ -227,6 +229,9 @@ class RagVerticalSliceIT extends MySQLRabbitMQRedisIndexingTestBase {
     assertThat(trace.getRagStatus()).isEqualTo(RagStatus.USED);
     assertThat(trace.getSourcesJson()).contains("Spring 事务传播");
     assertThat(trace.getSourcesJson()).contains("\"cited\":true");
+    assertThat(trace.getSourcesJson()).contains(kbName);
+    assertThat(trace.getSourcesJson()).contains("\"knowledgeBaseId\":");
+    assertThat(trace.getSourcesJson()).contains("\"knowledgeBaseName\":");
     assertThat(trace.getRouterJson()).contains("\"needRag\":true");
   }
 

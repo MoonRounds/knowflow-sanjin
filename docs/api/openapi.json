@@ -590,6 +590,12 @@
                     "id": {
                         "type": "string"
                     },
+                    "indexErrorCode": {
+                        "type": "string"
+                    },
+                    "indexErrorMessage": {
+                        "type": "string"
+                    },
                     "indexStatus": {
                         "type": "string"
                     },
@@ -598,6 +604,15 @@
                         "type": "integer"
                     },
                     "knowledgeBaseId": {
+                        "type": "string"
+                    },
+                    "parseErrorCode": {
+                        "type": "string"
+                    },
+                    "parseErrorMessage": {
+                        "type": "string"
+                    },
+                    "parseStatus": {
                         "type": "string"
                     },
                     "rowVersion": {
@@ -909,6 +924,12 @@
                         "type": "string"
                     },
                     "documentTitle": {
+                        "type": "string"
+                    },
+                    "knowledgeBaseId": {
+                        "type": "string"
+                    },
+                    "knowledgeBaseName": {
                         "type": "string"
                     },
                     "score": {

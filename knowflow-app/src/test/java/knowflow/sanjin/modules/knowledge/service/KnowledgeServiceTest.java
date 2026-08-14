@@ -58,6 +58,7 @@ class KnowledgeServiceTest {
             itemMapper,
             itemTagMapper,
             tagMapper,
+            mock(knowflow.sanjin.modules.file.mapper.FileMetadataMapper.class),
             knowledgeBaseService,
             taskSubmissionService,
             List.of());

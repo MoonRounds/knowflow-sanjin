@@ -6,6 +6,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import knowflow.sanjin.common.util.ApiValueParser;
+import knowflow.sanjin.modules.file.entity.FileMetadata;
 import knowflow.sanjin.modules.knowledge.assembler.KnowledgeDocumentAssembler;
 import knowflow.sanjin.modules.knowledge.dto.CreateDocumentRequest;
 import knowflow.sanjin.modules.knowledge.dto.UpdateDocumentRequest;
@@ -56,8 +57,9 @@ public class KnowledgeDocumentController {
     List<Long> documentIds = result.getRecords().stream().map(KnowledgeDocument::getId).toList();
     Map<Long, Long> kbIds = service.batchKnowledgeBaseId(documentIds);
     Map<Long, List<String>> tags = service.batchTagNames(documentIds);
+    Map<Long, FileMetadata> parseByDocument = service.batchParseStates(documentIds);
     List<KnowledgeDocumentSummaryResponse> items =
-        KnowledgeDocumentAssembler.toSummaryList(result.getRecords(), kbIds, tags);
+        KnowledgeDocumentAssembler.toSummaryList(result.getRecords(), kbIds, tags, parseByDocument);
     return new DocumentPageResponse(
         result.getTotal(), result.getCurrent(), result.getSize(), items);
   }

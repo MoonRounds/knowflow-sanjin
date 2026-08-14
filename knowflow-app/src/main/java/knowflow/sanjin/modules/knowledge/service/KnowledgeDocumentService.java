@@ -10,6 +10,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import knowflow.sanjin.modules.file.FileConstants;
+import knowflow.sanjin.modules.file.entity.FileMetadata;
+import knowflow.sanjin.modules.file.mapper.FileMetadataMapper;
 import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
 import knowflow.sanjin.modules.knowledge.dto.CreateDocumentRequest;
 import knowflow.sanjin.modules.knowledge.dto.UpdateDocumentRequest;
@@ -51,6 +54,7 @@ public class KnowledgeDocumentService {
   private final KnowledgeDocumentMapper documentMapper;
   private final KnowledgeDocumentTagMapper documentTagMapper;
   private final TagMapper tagMapper;
+  private final FileMetadataMapper fileMetadataMapper;
   private final KnowledgeBaseService knowledgeBaseService;
   private final TaskSubmissionService taskSubmissionService;
   private final List<KnowledgeDocumentLifecycleHandler> lifecycleHandlers;
@@ -60,6 +64,7 @@ public class KnowledgeDocumentService {
       KnowledgeDocumentMapper documentMapper,
       KnowledgeDocumentTagMapper documentTagMapper,
       TagMapper tagMapper,
+      FileMetadataMapper fileMetadataMapper,
       KnowledgeBaseService knowledgeBaseService,
       TaskSubmissionService taskSubmissionService,
       List<KnowledgeDocumentLifecycleHandler> lifecycleHandlers) {
@@ -67,6 +72,7 @@ public class KnowledgeDocumentService {
     this.documentMapper = documentMapper;
     this.documentTagMapper = documentTagMapper;
     this.tagMapper = tagMapper;
+    this.fileMetadataMapper = fileMetadataMapper;
     this.knowledgeBaseService = knowledgeBaseService;
     this.taskSubmissionService = taskSubmissionService;
     this.lifecycleHandlers = lifecycleHandlers;
@@ -192,6 +198,23 @@ public class KnowledgeDocumentService {
     result.setTotal(total);
     result.setRecords(records);
     return result;
+  }
+
+  /** 批量返回 documentId → 其文件元数据（owner 过滤、仅 ACTIVE），供列表装配解析阶段状态（P4）；非上传文档无记录。 */
+  @Transactional(readOnly = true)
+  public Map<Long, FileMetadata> batchParseStates(List<Long> documentIds) {
+    if (documentIds.isEmpty()) {
+      return Map.of();
+    }
+    long ownerId = currentOwnerProvider.getCurrentOwnerId();
+    return fileMetadataMapper
+        .selectList(
+            new LambdaQueryWrapper<FileMetadata>()
+                .eq(FileMetadata::getOwnerId, ownerId)
+                .eq(FileMetadata::getStatus, FileConstants.FILE_STATUS_ACTIVE)
+                .in(FileMetadata::getKnowledgeDocumentId, documentIds))
+        .stream()
+        .collect(Collectors.toMap(FileMetadata::getKnowledgeDocumentId, f -> f));
   }
 
   /** Owner 级全部未删标签，按名称排序，供 Tag 过滤下拉使用（G23）。 */
