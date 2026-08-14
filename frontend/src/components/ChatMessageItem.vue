@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // 单条聊天消息：computed 缓存 Markdown 渲染，避免每条 delta 到达时全量重渲染历史消息。
-import { computed } from 'vue'
-import type { MessageResponse } from '../api/types/conversation'
+// [Sx] 引用交互（G32）：悬停 el-tooltip 预览该来源 snippet，点击展开来源面板并高亮对应项。
+import { computed, nextTick, ref } from 'vue'
+import type { RetrievedSource, MessageResponse } from '../api/types/conversation'
 import type { RouterDiagnostic } from '../composables/useChatStream'
 import { escapeHtml, renderMarkdown } from '../utils/markdown'
 import MessageSourcesPanel from './MessageSourcesPanel.vue'
@@ -20,8 +21,69 @@ const { handleClick: handleCodeBlockClick } = useCodeBlockCopy()
 const contentHtml = computed(() =>
   props.msg.role === 'USER'
     ? escapeHtml(props.msg.content ?? '')
-    : renderMarkdown(props.msg.content ?? ''),
+    : renderMarkdown(props.msg.content ?? '', props.msg.sources),
 )
+
+const panelExpanded = ref(false)
+const highlightIndex = ref<number | undefined>(undefined)
+const panelEl = ref<HTMLElement | null>(null)
+
+function togglePanel() {
+  panelExpanded.value = !panelExpanded.value
+}
+
+/** 点击正文 [Sx]：展开来源面板、滚动到对应项并短暂高亮。 */
+function openCite(index: number) {
+  panelExpanded.value = true
+  highlightIndex.value = index
+  void nextTick(() => {
+    panelEl.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  })
+  window.setTimeout(() => {
+    if (highlightIndex.value === index) {
+      highlightIndex.value = undefined
+    }
+  }, 3000)
+}
+
+const hoverEl = ref<HTMLElement | null>(null)
+const hoverSource = ref<{ index: number; source: RetrievedSource } | null>(null)
+const tooltipVisible = ref(false)
+
+function onContentMouseover(event: MouseEvent) {
+  const cite = (event.target as HTMLElement).closest('.kf-cite') as HTMLElement | null
+  if (!cite) {
+    tooltipVisible.value = false
+    return
+  }
+  const index = Number(cite.dataset.sourceIndex)
+  const source = props.msg.sources?.[index - 1]
+  if (!source) {
+    tooltipVisible.value = false
+    return
+  }
+  hoverEl.value = cite
+  hoverSource.value = { index, source }
+  tooltipVisible.value = true
+}
+
+function onContentMouseleave() {
+  tooltipVisible.value = false
+}
+
+function onContentClick(event: MouseEvent) {
+  const cite = (event.target as HTMLElement).closest('.kf-cite') as HTMLElement | null
+  if (cite) {
+    const index = Number(cite.dataset.sourceIndex)
+    const source = props.msg.sources?.[index - 1]
+    if (source) {
+      openCite(index)
+    }
+    return
+  }
+  // 非引用点击：交给代码块复制处理
+  handleCodeBlockClick(event)
+}
 </script>
 
 <template>
@@ -40,9 +102,34 @@ const contentHtml = computed(() =>
       v-if="msg.role !== 'ASSISTANT' || msg.content"
       class="msg-content"
       :aria-live="msg.generationStatus === 'GENERATING' ? 'polite' : undefined"
-      @click="handleCodeBlockClick"
+      @click="onContentClick"
+      @mouseover="onContentMouseover"
+      @mouseleave="onContentMouseleave"
       v-html="contentHtml"
     />
+    <el-tooltip
+      v-if="hoverSource"
+      :virtual-ref="hoverEl"
+      virtual-triggering
+      :visible="tooltipVisible"
+      placement="top"
+      :show-after="0"
+      :hide-after="0"
+      :teleported="true"
+    >
+      <template #content>
+        <div class="cite-tooltip">
+          <div class="cite-tooltip-head">
+            <span class="cite-tooltip-idx">[S{{ hoverSource.index }}]</span>
+            <span class="cite-tooltip-title">{{ hoverSource.source.documentTitle }}</span>
+          </div>
+          <div v-if="hoverSource.source.chunkIndex !== undefined" class="cite-tooltip-chunk">
+            chunk #{{ hoverSource.source.chunkIndex + 1 }}
+          </div>
+          <div class="cite-tooltip-snippet">{{ hoverSource.source.snippet }}</div>
+        </div>
+      </template>
+    </el-tooltip>
     <div v-if="msg.generationStatus === 'FAILED'" class="msg-error">
       {{ msg.errorCode ?? '生成失败' }}
     </div>
@@ -51,7 +138,15 @@ const contentHtml = computed(() =>
       v-if="msg.role === 'ASSISTANT' && msg.generationStatus !== 'GENERATING'"
       class="message-footer"
     >
-      <MessageSourcesPanel :rag-status="msg.ragStatus" :sources="msg.sources" />
+      <div ref="panelEl" class="sources-panel-wrap">
+        <MessageSourcesPanel
+          :rag-status="msg.ragStatus"
+          :sources="msg.sources"
+          :expanded="panelExpanded"
+          :highlight-index="highlightIndex"
+          @toggle="togglePanel"
+        />
+      </div>
       <el-button class="regenerate-action" size="small" text @click="emit('regenerate', msg)">
         重新生成
       </el-button>
@@ -175,6 +270,20 @@ const contentHtml = computed(() =>
   color: var(--kf-green);
   font-weight: 800;
 }
+.msg-content :deep(.kf-cite) {
+  color: var(--kf-green);
+  font-weight: 800;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 1px;
+}
+.msg-content :deep(.kf-cite:hover) {
+  background: rgba(74, 142, 110, 0.15);
+}
+.msg-content :deep(.kf-cite:focus-visible) {
+  outline: var(--kf-focus-ring);
+  outline-offset: 2px;
+}
 .msg-error {
   color: #f56c6c;
   font-size: 0.8rem;
@@ -187,6 +296,10 @@ const contentHtml = computed(() =>
   justify-content: space-between;
   gap: 12px;
 }
+.sources-panel-wrap {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .message-footer :deep(.el-button) {
   border-radius: 10px;
   font-weight: 800;
@@ -194,5 +307,38 @@ const contentHtml = computed(() =>
 .regenerate-action {
   flex: 0 0 auto;
   margin-left: auto;
+}
+.cite-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cite-tooltip-idx {
+  font-weight: 800;
+  color: var(--kf-green);
+}
+.cite-tooltip-title {
+  font-weight: 700;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cite-tooltip-chunk {
+  color: var(--kf-muted);
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+.cite-tooltip-snippet {
+  margin-top: 4px;
+  max-width: 360px;
+  max-height: 120px;
+  overflow: hidden;
+  color: #606266;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
 }
 </style>

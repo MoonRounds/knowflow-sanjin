@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { RetrievedSource } from '../api/types/conversation'
 import { ragStatusText } from '../utils/rag'
@@ -7,10 +7,15 @@ import { ragStatusText } from '../utils/rag'
 const props = defineProps<{
   ragStatus?: string | null
   sources?: RetrievedSource[] | null
+  /** 展开状态由外部控制（正文 [Sx] 点击或面板 badge）。 */
+  expanded?: boolean
+  /** 外部指定高亮的来源序号（1-based，[Sx] 编号）。 */
+  highlightIndex?: number
 }>()
 
+const emit = defineEmits<{ toggle: [] }>()
+
 const router = useRouter()
-const showDiagnostics = ref(false)
 
 const statusText = computed(() => {
   if (props.ragStatus === 'NOT_AVAILABLE' || props.ragStatus === 'NOT_NEEDED') return null
@@ -28,9 +33,28 @@ const summaryText = computed(() => {
   return statusText.value
 })
 
+const sourceTypeText = (type?: string) => {
+  switch (type) {
+    case 'MANUAL_NOTE':
+      return '笔记'
+    case 'UPLOAD_FILE':
+      return '上传文件'
+    case 'AI_CONVERSATION':
+      return '对话沉淀'
+    default:
+      return type ?? ''
+  }
+}
+
 function openDocument(documentId?: string) {
   if (documentId) {
     void router.push(`/documents/${documentId}`)
+  }
+}
+
+function openKnowledgeBase(id?: string) {
+  if (id) {
+    void router.push(`/knowledge-bases/${id}`)
   }
 }
 </script>
@@ -43,14 +67,19 @@ function openDocument(documentId?: string) {
         class="status-badge"
         :class="[(ragStatus ?? '').toLowerCase(), { interactive: hasSources }]"
         :disabled="!hasSources"
-        @click="hasSources && (showDiagnostics = !showDiagnostics)"
+        @click="hasSources && emit('toggle')"
       >
-        {{ showDiagnostics && hasSources ? '收起个人知识' : summaryText }}
+        {{ expanded && hasSources ? '收起个人知识' : summaryText }}
       </button>
     </div>
 
-    <div v-if="showDiagnostics && hasSources" class="sources-list">
-      <div v-for="(s, i) in sources" :key="s.sourceId" class="source-item">
+    <div v-if="expanded && hasSources" class="sources-list">
+      <div
+        v-for="(s, i) in sources"
+        :key="s.sourceId"
+        class="source-item"
+        :class="{ highlighted: highlightIndex === i + 1 }"
+      >
         <div class="source-head">
           <span class="source-idx">[S{{ i + 1 }}]</span>
           <button type="button" class="source-title" @click="openDocument(s.documentId)">
@@ -58,6 +87,19 @@ function openDocument(documentId?: string) {
           </button>
           <el-tag v-if="s.cited" size="small" type="success">已引用</el-tag>
           <el-tag v-else size="small" type="info">检索</el-tag>
+        </div>
+        <div class="source-meta">
+          <button
+            v-if="s.knowledgeBaseId"
+            type="button"
+            class="source-kb-link"
+            @click="openKnowledgeBase(s.knowledgeBaseId)"
+          >
+            {{ s.knowledgeBaseName ?? '未知知识库' }}
+          </button>
+          <span v-if="sourceTypeText(s.sourceType)" class="source-type-tag">
+            {{ sourceTypeText(s.sourceType) }}
+          </span>
         </div>
         <div class="source-snippet">{{ s.snippet }}</div>
       </div>
@@ -122,6 +164,11 @@ function openDocument(documentId?: string) {
 }
 .source-item {
   padding: 4px 0;
+  border-radius: 4px;
+}
+.source-item.highlighted {
+  background: #f0f9eb;
+  outline: 1px solid #67c23a;
 }
 .source-item + .source-item {
   border-top: 1px solid #f0f2f5;
@@ -150,6 +197,35 @@ function openDocument(documentId?: string) {
 .source-title:focus-visible {
   outline: var(--kf-focus-ring);
   outline-offset: 2px;
+}
+.source-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.source-kb-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: #909399;
+  text-decoration: underline;
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+}
+.source-kb-link:hover {
+  color: #409eff;
+}
+.source-type-tag {
+  font-size: 0.7rem;
+  color: #909399;
+  border: 1px solid #e4e7ed;
+  border-radius: 999px;
+  padding: 0 6px;
+  line-height: 1.5;
 }
 .source-snippet {
   color: #909399;

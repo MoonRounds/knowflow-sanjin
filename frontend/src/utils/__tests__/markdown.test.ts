@@ -1,6 +1,13 @@
 // 受控 Markdown 渲染测试：确认基本语法被渲染、raw HTML 被禁用（安全边界）、代码块高亮与流程图识别。
+// [Sx] 引用标记（G32）：传入 sources 后集合内编号渲染为可交互 span，集合外编号保持纯文本。
 import { describe, expect, it } from 'vitest'
 import { renderMarkdown } from '../markdown'
+import type { RetrievedSource } from '../../api/types/conversation'
+
+const twoSources = [
+  { sourceId: 'c1', documentId: '1', documentTitle: 'a' },
+  { sourceId: 'c2', documentId: '2', documentTitle: 'b' },
+] as RetrievedSource[]
 
 describe('renderMarkdown', () => {
   it('renders headings, bold, inline code and highlighted code blocks', () => {
@@ -84,5 +91,34 @@ describe('renderMarkdown', () => {
   it('renders empty and plain text safely', () => {
     expect(renderMarkdown('')).toBe('')
     expect(renderMarkdown('plain text')).toContain('plain text')
+  })
+
+  it('renders in-range [Sx] citations as interactive spans when sources are provided', () => {
+    const html = renderMarkdown('根据 [S1] 与 [S2]，见下。', twoSources)
+    expect(html).toContain('<span class="kf-cite" data-source-index="1">[S1]</span>')
+    expect(html).toContain('<span class="kf-cite" data-source-index="2">[S2]</span>')
+  })
+
+  it('keeps out-of-range [Sx] citations as plain text', () => {
+    const html = renderMarkdown('模型乱引用了 [S9]。', twoSources)
+    expect(html).toContain('[S9]')
+    expect(html).not.toContain('kf-cite')
+  })
+
+  it('keeps citations plain when no sources are provided', () => {
+    const html = renderMarkdown('普通回答 [S1] 原文。')
+    expect(html).toContain('[S1]')
+    expect(html).not.toContain('kf-cite')
+  })
+
+  it('does not turn citations inside code blocks into interactive spans', () => {
+    const html = renderMarkdown('```js\nconst ref = "[S1]"\n```', twoSources)
+    expect(html).not.toContain('kf-cite')
+    expect(html).toContain('[S1]')
+  })
+
+  it('renders multiple citations in one paragraph', () => {
+    const html = renderMarkdown('[S1] [S2] [S2]', twoSources)
+    expect(html.match(/kf-cite/g)).toHaveLength(3)
   })
 })

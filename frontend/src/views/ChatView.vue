@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* global AbortController, crypto, localStorage, HTMLElement, KeyboardEvent */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
