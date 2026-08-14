@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
-import { describe, expect, it } from 'vitest'
+import { createMemoryHistory, createRouter } from 'vue-router'
+import { describe, expect, it, vi } from 'vitest'
 import MessageSourcesPanel from '../MessageSourcesPanel.vue'
 import type { RetrievedSource } from '../../api/types/conversation'
 
@@ -10,7 +11,14 @@ function mountPanel(props: {
   expanded?: boolean
   highlightIndex?: number
 }) {
-  return mount(MessageSourcesPanel, { props, global: { plugins: [ElementPlus] } })
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/knowledge-bases/:id', component: { template: '<div />' } },
+      { path: '/:pathMatch(.*)*', component: { template: '<div />' } },
+    ],
+  })
+  return mount(MessageSourcesPanel, { props, global: { plugins: [ElementPlus, router] } })
 }
 
 const sources = [
@@ -80,5 +88,22 @@ describe('MessageSourcesPanel', () => {
     const wrapper = mountPanel({ ragStatus: 'USED', sources })
     await wrapper.find('.status-badge').trigger('click')
     expect(wrapper.emitted('toggle')).toHaveLength(1)
+  })
+
+  it('navigates to the knowledge base detail route when the KB link is clicked', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/knowledge-bases/:id', component: { template: '<div />' } },
+        { path: '/:pathMatch(.*)*', component: { template: '<div />' } },
+      ],
+    })
+    const pushSpy = vi.spyOn(router, 'push')
+    const wrapper = mount(MessageSourcesPanel, {
+      props: { ragStatus: 'USED', sources, expanded: true },
+      global: { plugins: [ElementPlus, router] },
+    })
+    await wrapper.find('.source-kb-link').trigger('click')
+    expect(pushSpy).toHaveBeenCalledWith(`/knowledge-bases/${sources[0].knowledgeBaseId}`)
   })
 })
