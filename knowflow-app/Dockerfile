@@ -23,8 +23,8 @@ RUN ./knowflow-app/mvnw \
 FROM eclipse-temurin:21-jre-jammy
 
 RUN useradd --system --uid 10001 --create-home knowflow \
-    && mkdir -p /var/lib/knowflow/files \
-    && chown -R knowflow:knowflow /var/lib/knowflow
+    && mkdir -p /var/lib/knowflow/files /app/logs \
+    && chown -R knowflow:knowflow /var/lib/knowflow /app/logs
 WORKDIR /app
 COPY --from=build --chown=knowflow:knowflow \
     /workspace/knowflow-app/target/knowflow-app-0.1.0-SNAPSHOT.jar /app/knowflow-app.jar
