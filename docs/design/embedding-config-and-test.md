@@ -83,14 +83,20 @@ CREATE TABLE embedding_config
 
 ### 5.1 `PUT` 保存语义（保存前必测）
 
-- 请求体：`{ baseUrl, apiKey?, modelName }`（`apiKey` 为空表示沿用现有加密 Key）。
+- 请求体：`{ baseUrl, apiKey?, modelName }`。**首次保存（尚无配置行）时 `apiKey` 必填**，
+  缺失返回 400 `INVALID_ARGUMENT`（"首次保存向量模型配置必须提供 API Key"）；编辑时
+  `apiKey` 为空表示沿用现有加密 Key（`target` 复用已加载行，原加密 Key 字段不变，
+  `updateById` 原样持久化）。存量空 Key 行（旧 bootstrap seed 出的空串密文）解出空串时
+  返回 400 提示重新输入，避免空 key 探针调上游。
 - 服务端流程：校验 baseUrl（`BaseUrlValidator`）→ 用候选配置调一次真实 embedding（固定探针文本
   `"KnowFlow 向量化测试"`）→ 自动探测 dimension → 读 Qdrant 集合当前维度：
   - 无集合（尚未索引任何内容）→ 任意维度可保存；
   - 有集合且 `dimension ≠ 集合维度` → 拒绝，Problem Details
     `errorCode=向量模型维度变更需先重建索引`（HTTP 409），旧配置保持生效；
-  - 一致 → 加密 Key、写行、返回配置（含掩码与 dimension）。
+  - 一致 → 加密 Key（首次必填或编辑沿用）、写行、返回配置（含掩码与 dimension）。
 - 由此"必须通过测试"由服务端强制，不依赖前端先测再传维度（防篡改）。
+- 启动引导（`EmbeddingConfigBootstrap`）：仅当 `application.yml` 同时配置了 `base-url` 与
+  `api-key` 且 DB 无行时 seed 一次；缺任一则以 `configured=false` 引导用户在系统设置补全。
 
 ### 5.2 `POST /test` 手动预检
 

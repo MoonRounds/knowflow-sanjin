@@ -124,7 +124,24 @@ public class EmbeddingConfigService {
     long ownerId = currentOwnerProvider.getCurrentOwnerId();
 
     EmbeddingConfig existing = selectSingleton();
-    String apiKey = resolveApiKey(request, existing);
+    boolean hasNewKey = request.getApiKey() != null && !request.getApiKey().trim().isEmpty();
+
+    // 首次保存必须显式提供 API Key，避免产生无 Key 的配置行；编辑时留空表示沿用现有 Key
+    if (existing == null && !hasNewKey) {
+      throw new IllegalArgumentException("首次保存向量模型配置必须提供 API Key");
+    }
+
+    // 探针与加密用的真实 Key：有新 Key 用新 Key，否则解密现有行（守卫已保证此时 existing != null）
+    String apiKey;
+    if (hasNewKey) {
+      apiKey = request.getApiKey().trim();
+    } else {
+      apiKey = encryptionService.decrypt(existing.getEncryptedApiKey());
+    }
+    // 存量空 Key 行（旧 bootstrap seed 出的空串密文）解出空串时明确拒绝，避免空 key 探针调上游
+    if (apiKey == null || apiKey.isBlank()) {
+      throw new IllegalArgumentException("当前向量模型未保存有效 API Key，请重新输入");
+    }
     String baseUrl = request.getBaseUrl().trim();
     String modelName = request.getModelName().trim();
 
@@ -141,11 +158,12 @@ public class EmbeddingConfigService {
     target.setBaseUrl(baseUrl);
     target.setModelName(modelName);
     target.setDimension(dimension);
-    if (request.getApiKey() != null && !request.getApiKey().trim().isEmpty()) {
+    if (hasNewKey) {
       target.setEncryptedApiKey(encryptionService.encrypt(apiKey));
       target.setApiKeyMasked(SecretRedactor.maskForDisplay(apiKey));
       target.setApiKeyEncryptionVersion(encryptionService.getEncryptionVersion());
     }
+    // 编辑不带新 Key 时 target 即已加载的 existing，原加密 Key 仍在字段上，updateById 原样持久化
     if (existing == null) {
       mapper.insert(target);
     } else {
@@ -160,19 +178,6 @@ public class EmbeddingConfigService {
     row.setId(1L);
     row.setOwnerId(ownerId);
     return row;
-  }
-
-  private String resolveApiKey(UpdateEmbeddingConfigRequest request, EmbeddingConfig existing) {
-    if (request.getApiKey() != null && !request.getApiKey().trim().isEmpty()) {
-      return request.getApiKey().trim();
-    }
-    if (existing != null) {
-      return encryptionService.decrypt(existing.getEncryptedApiKey());
-    }
-    if (properties.getApiKey() != null && !properties.getApiKey().isBlank()) {
-      return properties.getApiKey();
-    }
-    throw new IllegalArgumentException("请提供向量模型 API Key");
   }
 
   private int probeDimension(EmbeddingConfigSnapshot candidate) {

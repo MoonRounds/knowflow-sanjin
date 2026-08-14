@@ -96,6 +96,41 @@ class ModelConfigServiceIT extends MySQLTestBase {
   }
 
   @Test
+  @DisplayName("blank apiKey on update should not overwrite existing encrypted key")
+  void shouldKeepExistingKeyWhenApiKeyBlank() {
+    ModelConfig config = service.create(request("Kappa"));
+    Long firstRevisionId = config.getCurrentRevisionId();
+    ModelConfigRevision first = service.getRevision(config.getId(), firstRevisionId);
+
+    UpdateModelConfigRequest update = new UpdateModelConfigRequest();
+    update.setModelName("deepseek-r1");
+    update.setApiKey("");
+    ModelConfig updated = service.update(config.getId(), update);
+
+    // 新 Revision 沿用原加密 key，不覆盖为空串密文
+    assertThat(updated.getCurrentRevisionId()).isNotEqualTo(firstRevisionId);
+    ModelConfigRevision newRev =
+        service.getRevision(config.getId(), updated.getCurrentRevisionId());
+    assertThat(newRev.getEncryptedApiKey()).isEqualTo(first.getEncryptedApiKey());
+    assertThat(newRev.getApiKeyMasked()).isEqualTo(first.getApiKeyMasked());
+  }
+
+  @Test
+  @DisplayName("blank apiKey alone should not create a new revision")
+  void shouldNotCreateRevisionWhenOnlyApiKeyBlank() {
+    ModelConfig config = service.create(request("Lambda"));
+    Long firstRevisionId = config.getCurrentRevisionId();
+
+    UpdateModelConfigRequest update = new UpdateModelConfigRequest();
+    update.setApiKey(" ");
+    service.update(config.getId(), update);
+
+    // 空白 apiKey 不视为新 key，current Revision 不变
+    ModelConfig after = service.getByIdAndOwner(config.getId());
+    assertThat(after.getCurrentRevisionId()).isEqualTo(firstRevisionId);
+  }
+
+  @Test
   @DisplayName("should enforce owner isolation on configs and revisions")
   void shouldIsolateAcrossOwners() {
     ModelConfig config = service.create(request("Delta"));

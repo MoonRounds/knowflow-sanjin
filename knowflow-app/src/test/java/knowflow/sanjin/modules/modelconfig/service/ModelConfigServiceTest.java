@@ -78,6 +78,8 @@ class ModelConfigServiceTest {
     rev.setModelConfigId(config.getId());
     rev.setOwnerId(config.getOwnerId());
     rev.setRevisionNo(1);
+    rev.setDisplayName(config.getDisplayName());
+    rev.setProviderName(config.getProviderName());
     rev.setBaseUrl("http://localhost:9000/v1");
     rev.setModelName("deepseek-chat");
     rev.setTemperature(0.7);
@@ -163,6 +165,47 @@ class ModelConfigServiceTest {
 
     assertThat(updated.getDisplayName()).isEqualTo("Renamed");
     verify(revisionMapper, times(2)).insert(any(ModelConfigRevision.class));
+  }
+
+  @Test
+  @DisplayName("should not create a revision when only a blank apiKey is provided")
+  void shouldIgnoreBlankApiKeyUpdate() {
+    ModelConfig created = createdConfig();
+    ModelConfigRevision rev1 = revisionFor(created);
+    when(revisionMapper.selectOne(any(Wrapper.class))).thenReturn(rev1);
+    when(modelConfigMapper.selectOne(any(Wrapper.class))).thenReturn(created);
+    when(modelConfigMapper.update(any(), any(Wrapper.class))).thenReturn(1);
+
+    UpdateModelConfigRequest update = new UpdateModelConfigRequest();
+    update.setApiKey(" ");
+    ModelConfig updated = service.update(100L, update);
+
+    // 空串 apiKey 不视为新 key，不创建新 Revision，current 保持不变
+    assertThat(updated.getCurrentRevisionId()).isEqualTo(200L);
+    verify(revisionMapper, times(1)).insert(any(ModelConfigRevision.class));
+  }
+
+  @Test
+  @DisplayName("should keep existing encrypted apiKey when update apiKey is blank")
+  void shouldKeepExistingKeyWhenApiKeyBlank() {
+    ModelConfig created = createdConfig();
+    ModelConfigRevision rev1 = revisionFor(created);
+    when(revisionMapper.selectOne(any(Wrapper.class))).thenReturn(rev1);
+    when(modelConfigMapper.selectOne(any(Wrapper.class))).thenReturn(created);
+    when(modelConfigMapper.update(any(), any(Wrapper.class))).thenReturn(1);
+
+    UpdateModelConfigRequest update = new UpdateModelConfigRequest();
+    update.setModelName("deepseek-r1");
+    update.setApiKey("");
+    service.update(100L, update);
+
+    ArgumentCaptor<ModelConfigRevision> captor = ArgumentCaptor.forClass(ModelConfigRevision.class);
+    verify(revisionMapper, times(2)).insert(captor.capture());
+    ModelConfigRevision newRev = captor.getAllValues().get(1);
+    // 新 Revision 沿用原加密 key，而非空串密文
+    assertThat(newRev.getEncryptedApiKey()).isEqualTo(rev1.getEncryptedApiKey());
+    assertThat(newRev.getApiKeyMasked()).isEqualTo(rev1.getApiKeyMasked());
+    assertThat(encryption.decrypt(newRev.getEncryptedApiKey())).isEqualTo("sk-test-original");
   }
 
   @Test

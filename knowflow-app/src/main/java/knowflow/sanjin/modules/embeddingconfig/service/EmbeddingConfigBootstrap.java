@@ -46,6 +46,14 @@ public class EmbeddingConfigBootstrap {
     if (mapper.selectById(1L) != null) {
       return;
     }
+    // 只配置了 base-url 而未提供 api-key 时跳过 seed：encrypted_api_key NOT NULL，缺 key 无法落库，
+    // 且 seed 出空 key 行会在重启后表现为"配置了但无 key"。由系统设置引导用户填写。
+    if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
+      log.warn(
+          "环境变量/application.yml 已配置 embedding base-url 但未提供 api-key，跳过 seed；"
+              + "请在系统设置中配置向量模型 API Key");
+      return;
+    }
     EmbeddingConfig row = new EmbeddingConfig();
     row.setId(1L);
     row.setOwnerId(currentOwnerProvider.getCurrentOwnerId());

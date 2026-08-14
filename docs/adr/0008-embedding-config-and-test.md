@@ -28,7 +28,10 @@ Base URL 不可达）只能从索引任务失败侧面暴露。Owner 要求：�
 - **维度变化阻止保存**：新配置维度 ≠ Qdrant 当前集合维度时拒绝保存（HTTP 409，稳定 errorCode），
   旧配置保持生效；全量重建流程 V1 后跟进（本次不实现）。
 - **DB 为事实源 + yml 引导**：运行时 `EmbeddingClient` 改读 `EmbeddingConfigService`（DB 行）；
-  启动时无行则用 `EmbeddingProperties` seed，保存后以 DB 为准。超时仍属系统级 yml 配置。
+  启动时无行且 `application.yml` 的 base-url 与 api-key **均非空**才用 `EmbeddingProperties` seed，
+  保存后以 DB 为准。仅配置 base-url 而未提供 api-key 时跳过 seed 并告警，避免 seed 出"已配置但无
+  key"的空 Key 行；首次保存必须显式提供 API Key，编辑留空则沿用现有加密 Key。超时仍属系统级 yml
+  配置。
 
 ## 影响
 

@@ -3,7 +3,7 @@ package knowflow.sanjin.modules.embeddingconfig.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/** 保存系统级向量模型配置请求。服务端保存时重跑真实向量化测试并自动探测维度； apiKey 为空表示沿用现有加密 Key。 */
+/** 保存系统级向量模型配置请求。服务端保存时重跑真实向量化测试并自动探测维度； 首次保存必须提供 apiKey，编辑时 apiKey 为空表示沿用现有加密 Key。 */
 public class UpdateEmbeddingConfigRequest {
 
   @NotBlank(message = "向量模型 Base URL 不能为空")

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 模型设置页：模型配置 CRUD、连接/Utility 能力测试、默认 Chat/Utility 角色设置。
 // API Key 始终只显示掩码；编辑时未显式输入新 Key 则保持原值不变。
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   createModelConfig,
@@ -42,6 +42,22 @@ const embeddingForm = reactive({ baseUrl: '', modelName: '', apiKey: '' })
 const embeddingTesting = ref(false)
 const embeddingSaving = ref(false)
 const embeddingTestDimension = ref<number | null>(null)
+/** 保存前置校验：baseUrl/modelName 必填；未配置过时必须显式填写 API Key。 */
+const embeddingSaveDisabled = computed(
+  () =>
+    !embeddingForm.baseUrl?.trim() ||
+    !embeddingForm.modelName?.trim() ||
+    (!embedding.value?.configured && !embeddingForm.apiKey?.trim()),
+)
+/** API Key 输入框占位：未配置必须填写；已配置沿用（掩码）；已配置但掩码为空说明存量配置无有效 Key，提示重填。 */
+const embeddingApiKeyPlaceholder = computed(() => {
+  if (embedding.value?.configured) {
+    return embedding.value.apiKeyMasked
+      ? `留空保持不变（${embedding.value.apiKeyMasked}）`
+      : '当前未保存有效 API Key，请重新输入'
+  }
+  return '首次配置必须填写 API Key（sk-...）'
+})
 
 const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
@@ -258,7 +274,7 @@ async function loadEmbedding() {
     embedding.value = await getEmbeddingConfig()
     embeddingForm.baseUrl = embedding.value?.baseUrl ?? ''
     embeddingForm.modelName = embedding.value?.modelName ?? ''
-    // API Key 只回显掩码，不放入表单；留空表示保存时沿用现有 Key
+    // API Key 只回显掩码，不放入表单；首次配置必须填写，编辑时留空表示沿用现有 Key
     embeddingForm.apiKey = ''
   } catch (e) {
     ElMessage.error(errorText(e, '加载向量模型配置失败'))
@@ -459,9 +475,7 @@ onMounted(() => {
             v-model="embeddingForm.apiKey"
             type="password"
             show-password
-            :placeholder="
-              embedding?.configured ? `留空保持不变（${embedding?.apiKeyMasked ?? ''}）` : 'sk-...'
-            "
+            :placeholder="embeddingApiKeyPlaceholder"
           />
         </div>
         <div class="embedding-field">
@@ -486,7 +500,7 @@ onMounted(() => {
         <el-button
           type="primary"
           :loading="embeddingSaving"
-          :disabled="!embeddingForm.baseUrl?.trim() || !embeddingForm.modelName?.trim()"
+          :disabled="embeddingSaveDisabled"
           @click="saveEmbedding"
         >
           保存

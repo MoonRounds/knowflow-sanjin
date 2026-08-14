@@ -188,7 +188,7 @@ public class ModelConfigService {
     boolean revisionNeeded =
         !nextDisplayName.equals(current.getDisplayName())
             || !nextProviderName.equals(current.getProviderName())
-            || request.getApiKey() != null
+            || (request.getApiKey() != null && !request.getApiKey().trim().isEmpty())
             || (request.getBaseUrl() != null
                 && !request.getBaseUrl().trim().equals(current.getBaseUrl()))
             || (request.getModelName() != null
@@ -457,7 +457,7 @@ public class ModelConfigService {
         request.getMaxOutputTokens() != null
             ? request.getMaxOutputTokens()
             : current.getMaxOutputTokens());
-    if (request.getApiKey() != null) {
+    if (request.getApiKey() != null && !request.getApiKey().trim().isEmpty()) {
       encryptAndStoreKey(rev, request.getApiKey());
     } else {
       rev.setEncryptedApiKey(current.getEncryptedApiKey());

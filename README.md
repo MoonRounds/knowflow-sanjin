@@ -230,7 +230,7 @@ export KNOWFLOW_MODEL_ALLOW_LOCAL_BASE_URL=true
 ./knowflow-app/mvnw -f pom.xml -pl knowflow-app spring-boot:run
 ```
 
-然后在浏览器打开 http://localhost:5173：**模型设置**页创建 ModelConfig 指向 `http://127.0.0.1:18080/v1`，Embedding 配置填入 `KNOWFLOW_EMBEDDING_BASE_URL=http://127.0.0.1:18080/v1`（API Key 留空）。Stub 返回预设演示内容，用来验证 RAG 链路是否打通。
+然后在浏览器打开 http://localhost:5173：**模型设置**页创建 ModelConfig 指向 `http://127.0.0.1:18080/v1`，Embedding 配置填入 `KNOWFLOW_EMBEDDING_BASE_URL=http://127.0.0.1:18080/v1`（API Key 首次保存必填，stub 忽略其值，填任意非空占位即可）。Stub 返回预设演示内容，用来验证 RAG 链路是否打通。
 
 <details>
 <summary>⚙️ 配置真实模型（DeepSeek / Qwen）</summary>
@@ -244,7 +244,7 @@ KNOWFLOW_EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 KNOWFLOW_EMBEDDING_API_KEY=<你的 DashScope Key>
 ```
 
-> Embedding 是单一系统级云端配置，不进入 ModelConfig 页面；也可在**模型设置**页的 Embedding 区块在线配置并测试连通。留空时索引任务会因「Base URL 为空」失败并重试——真实使用必须提供。
+> Embedding 是单一系统级云端配置，不进入 ModelConfig 页面；也可在**模型设置**页的 Embedding 区块在线配置并测试连通。首次保存必须填写 API Key；编辑留空则沿用现有 Key。仅配置 base-url 而缺 api-key 时启动会跳过引导 seed，需在系统设置补填 Key——未配置时索引任务会失败并重试，真实使用必须提供。
 
 **ChatModel（模型设置页面）**：
 
