@@ -11,6 +11,8 @@
 3. 目标阶段的 `PLAN.md`
 4. 仓库根目录 `AGENTS.md`
 
+V1.5（单归属重构 + 手动选库问答）在 V1 决策基线之上扩展，阶段计划见下方「V1.5 阶段索引」。
+
 执行完成后，开启一个新的 Codex 任务，只阅读同一阶段的 `REVIEW.md` 以及它要求的材料。Review 默认只报告问题，不顺手修改代码。修复工作应进入独立任务，修复后重新运行该阶段 Review。
 
 ## V1 Definition of Done
@@ -58,6 +60,17 @@ KnowFlow V1 是否完成，以两个真实前端闭环为准：
 | 7 | Conversation Knowledge Extraction | [PLAN](./phase-07-knowledge-extraction/PLAN.md) | [REVIEW](./phase-07-knowledge-extraction/REVIEW.md) |
 | 8 | Markdown/TXT Upload 与 Document Processing | [PLAN](./phase-08-document-upload/PLAN.md) | [REVIEW](./phase-08-document-upload/REVIEW.md) |
 | 9 | V1 双闭环、完整 Compose 与 E2E 验收 | [PLAN](./phase-09-v1-acceptance/PLAN.md) | [REVIEW](./phase-09-v1-acceptance/REVIEW.md) |
+
+## V1.5 阶段索引
+
+V1.5 在 V1 完成后实施，实现计划见 [`v1.5-implementation-plan.md`](./v1.5-implementation-plan.md)，决策变更记录于 ADR 0007 / 0008 / 0009 与 `DECISIONS.md`。
+
+| Phase | 主题 | 数据库迁移 | 任务级 PLAN |
+|---|---|---|---|
+| 1 | 数据模型与领域改名（ADR 0007 落地） | V12 | [v1.5-phase-01-plan.md](./v1.5-phase-01-plan.md) |
+| 2 | 页面结构拆分（三层页面） | 无 | [v1.5-phase-02-plan.md](./v1.5-phase-02-plan.md) |
+| 3 | 手动选库问答（Conversation 绑定 + Router 收敛） | V13 | [v1.5-phase-03-plan.md](./v1.5-phase-03-plan.md) |
+| 4 | 状态聚合 + 引用增强 + 文档与验收 | 无 | [v1.5-phase-04-plan.md](./v1.5-phase-04-plan.md) |
 
 ## 顺序约束
 

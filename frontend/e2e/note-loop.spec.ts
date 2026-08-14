@@ -98,6 +98,21 @@ test.describe('个人笔记/上传闭环', () => {
     const sourceItem = latestAssistant.locator('.source-item').filter({ hasText: 'Kf-番茄工作法' })
     await expect(sourceItem.getByText('已引用')).toBeVisible()
 
+    // ---- P4 引用增强（G35）：来源面板显示所属知识库名 ----
+    await expect(sourceItem.locator('.source-kb-link')).toHaveText(kb.name)
+
+    // ---- P4 引用增强（G35）：正文 [S1] 悬停预览与点击高亮 ----
+    const cite = latestAssistant.locator('.kf-cite').first()
+    await expect(cite).toBeVisible()
+    await cite.hover()
+    const popper = page.locator('.el-popper').filter({ hasText: 'Kf-番茄工作法' }).last()
+    await expect(popper).toBeVisible()
+    await expect(popper).toContainText('番茄工作法')
+    await cite.click()
+    await expect(
+      latestAssistant.locator('.source-item.highlighted').filter({ hasText: 'Kf-番茄工作法' }),
+    ).toBeVisible()
+
     const messagesResponse = await request.get(
       `${API_BASE}/conversations/${conversationId}/messages?limit=20`,
     )
@@ -188,6 +203,9 @@ test.describe('个人笔记/上传闭环', () => {
       .locator('.source-item')
       .filter({ hasText: 'Kf-海豚-部署手册' })
     await expect(sourceItem.getByText('已引用')).toBeVisible()
+
+    // ---- P4 引用增强（G35）：来源面板显示所属知识库名 ----
+    await expect(sourceItem.locator('.source-kb-link')).toHaveText(kb.name)
 
     const messagesResponse = await request.get(
       `${API_BASE}/conversations/${conversationId}/messages?limit=20`,

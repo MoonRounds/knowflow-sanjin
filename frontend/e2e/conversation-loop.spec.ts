@@ -189,6 +189,8 @@ test.describe('对话沉淀闭环', () => {
     const sourceItem = latestAssistant.locator('.source-item').filter({ hasText: editedTitle })
     await expect(sourceItem).toBeVisible()
     await expect(sourceItem.getByText('已引用')).toBeVisible()
+    // P4 引用增强（G35）：来源面板显示所属知识库名（自动 Router 场景）
+    await expect(sourceItem.locator('.source-kb-link')).toHaveText(kb.name)
 
     let ragMessagesResponse = await request.get(
       `${API_BASE}/conversations/${ragConversationId}/messages?limit=20`,
