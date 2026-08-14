@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.UUID;
 import knowflow.sanjin.common.config.QdrantProperties;
 import knowflow.sanjin.common.error.ErrorCode;
+import knowflow.sanjin.common.util.ObsLog;
 import knowflow.sanjin.modules.knowledge.KnowledgeConstants;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocument;
 import knowflow.sanjin.modules.knowledge.entity.KnowledgeDocumentChunk;
@@ -251,11 +252,11 @@ public class KnowledgeIndexingService implements IndexingService {
         version,
         savedChunks.size(),
         points.size(),
-        elapsed(afterChunk - start),
-        elapsed(afterSave - afterChunk),
-        elapsed(afterEmbed - afterSave),
-        elapsed(afterUpsert - afterEmbed),
-        elapsed(afterUpsert - start));
+        ObsLog.formatMs(afterChunk - start),
+        ObsLog.formatMs(afterSave - afterChunk),
+        ObsLog.formatMs(afterEmbed - afterSave),
+        ObsLog.formatMs(afterUpsert - afterEmbed),
+        ObsLog.formatMs(afterUpsert - start));
 
     // 成功后切换当前索引版本
     documentMapper.update(
@@ -281,11 +282,6 @@ public class KnowledgeIndexingService implements IndexingService {
                 java.util.Map.of(
                     "key", "content_version", "range", java.util.Map.of("lt", version))));
     qdrantClient.deletePointsByFilter(collection, oldFilter);
-  }
-
-  /** 纳秒耗时 → 中文毫秒字符串（索引阶段计时可观测）。 */
-  private static String elapsed(long nanos) {
-    return nanos / 1_000_000 + "ms";
   }
 
   private int taskContentVersion(String businessKey, String suffix) {

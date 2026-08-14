@@ -122,6 +122,7 @@ SSE 最小事件：
 - 流式 chunk 不逐 token 写 MySQL；成功保存完整内容，失败/取消可保存 partial content。
 - 已输出正文后不自动重试流式调用；用户可以重新生成。
 - failed/cancelled/abandoned Turn 不进入 Memory 或 Extraction。
+  - 「abandoned」指被放弃的 turn（超时放弃、停止且未完成、流式调用失败）；「客户端断连但 Provider 流已收完」归类 COMPLETED，正常参与 Memory/Extraction（见 ADR 0010）。
 - 已提交 Message 默认不可编辑、不支持会话分支；覆盖式重新生成是唯一原位改写已提交 assistant 消息的路径，旧内容在 prepare 阶段清空，失败/取消不再保留旧回答（见 ADR 0005）。
 - active Generation 存在时禁止删除 Conversation。
 - Conversation 硬删除，单事务级联清理消息、GenerationTrace、提取任务与候选；已确认沉淀的 KnowledgeItem 保留（`candidate_id` 置空），不级联删除已沉淀知识（见 ADR 0006）。

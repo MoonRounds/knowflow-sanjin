@@ -25,9 +25,11 @@ const statusText = computed(() => {
 
 const hasSources = computed(() => (props.sources ?? []).length > 0)
 
+const citedCount = computed(() => (props.sources ?? []).filter((s) => s.cited).length)
+
 const summaryText = computed(() => {
   if (hasSources.value) {
-    return `来源个人知识库 ${(props.sources ?? []).length}`
+    return `来源个人知识库 ${citedCount.value}/${(props.sources ?? []).length}`
   }
   return statusText.value
 })

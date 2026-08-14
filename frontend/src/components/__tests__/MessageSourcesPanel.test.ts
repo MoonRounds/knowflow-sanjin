@@ -42,7 +42,7 @@ describe('MessageSourcesPanel', () => {
   it('shows one compact personal knowledge summary when sources exist', () => {
     const wrapper = mountPanel({ ragStatus: 'USED', sources })
 
-    expect(wrapper.text()).toContain('来源个人知识库 2')
+    expect(wrapper.text()).toContain('来源个人知识库 1/2')
     expect(wrapper.text()).not.toContain('已使用个人知识')
   })
 

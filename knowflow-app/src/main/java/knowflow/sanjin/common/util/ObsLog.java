@@ -24,7 +24,12 @@ public final class ObsLog {
   }
 
   /** 格式化耗时（纳秒 → 毫秒），带单位。 */
+  public static String formatMs(long nanos) {
+    return nanos / 1_000_000 + "ms";
+  }
+
+  /** 格式化从 startNanos 至今的耗时（纳秒 -> 毫秒），带单位。 */
   public static String elapsedMs(long startNanos) {
-    return (System.nanoTime() - startNanos) / 1_000_000 + "ms";
+    return formatMs(System.nanoTime() - startNanos);
   }
 }

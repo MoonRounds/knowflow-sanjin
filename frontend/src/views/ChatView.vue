@@ -562,12 +562,16 @@ function stopTitlePolling() {
 
 /** 刷新兜底轮询定时器：store 无 live 流（连接已断）但消息仍 GENERATING 时，轮询至终态再重拉。 */
 let completionPollTimer: number | undefined
+let completionPollAttempts = 0
+/** 轮询上限：≈60s @1.5s，超限后兜底单次重拉对账并停止（后端 Future-get 超时已会落终态）。 */
+const COMPLETION_POLL_MAX_ATTEMPTS = 40
 
 function stopCompletionPolling() {
   if (completionPollTimer) {
     clearInterval(completionPollTimer)
     completionPollTimer = undefined
   }
+  completionPollAttempts = 0
 }
 
 /** 检测「孤儿 GENERATING 消息」（页面刷新后连接已断，无 live 流接管）并启动轮询补齐。 */
@@ -581,6 +585,13 @@ function maybeStartCompletionPolling() {
   }
   completionPollTimer = window.setInterval(async () => {
     if (!activeId.value) return
+    completionPollAttempts++
+    if (completionPollAttempts > COMPLETION_POLL_MAX_ATTEMPTS) {
+      // 超限兜底：后端 Future-get 超时已会落终态，单次重拉对账并停止轮询
+      stopCompletionPolling()
+      await loadHistory(null)
+      return
+    }
     try {
       const page = await listMessages(activeId.value, { limit: 5 })
       const stillGenerating = (page.messages ?? []).some((m) => m.generationStatus === 'GENERATING')

@@ -4,6 +4,7 @@ import static knowflow.sanjin.common.error.ErrorCode.*;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import knowflow.sanjin.common.util.ObsLog;
 import knowflow.sanjin.modules.conversation.title.ConversationTitleService;
 import knowflow.sanjin.modules.rag.dto.RagContext;
 import knowflow.sanjin.modules.rag.dto.RetrievedSource;
@@ -98,7 +99,7 @@ public class GenerationStreamer {
       log.info(
           "生成完成 messageId={} 耗时={} 输出字符数={} 输入Token={} 输出Token={} RAG={}{}",
           msgId,
-          elapsedMs(start),
+          ObsLog.elapsedMs(start),
           content.length(),
           promptTokens.get(),
           completionTokens.get(),
@@ -127,7 +128,7 @@ public class GenerationStreamer {
             "生成 {} 失败: errorCode={} 耗时={} 已输出字符数={}",
             msgId,
             errorCode,
-            elapsedMs(start),
+            ObsLog.elapsedMs(start),
             content.length(),
             e);
         finalizer.fail(ctx.conversationId(), msgId, content.toString(), errorCode, snapshot);
@@ -278,10 +279,6 @@ public class GenerationStreamer {
       cur = cur.getCause();
     }
     return cur;
-  }
-
-  private static String elapsedMs(long startNanos) {
-    return (System.nanoTime() - startNanos) / 1_000_000 + "ms";
   }
 
   /** 当前回合 RAG 状态（无上下文时为 "无"），用于生成汇总日志。 */
