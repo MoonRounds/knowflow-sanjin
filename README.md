@@ -295,7 +295,7 @@ knowflow-sanjin/
 | POST / GET | `/api/v1/documents` | 新建 Manual Note / 文档列表（分页 + 来源类型·Tag·索引状态过滤） |
 | GET | `/api/v1/knowledge-bases` · `/api/v1/knowledge-bases/{id}` | 知识库列表 / 库详情 |
 | GET | `/api/v1/tags` | 标签列表 |
-| GET / PUT | `/api/v1/embedding-config` | 系统级 Embedding 配置读取 / 更新 |
+| GET / PUT | `/api/v1/embedding-config` | 系统级 Embedding 配置读取 / 更新（`POST /embedding-config/test` 连通性测试） |
 | GET | `/api/v1/processing-tasks` · POST `/api/v1/processing-tasks/{id}/retry` | 异步任务状态 / 重试 |
 | PUT | `/api/v1/model-configs/{id}/disable` | 停用模型配置 |
 | GET | `/api/v1/health` | 健康检查 |
@@ -465,7 +465,7 @@ sh scripts/check-generated-api-types.sh  # 前端 generated API 类型与 OpenAP
 - 无认证版本只能运行在 **localhost / 可信内网 / 已有外层保护**的环境，不能裸露公网。
 - 禁止将密钥、证书或真实配置提交到仓库。
 
-> 完整限制与公网部署前置条件见 [V1 已知限制与安全边界](docs/product/v1-known-limitations.md)。
+> 完整限制与公网部署前置条件见 [V1/V1.5 已知限制与安全边界](docs/product/v1-known-limitations.md)。
 
 ---
 
@@ -476,6 +476,7 @@ sh scripts/check-generated-api-types.sh  # 前端 generated API 类型与 OpenAP
 - [系统上下文](docs/architecture/system-context.md) · [领域模型与状态机](docs/architecture/domain-model-and-state-machines.md)
 - [后端包结构](docs/architecture/backend-package-structure.md) · [设计系统](docs/design/design-system.md)
 - [开发与测试指南](docs/development/testing.md) · [Provider 兼容性](docs/development/provider-compatibility.md) · [Qdrant / Embedding](docs/development/qdrant-embedding.md)
+- [会话知识提取](docs/development/knowledge-extraction.md) · [ProcessingTask 重试与 DLQ 手册](docs/development/processing-retry-dlq-runbook.md) · [上传原文件本地存储](docs/development/document-upload-local-storage.md)
 
 ---
 

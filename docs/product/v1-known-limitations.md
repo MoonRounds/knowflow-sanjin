@@ -1,8 +1,8 @@
-# V1 已知限制与安全边界
+# V1/V1.5 已知限制与安全边界
 
 ## 安全边界
 
-V1 固定 System Owner `id=1`，没有登录、Session、权限管理或租户认证。它只能运行在：
+V1/V1.5 固定 System Owner `id=1`，没有登录、Session、权限管理或租户认证。它只能运行在：
 
 - localhost；
 - 可信内网；
@@ -17,8 +17,9 @@ Spring Security 单账户 Session、Secure/HttpOnly/SameSite Cookie、CSRF、防
 - 只支持 OpenAI-Compatible 文本 Chat/Utility；无视觉、Tool Calling、推理过程展示。
 - 上传仅支持 UTF-8 `.md/.markdown/.txt`，默认 5 MiB；无 PDF/Word/Tika Parsers。
 - 原文件使用单机本地 Volume；无 MinIO、多节点共享存储或公开分享链接。
-- 单一固定 dense Embedding profile；无在线模型/维度切换、全量重建 UI、Hybrid Search、Rerank、
-  GraphRAG 或手动语义搜索页。
+- 系统级单一 Embedding profile：可在模型设置页在线配置 Base URL / API Key / 模型名，保存前自动
+  连通与向量化测试、维度自动探测；维度与 Qdrant 集合不一致时阻止保存（需全量重建）。无全量重建
+  UI、Hybrid Search、Rerank、GraphRAG 或手动语义搜索页。
 - Redis 故障可由 MySQL 重建 Memory；Qdrant/Utility 故障会降级，但完整个人知识检索不可用。
 - 无 Dashboard、完整监控平台、移动端专项、MCP、Agent/Skills、微服务、分布式事务。
 - Token Usage 尽力记录，不承诺精确计费；真实 Provider 兼容性需显式 smoke/eval。
@@ -28,6 +29,6 @@ Spring Security 单账户 Session、Secure/HttpOnly/SameSite Cookie、CSRF、防
 - Docker Compose 面向单机开发/可信环境，不是生产级 HA 编排。
 - 本地文件与 MySQL 必须协调备份；只备份数据库不能恢复上传原文件。
 - V1 使用有限结构化日志、Actuator health/info 与 correlationId，不含完整指标/链路追踪平台。
-- Embedding profile 变更和跨机器迁移需要人工运维；先阅读
-  [Qdrant/Embedding 文档](../development/qdrant-embedding.md)与
+- Embedding 模型/维度变更与跨机器迁移需要人工全量重建（维度变化会阻止保存）；先在模型设置页测试
+  连通，再参考 [Qdrant/Embedding 文档](../development/qdrant-embedding.md)与
   [文件存储文档](../development/document-upload-local-storage.md)。
