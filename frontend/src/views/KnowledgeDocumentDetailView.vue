@@ -12,7 +12,7 @@ import { getFileMetadataByDocument, downloadFileUrl } from '../api/files'
 import type { FileMetadataResponse } from '../api/files'
 import { renderMarkdown } from '../utils/markdown'
 import { useCodeBlockCopy } from '../composables/useCodeBlockCopy'
-import { errorText } from '../utils/errorText'
+import { errorText, formatErrorText } from '../utils/errorText'
 import KfEmptyState from '../components/KfEmptyState.vue'
 
 const route = useRoute()
@@ -248,8 +248,7 @@ onBeforeUnmount(stopPolling)
           </div>
           <div v-if="fileMeta.parseStatus === 'FAILED'" class="error-box">
             <strong>解析失败：</strong>
-            {{ fileMeta.parseErrorCode ?? 'UNKNOWN' }}
-            <span v-if="fileMeta.parseErrorMessage"> — {{ fileMeta.parseErrorMessage }} </span>
+            {{ formatErrorText(fileMeta.parseErrorCode, fileMeta.parseErrorMessage) || '未知错误' }}
             <el-button size="small" type="danger" link @click="router.push('/processing')">
               前往任务页重试
             </el-button>
@@ -257,8 +256,7 @@ onBeforeUnmount(stopPolling)
         </div>
         <div v-if="item.indexStatus === 'FAILED'" class="error-box">
           <strong>索引失败：</strong>
-          {{ item.indexErrorCode ?? 'UNKNOWN' }}
-          <span v-if="item.indexErrorMessage"> — {{ item.indexErrorMessage }}</span>
+          {{ formatErrorText(item.indexErrorCode, item.indexErrorMessage) || '未知错误' }}
         </div>
         <div v-if="item.summary" class="summary">{{ item.summary }}</div>
         <el-divider />

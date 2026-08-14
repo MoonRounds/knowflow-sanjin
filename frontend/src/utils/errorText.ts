@@ -23,3 +23,8 @@ export function networkErrorMessage(e: unknown, fallback: string): string {
   }
   return e instanceof Error ? e.message : fallback
 }
+
+/** 错误码 + 补充消息的拼接（tooltip/详情展示统一分隔符，null 自动忽略）。 */
+export function formatErrorText(code?: string | null, message?: string | null): string {
+  return [code, message].filter(Boolean).join('：')
+}

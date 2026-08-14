@@ -204,7 +204,7 @@ describe('KnowledgeBaseDetailView', () => {
           sourceType: 'UPLOAD_FILE',
           indexStatus: 'PENDING',
           parseStatus: 'FAILED',
-          parseErrorCode: 'DOCUMENT_PARSE_FAILED',
+          parseErrorCode: '文档解析失败',
           parseErrorMessage: '文件编码不支持',
         },
         {
@@ -220,14 +220,16 @@ describe('KnowledgeBaseDetailView', () => {
           id: '3',
           title: '索引失败笔记',
           indexStatus: 'FAILED',
-          indexErrorCode: 'EMBEDDING_UNAVAILABLE',
+          indexErrorCode: '向量模型不可用',
           indexErrorMessage: 'Embedding 服务不可用',
         },
         { ...summaryItem, id: '4', title: '已索引笔记', indexStatus: 'INDEXED' },
+        { ...summaryItem, id: '5', title: '待索引笔记', indexStatus: 'PENDING' },
+        { ...summaryItem, id: '6', title: '索引中笔记', indexStatus: 'PROCESSING' },
       ],
       page: 1,
       size: 20,
-      total: 4,
+      total: 6,
     }
     vi.spyOn(documentsApi, 'listDocuments').mockResolvedValue(mixedPage)
     stubBaseApis()
@@ -239,10 +241,12 @@ describe('KnowledgeBaseDetailView', () => {
     expect(text).toContain('解析中')
     expect(text).toContain('索引失败')
     expect(text).toContain('已索引')
+    expect(text).toContain('待索引')
+    expect(text).toContain('索引中')
 
     const tooltips = wrapper.findAllComponents({ name: 'ElTooltip' })
     const contents = tooltips.map((t) => t.props('content'))
-    expect(contents).toContain('DOCUMENT_PARSE_FAILED：文件编码不支持')
-    expect(contents).toContain('EMBEDDING_UNAVAILABLE：Embedding 服务不可用')
+    expect(contents).toContain('文档解析失败：文件编码不支持')
+    expect(contents).toContain('向量模型不可用：Embedding 服务不可用')
   })
 })

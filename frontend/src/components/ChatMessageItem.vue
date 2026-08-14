@@ -50,20 +50,26 @@ const hoverEl = ref<HTMLElement | null>(null)
 const hoverSource = ref<{ index: number; source: RetrievedSource } | null>(null)
 const tooltipVisible = ref(false)
 
-function onContentMouseover(event: MouseEvent) {
-  const cite = (event.target as HTMLElement).closest('.kf-cite') as HTMLElement | null
-  if (!cite) {
-    tooltipVisible.value = false
-    return
-  }
-  const index = Number(cite.dataset.sourceIndex)
+/** 定位事件目标命中的引用 span 并解析来源（悬停/点击事件委托共用）。 */
+function findCite(
+  event: MouseEvent,
+): { el: HTMLElement; index: number; source: RetrievedSource } | null {
+  const el = (event.target as HTMLElement).closest('.kf-cite') as HTMLElement | null
+  if (!el) return null
+  const index = Number(el.dataset.sourceIndex)
   const source = props.msg.sources?.[index - 1]
-  if (!source) {
+  if (!source) return null
+  return { el, index, source }
+}
+
+function onContentMouseover(event: MouseEvent) {
+  const hit = findCite(event)
+  if (!hit) {
     tooltipVisible.value = false
     return
   }
-  hoverEl.value = cite
-  hoverSource.value = { index, source }
+  hoverEl.value = hit.el
+  hoverSource.value = { index: hit.index, source: hit.source }
   tooltipVisible.value = true
 }
 
@@ -72,13 +78,9 @@ function onContentMouseleave() {
 }
 
 function onContentClick(event: MouseEvent) {
-  const cite = (event.target as HTMLElement).closest('.kf-cite') as HTMLElement | null
-  if (cite) {
-    const index = Number(cite.dataset.sourceIndex)
-    const source = props.msg.sources?.[index - 1]
-    if (source) {
-      openCite(index)
-    }
+  const hit = findCite(event)
+  if (hit) {
+    openCite(hit.index)
     return
   }
   // 非引用点击：交给代码块复制处理

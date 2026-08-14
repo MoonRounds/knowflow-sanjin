@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import knowflow.sanjin.common.error.ErrorCode;
 import knowflow.sanjin.modules.file.FileConstants;
 import knowflow.sanjin.modules.file.entity.FileMetadata;
 import knowflow.sanjin.modules.file.mapper.FileMetadataMapper;
@@ -235,22 +236,29 @@ class KnowledgeDocumentQueryIT extends MySQLTestBase {
   @DisplayName("should aggregate parse states and index errors for the document list (P4)")
   void shouldAggregateParseStatesAndIndexErrors() {
     KnowledgeDocument uploaded = insertDoc(kb.getId(), "UPLOAD_FILE", "FAILED", "u1", false);
-    uploaded.setIndexErrorCode("EMBEDDING_UNAVAILABLE");
+    uploaded.setIndexErrorCode(ErrorCode.EMBEDDING_UNAVAILABLE);
     uploaded.setIndexErrorMessage("Embedding 服务不可用");
     documentMapper.updateById(uploaded);
-    FileMetadata file = insertFile(uploaded.getId(), "FAILED", "DOCUMENT_PARSE_FAILED", "解析失败");
+    insertFile(uploaded.getId(), "FAILED", ErrorCode.DOCUMENT_PARSE_FAILED, "解析失败");
     KnowledgeDocument manual = insertDoc(kb.getId(), "MANUAL_NOTE", "PENDING", "m1", false);
+    KnowledgeDocument parsedOk = insertDoc(kb.getId(), "UPLOAD_FILE", "PENDING", "u2", false);
+    insertFile(parsedOk.getId(), FileConstants.PARSE_STATUS_SUCCEEDED, null, null);
 
     Map<Long, FileMetadata> parseStates =
-        service.batchParseStates(List.of(uploaded.getId(), manual.getId()));
+        service.batchParseStates(List.of(uploaded.getId(), manual.getId(), parsedOk.getId()));
 
-    assertThat(parseStates).containsOnlyKeys(uploaded.getId());
+    assertThat(parseStates).containsOnlyKeys(uploaded.getId(), parsedOk.getId());
     assertThat(parseStates.get(uploaded.getId()).getParseStatus()).isEqualTo("FAILED");
+    assertThat(parseStates.get(parsedOk.getId()).getParseStatus())
+        .isEqualTo(FileConstants.PARSE_STATUS_SUCCEEDED);
 
     List<KnowledgeDocumentSummaryResponse> items =
         KnowledgeDocumentAssembler.toSummaryList(
-            List.of(uploaded, manual),
-            Map.of(uploaded.getId(), kb.getId(), manual.getId(), kb.getId()),
+            List.of(uploaded, manual, parsedOk),
+            Map.of(
+                uploaded.getId(), kb.getId(),
+                manual.getId(), kb.getId(),
+                parsedOk.getId(), kb.getId()),
             Map.of(),
             parseStates);
     KnowledgeDocumentSummaryResponse uploadSummary =
@@ -259,9 +267,9 @@ class KnowledgeDocumentQueryIT extends MySQLTestBase {
             .findFirst()
             .orElseThrow();
     assertThat(uploadSummary.getParseStatus()).isEqualTo("FAILED");
-    assertThat(uploadSummary.getParseErrorCode()).isEqualTo("DOCUMENT_PARSE_FAILED");
+    assertThat(uploadSummary.getParseErrorCode()).isEqualTo(ErrorCode.DOCUMENT_PARSE_FAILED);
     assertThat(uploadSummary.getParseErrorMessage()).isEqualTo("解析失败");
-    assertThat(uploadSummary.getIndexErrorCode()).isEqualTo("EMBEDDING_UNAVAILABLE");
+    assertThat(uploadSummary.getIndexErrorCode()).isEqualTo(ErrorCode.EMBEDDING_UNAVAILABLE);
     assertThat(uploadSummary.getIndexErrorMessage()).isEqualTo("Embedding 服务不可用");
     KnowledgeDocumentSummaryResponse manualSummary =
         items.stream()
@@ -270,6 +278,13 @@ class KnowledgeDocumentQueryIT extends MySQLTestBase {
             .orElseThrow();
     assertThat(manualSummary.getParseStatus()).isNull();
     assertThat(manualSummary.getIndexErrorCode()).isNull();
+    KnowledgeDocumentSummaryResponse parsedOkSummary =
+        items.stream()
+            .filter(s -> s.getId().equals(parsedOk.getId().toString()))
+            .findFirst()
+            .orElseThrow();
+    assertThat(parsedOkSummary.getParseStatus()).isEqualTo(FileConstants.PARSE_STATUS_SUCCEEDED);
+    assertThat(parsedOkSummary.getParseErrorCode()).isNull();
   }
 
   @Test

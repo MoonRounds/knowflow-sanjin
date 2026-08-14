@@ -11,7 +11,9 @@ import { listTags } from '../api/tags'
 import type { TagResponse } from '../api/types/tag'
 import { uploadFile } from '../api/files'
 import { errorText } from '../utils/errorText'
+import { SOURCE_TYPE_OPTIONS, sourceTypeLabel } from '../utils/sourceType'
 import KfEmptyState from '../components/KfEmptyState.vue'
+import DocumentStatusCell from '../components/DocumentStatusCell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,12 +46,7 @@ const uploadProgress = ref(0)
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 
-const SOURCE_OPTIONS = [
-  { value: '', label: '全部来源' },
-  { value: 'MANUAL_NOTE', label: '笔记' },
-  { value: 'UPLOAD_FILE', label: '上传文件' },
-  { value: 'AI_CONVERSATION', label: '对话沉淀' },
-]
+const SOURCE_OPTIONS = [{ value: '', label: '全部来源' }, ...SOURCE_TYPE_OPTIONS]
 
 const STATUS_OPTIONS = [
   { value: '', label: '全部状态' },
@@ -58,50 +55,6 @@ const STATUS_OPTIONS = [
   { value: 'INDEXED', label: '已索引' },
   { value: 'FAILED', label: '索引失败' },
 ]
-
-function sourceLabel(value: string): string {
-  return SOURCE_OPTIONS.find((o) => o.value === value)?.label ?? value
-}
-
-function statusType(status: string): 'success' | 'warning' | 'danger' | 'info' {
-  if (status === 'INDEXED') return 'success'
-  if (status === 'FAILED') return 'danger'
-  if (status === 'PROCESSING') return 'warning'
-  return 'info'
-}
-
-function statusLabel(status: string): string {
-  return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status
-}
-
-interface DisplayStatus {
-  label: string
-  type: 'success' | 'warning' | 'danger' | 'info'
-  errorText?: string
-}
-
-/** 两段状态聚合（G34）：上传文件先看解析状态（FAILED/PENDING→解析中），解析成功后按索引状态展示。 */
-function displayStatus(row: KnowledgeDocumentSummaryResponse): DisplayStatus {
-  const parse = row.parseStatus
-  if (parse && parse !== 'SUCCEEDED') {
-    if (parse === 'FAILED') {
-      return {
-        label: '解析失败',
-        type: 'danger',
-        errorText: [row.parseErrorCode, row.parseErrorMessage].filter(Boolean).join('：'),
-      }
-    }
-    return { label: '解析中', type: 'warning' }
-  }
-  if (row.indexStatus === 'FAILED') {
-    return {
-      label: '索引失败',
-      type: 'danger',
-      errorText: [row.indexErrorCode, row.indexErrorMessage].filter(Boolean).join('：'),
-    }
-  }
-  return { label: statusLabel(row.indexStatus), type: statusType(row.indexStatus) }
-}
 
 async function load() {
   loading.value = true
@@ -284,22 +237,11 @@ onMounted(load)
         </template>
       </el-table-column>
       <el-table-column prop="sourceType" label="来源" width="110">
-        <template #default="{ row }">{{ sourceLabel(row.sourceType) }}</template>
+        <template #default="{ row }">{{ sourceTypeLabel(row.sourceType) }}</template>
       </el-table-column>
       <el-table-column prop="indexStatus" label="索引状态" width="130">
         <template #default="{ row }">
-          <el-tooltip
-            v-if="displayStatus(row).errorText"
-            :content="displayStatus(row).errorText"
-            placement="top"
-          >
-            <el-tag size="small" :type="displayStatus(row).type">
-              {{ displayStatus(row).label }}
-            </el-tag>
-          </el-tooltip>
-          <el-tag v-else size="small" :type="displayStatus(row).type">
-            {{ displayStatus(row).label }}
-          </el-tag>
+          <DocumentStatusCell :row="row" />
         </template>
       </el-table-column>
       <el-table-column prop="contentVersion" label="版本" width="80">

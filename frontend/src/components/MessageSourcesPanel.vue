@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { RetrievedSource } from '../api/types/conversation'
 import { ragStatusText } from '../utils/rag'
+import { sourceTypeLabel } from '../utils/sourceType'
 
 const props = defineProps<{
   ragStatus?: string | null
@@ -32,19 +33,6 @@ const summaryText = computed(() => {
   }
   return statusText.value
 })
-
-const sourceTypeText = (type?: string) => {
-  switch (type) {
-    case 'MANUAL_NOTE':
-      return '笔记'
-    case 'UPLOAD_FILE':
-      return '上传文件'
-    case 'AI_CONVERSATION':
-      return '对话沉淀'
-    default:
-      return type ?? ''
-  }
-}
 
 function openDocument(documentId?: string) {
   if (documentId) {
@@ -97,8 +85,8 @@ function openKnowledgeBase(id?: string) {
           >
             {{ s.knowledgeBaseName ?? '未知知识库' }}
           </button>
-          <span v-if="sourceTypeText(s.sourceType)" class="source-type-tag">
-            {{ sourceTypeText(s.sourceType) }}
+          <span v-if="sourceTypeLabel(s.sourceType)" class="source-type-tag">
+            {{ sourceTypeLabel(s.sourceType) }}
           </span>
         </div>
         <div class="source-snippet">{{ s.snippet }}</div>
