@@ -10,7 +10,7 @@ import {
   readActiveConversationId,
   sendMessage,
   waitForItemIndexed,
-  waitForLatestTask,
+  waitForTaskForBusiness,
   waitForTaskTerminal,
 } from './helpers'
 
@@ -153,19 +153,28 @@ test.describe('个人笔记/上传闭环', () => {
         'utf-8',
       ),
     })
+    const uploadResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' && response.url().endsWith('/api/v1/files'),
+    )
     const uploadButton = uploadDialog.getByRole('button', { name: '上传' })
     await expect(uploadButton).toBeEnabled({ timeout: 10_000 })
     await uploadButton.click()
+    const uploadResponse = await uploadResponsePromise
+    expect(uploadResponse.ok()).toBeTruthy()
+    const uploaded = await uploadResponse.json()
+    const fileId = (uploaded.file as { id?: string } | undefined)?.id ?? ''
+    expect(fileId, '上传响应应携带 fileMetadata id').toBeTruthy()
 
     await page.waitForURL(/documents\/\d+/)
     const itemId = page.url().split('/').pop()!
     expect(itemId).toBeTruthy()
 
     // Document Parse 与后续 Knowledge Index 都必须成功，不能只看最终页面。
-    const parseTask = await waitForLatestTask(request, 'DOCUMENT_PARSE')
+    // 按业务 key 精确等待，避免误取同类型历史任务（此前用例/CI retry 会累积 processing_task）。
+    const parseTask = await waitForTaskForBusiness(request, 'DOCUMENT_PARSE', fileId)
     expect(await waitForTaskTerminal(request, parseTask.id)).toBe('SUCCEEDED')
-    const indexTask = await waitForLatestTask(request, 'KNOWLEDGE_INDEX')
-    expect(indexTask.businessId).toBe(itemId)
+    const indexTask = await waitForTaskForBusiness(request, 'KNOWLEDGE_INDEX', itemId)
     expect(await waitForTaskTerminal(request, indexTask.id)).toBe('SUCCEEDED')
     await waitForItemIndexed(request, itemId)
 

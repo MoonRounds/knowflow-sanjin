@@ -153,7 +153,7 @@ const defaultModelName = computed(() => {
 
 /** 未显式选择模型时选择器的占位文案：明确告知实际生效模型是默认模型。 */
 const modelSelectPlaceholder = computed(() =>
-  defaultModelName.value ? `${defaultModelName.value}（默认）` : '请选择模型',
+  defaultModelName.value ? `跟随默认（${defaultModelName.value}）` : '请选择模型',
 )
 
 /** 选择器「跟随默认」哨兵值：与真实模型 id 区分，选中它表示不指定模型。 */
@@ -1153,7 +1153,7 @@ function replaceConversation(updated: ConversationResponse) {
                   <el-option
                     v-if="defaultChatModelId"
                     :value="FOLLOW_DEFAULT_MODEL"
-                    :label="`${defaultModelName ?? '默认模型'}（默认）`"
+                    :label="`跟随默认（${defaultModelName ?? '默认模型'}）`"
                   />
                   <el-option
                     v-for="m in models"
