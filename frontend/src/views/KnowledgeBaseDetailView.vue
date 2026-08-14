@@ -74,6 +74,35 @@ function statusLabel(status: string): string {
   return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status
 }
 
+interface DisplayStatus {
+  label: string
+  type: 'success' | 'warning' | 'danger' | 'info'
+  errorText?: string
+}
+
+/** 两段状态聚合（G34）：上传文件先看解析状态（FAILED/PENDING→解析中），解析成功后按索引状态展示。 */
+function displayStatus(row: KnowledgeDocumentSummaryResponse): DisplayStatus {
+  const parse = row.parseStatus
+  if (parse && parse !== 'SUCCEEDED') {
+    if (parse === 'FAILED') {
+      return {
+        label: '解析失败',
+        type: 'danger',
+        errorText: [row.parseErrorCode, row.parseErrorMessage].filter(Boolean).join('：'),
+      }
+    }
+    return { label: '解析中', type: 'warning' }
+  }
+  if (row.indexStatus === 'FAILED') {
+    return {
+      label: '索引失败',
+      type: 'danger',
+      errorText: [row.indexErrorCode, row.indexErrorMessage].filter(Boolean).join('：'),
+    }
+  }
+  return { label: statusLabel(row.indexStatus), type: statusType(row.indexStatus) }
+}
+
 async function load() {
   loading.value = true
   try {
@@ -257,10 +286,19 @@ onMounted(load)
       <el-table-column prop="sourceType" label="来源" width="110">
         <template #default="{ row }">{{ sourceLabel(row.sourceType) }}</template>
       </el-table-column>
-      <el-table-column prop="indexStatus" label="索引状态" width="110">
+      <el-table-column prop="indexStatus" label="索引状态" width="130">
         <template #default="{ row }">
-          <el-tag size="small" :type="statusType(row.indexStatus)">
-            {{ statusLabel(row.indexStatus) }}
+          <el-tooltip
+            v-if="displayStatus(row).errorText"
+            :content="displayStatus(row).errorText"
+            placement="top"
+          >
+            <el-tag size="small" :type="displayStatus(row).type">
+              {{ displayStatus(row).label }}
+            </el-tag>
+          </el-tooltip>
+          <el-tag v-else size="small" :type="displayStatus(row).type">
+            {{ displayStatus(row).label }}
           </el-tag>
         </template>
       </el-table-column>

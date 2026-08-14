@@ -193,4 +193,56 @@ describe('KnowledgeBaseDetailView', () => {
 
     expect(uploadMock).toHaveBeenCalledWith(expect.any(File), '2')
   })
+
+  it('aggregates two-phase statuses with error codes in the status column (P4)', async () => {
+    const mixedPage: DocumentPageResponse = {
+      items: [
+        {
+          ...summaryItem,
+          id: '1',
+          title: '解析失败文件',
+          sourceType: 'UPLOAD_FILE',
+          indexStatus: 'PENDING',
+          parseStatus: 'FAILED',
+          parseErrorCode: 'DOCUMENT_PARSE_FAILED',
+          parseErrorMessage: '文件编码不支持',
+        },
+        {
+          ...summaryItem,
+          id: '2',
+          title: '解析中文件',
+          sourceType: 'UPLOAD_FILE',
+          indexStatus: 'PENDING',
+          parseStatus: 'PENDING',
+        },
+        {
+          ...summaryItem,
+          id: '3',
+          title: '索引失败笔记',
+          indexStatus: 'FAILED',
+          indexErrorCode: 'EMBEDDING_UNAVAILABLE',
+          indexErrorMessage: 'Embedding 服务不可用',
+        },
+        { ...summaryItem, id: '4', title: '已索引笔记', indexStatus: 'INDEXED' },
+      ],
+      page: 1,
+      size: 20,
+      total: 4,
+    }
+    vi.spyOn(documentsApi, 'listDocuments').mockResolvedValue(mixedPage)
+    stubBaseApis()
+    const wrapper = await mountView()
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('解析失败')
+    expect(text).toContain('解析中')
+    expect(text).toContain('索引失败')
+    expect(text).toContain('已索引')
+
+    const tooltips = wrapper.findAllComponents({ name: 'ElTooltip' })
+    const contents = tooltips.map((t) => t.props('content'))
+    expect(contents).toContain('DOCUMENT_PARSE_FAILED：文件编码不支持')
+    expect(contents).toContain('EMBEDDING_UNAVAILABLE：Embedding 服务不可用')
+  })
 })
