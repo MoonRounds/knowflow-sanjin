@@ -55,7 +55,13 @@ test.describe('受控失败与恢复', () => {
     await dialog
       .locator('textarea[placeholder="Markdown 正文"]')
       .fill(`Kf-故障-Embedding-${suffix}：用于验证自动重试耗尽、DLQ 与手动 Retry。`)
+    const createResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' && response.url().endsWith('/api/v1/documents'),
+    )
     await dialog.getByRole('button', { name: '创建' }).click()
+    const createResponse = await createResponsePromise
+    expect(createResponse.ok()).toBeTruthy()
 
     await page.waitForURL(/documents\/\d+/)
     const itemId = page.url().split('/').pop()!
