@@ -9,7 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-knowflow}
     volumes:
-      - /Users/sanjin/docker/mysql/data:/var/lib/mysql
+      - ./data/mysql:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s
@@ -27,7 +27,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     volumes:
-      - /Users/sanjin/docker/rabbitmq/data:/var/lib/rabbitmq
+      - ./data/rabbitmq:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -42,7 +42,7 @@ services:
       - "127.0.0.1:${QDRANT_PORT:-6333}:6333"
       - "127.0.0.1:${QDRANT_GRPC_PORT:-6334}:6334"
     volumes:
-      - /Users/sanjin/docker/qdrant/storage:/qdrant/storage
+      - ./data/qdrant:/qdrant/storage
     healthcheck:
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333"]
       interval: 10s
@@ -83,7 +83,7 @@ services:
       KNOWFLOW_SECURITY_ENCRYPTION_VERSION: ${KNOWFLOW_SECURITY_ENCRYPTION_VERSION:-1}
       KNOWFLOW_DOCUMENT_STORAGE_ROOT: /var/lib/knowflow/files
     volumes:
-      - /Users/sanjin/docker/knowflow/files:/var/lib/knowflow/files
+      - ./data/files:/var/lib/knowflow/files
     healthcheck:
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
       interval: 5s

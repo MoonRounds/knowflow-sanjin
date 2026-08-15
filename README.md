@@ -44,7 +44,7 @@
 **数据与中间件**
 
 <img alt="MySQL" src="https://img.shields.io/badge/MySQL-8.4-4479a1">
-<img alt="Redis" src="https://img.shields.io/badge/Redis-7-dc382d">
+<img alt="Redis" src="https://img.shields.io/badge/Redis-8-dc382d">
 <img alt="RabbitMQ" src="https://img.shields.io/badge/RabbitMQ-3.13-ff6600">
 <img alt="Qdrant" src="https://img.shields.io/badge/Qdrant-1.12-6e40c9">
 
@@ -166,7 +166,7 @@ graph TD
 |---|---|
 | 后端 | Java 21 · Spring Boot 4.1 · Spring AI 2.0 · Spring MVC + SSE · MyBatis-Plus · springdoc |
 | 前端 | Vue 3 + TypeScript + Vite · Vue Router · Element Plus · markdown-it · Vitest · Playwright |
-| 数据 | MySQL 8.4（事实源）· Redis 7（Chat Memory 投影）· RabbitMQ 3.13（异步任务）· Qdrant 1.12（向量索引） |
+| 数据 | MySQL 8.4（事实源）· Redis 8（Chat Memory 投影）· RabbitMQ 3.13（异步任务）· Qdrant 1.12（向量索引） |
 | 构建 | Maven Wrapper（后端）· npm（前端）· Docker Compose · GitHub Actions（`scripts/verify-all.sh`） |
 
 ---
@@ -179,7 +179,7 @@ graph TD
 
 - Java 21
 - Node.js 22+，npm 10+
-- Docker + Docker Compose（MySQL、RabbitMQ、Qdrant；Redis 可选用 `redis:7`）
+- Docker + Docker Compose（MySQL、RabbitMQ、Qdrant；Redis 可选用 `redis:8`）
 
 ### 第一步 · 启动基础设施
 
@@ -190,7 +190,7 @@ cp .env.example .env
 docker compose up -d mysql rabbitmq qdrant
 
 # 主 Compose 未包含 Redis（Chat Memory 用），单独补起一个：
-docker run -d --name knowflow-redis -p 6379:6379 redis:7
+docker run -d --name knowflow-redis -p 6379:6379 redis:8
 ```
 
 > **关于 Redis**：它是多轮对话记忆的投影层，缺失时后端自动降级、从 MySQL 重建，不会启动失败。不装也可正常体验，只是多轮记忆失效。

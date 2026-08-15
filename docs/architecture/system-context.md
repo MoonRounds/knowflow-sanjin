@@ -11,7 +11,7 @@ Browser / Vue 3
     v
 Spring Boot /api/v1
     |-- MySQL 8.4       业务、消息、任务、Chunk、Trace 事实源
-    |-- Redis 7         最近 active Turns 的可丢失 Memory 投影
+    |-- Redis 8         最近 active Turns 的可丢失 Memory 投影
     |-- RabbitMQ 3.13   Extraction / Document Parse / Index taskId 投递
     |-- Qdrant 1.12     可重建 dense vector index
     |-- Local Volume    Markdown/TXT 原文件
